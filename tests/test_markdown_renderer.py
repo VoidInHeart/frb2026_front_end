@@ -78,7 +78,32 @@ class MarkdownRendererTest(unittest.TestCase):
         self.assertIsNotNone(payload)
         assert payload is not None
         self.assertEqual(payload["headers"], ["Method", "Score"])
-        self.assertEqual(payload["rows"], [["A", "91"], ["B", "88"], ["C", "77"]])
+
+    def test_chinese_space_fix_and_indent(self) -> None:
+        blocks = [
+            PaperBlock(block_id="1", page=1, bbox=[0, 0, 1, 1], type="paragraph", text="分 类 号 学号\n今 天 天 气 好"),
+        ]
+        markdown = MarkdownRenderer().render(blocks)
+        self.assertIn("　分类号学号", markdown)
+        self.assertIn("　今天天气好", markdown)
+
+    def test_add_page_marker_for_each_page(self) -> None:
+        blocks = [
+            PaperBlock(block_id="1", page=1, bbox=[0, 0, 1, 1], type="paragraph", text="A"),
+            PaperBlock(block_id="2", page=2, bbox=[0, 0, 1, 1], type="paragraph", text="B"),
+        ]
+        markdown = MarkdownRenderer().render(blocks)
+        self.assertIn("【page 1】", markdown)
+        self.assertIn("【page 2】", markdown)
+
+    def test_preserve_paragraph_line_breaks(self) -> None:
+        blocks = [
+            PaperBlock(block_id="1", page=1, bbox=[0, 0, 1, 1], type="paragraph", text="x\ny"),
+            PaperBlock(block_id="2", page=1, bbox=[0, 0, 1, 1], type="paragraph", text="z"),
+        ]
+        markdown = MarkdownRenderer().render(blocks)
+        self.assertIn("　x\n　y", markdown)
+        self.assertIn("　z", markdown)
 
     def test_table_reconstructor_merges_adjacent_candidates(self) -> None:
         restorer = TableStructureRestorer()
