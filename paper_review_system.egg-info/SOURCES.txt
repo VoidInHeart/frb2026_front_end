@@ -22,7 +22,9 @@ paper_review_system/parser/anchor_builder.py
 paper_review_system/parser/markdown_renderer.py
 paper_review_system/parser/noise_cleaner.py
 paper_review_system/parser/pdf_parser.py
+paper_review_system/parser/reading_order.py
 paper_review_system/parser/section_builder.py
+paper_review_system/parser/table_reconstructor.py
 paper_review_system/report/__init__.py
 paper_review_system/report/assembler.py
 paper_review_system/report/schema.py
