@@ -1,40 +1,82 @@
 from __future__ import annotations
 
+import re
+
 from paper_review_system.models import PaperBlock
 
 
 class MarkdownRenderer:
     """Render cleaned blocks into a readable markdown document."""
 
+    def _clean_text(self, text: str) -> str:
+        # Normalize kinds of spaces and keep block-internal line boundaries
+        normalized = []
+        for line in text.splitlines():
+            # Trim and collapse multiple spaces/tabs to single
+            line = line.strip()
+            line = re.sub(r"[ \t\u3000]+", " ", line)
+
+            # Chinese-specific OCR split cleanup
+            while True:
+                new_line = re.sub(r"([\u4E00-\u9FFF])[ \u3000]+([\u4E00-\u9FFF])", r"\1\2", line)
+                new_line = re.sub(r"([\u4E00-\u9FFF])[ \u3000]+([A-Za-z0-9])", r"\1\2", new_line)
+                new_line = re.sub(r"([A-Za-z0-9])[ \u3000]+([\u4E00-\u9FFF])", r"\1\2", new_line)
+                new_line = re.sub(r"([\u4E00-\u9FFF])[ \u3000]+([，。！？；：、])", r"\1\2", new_line)
+                new_line = re.sub(r"([，。！？；：、])[ \u3000]+([\u4E00-\u9FFF])", r"\1\2", new_line)
+                if new_line == line:
+                    break
+                line = new_line
+
+            if line:
+                normalized.append(line)
+
+        return "\n".join(normalized)
+
     def render(self, clean_blocks: list[PaperBlock]) -> str:
         lines: list[str] = []
+        current_page = None
         for block in clean_blocks:
             if block.is_noise:
                 continue
-            text = block.text.strip()
+            text = self._clean_text(block.text)
             if not text:
                 continue
+
+            if block.page != current_page:
+                if current_page is not None:
+                    lines.append("")
+                lines.append(f"【page {block.page}】")
+                lines.append("")
+                current_page = block.page
+
             if block.type == "heading":
                 level = min(block.level or 2, 6)
                 lines.append(f"{'#' * level} {text}")
                 lines.append("")
                 continue
+
             if block.type == "caption":
                 lines.append(f"> {text}")
                 lines.append("")
                 continue
+
             if block.type == "table":
                 lines.extend(self._render_table(block))
                 lines.append("")
                 continue
+
             if block.type == "formula":
                 lines.append("```math")
                 lines.extend(text.splitlines())
                 lines.append("```")
                 lines.append("")
                 continue
-            lines.append(text.replace("\n", " "))
+
+            # Paragraph and other text-typed blocks: keep block line breaks
+            for paragraph_line in text.splitlines():
+                lines.append("　" + paragraph_line)
             lines.append("")
+
         return "\n".join(lines).strip() + "\n"
 
     def _render_table(self, block: PaperBlock) -> list[str]:
