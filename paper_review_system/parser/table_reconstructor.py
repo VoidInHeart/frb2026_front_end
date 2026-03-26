@@ -106,18 +106,20 @@ class TableStructureRestorer:
         char_count = sum(len(cell) for row in normalized_rows for cell in row)
         largest_cell = max((len(cell) for row in normalized_rows for cell in row), default=0)
         fill_ratio = nonempty_count / max(1, row_count * col_count)
+        subset_matrix = self._looks_like_subset_matrix(normalized_rows)
 
         if col_count < 2 or row_count < 2:
             return None
-        if nonempty_count < 4 or fill_ratio < 0.35:
+        if nonempty_count < 4 or (fill_ratio < 0.35 and not subset_matrix):
             return None
         if filled_rows == 0:
             return None
-        if char_count and largest_cell / char_count > 0.72 and nonempty_count <= 4:
+        if char_count and largest_cell / char_count > 0.72 and nonempty_count <= 4 and not subset_matrix:
             return None
 
         headers = self._normalize_headers(getattr(getattr(detected_table, "header", None), "names", None), col_count)
         expanded_rows = self._expand_rows(normalized_rows, col_count)
+        headers, expanded_rows = self._repair_subset_matrix_table(headers, expanded_rows, normalized_rows)
         if headers is None:
             headers = [f"Column {index}" for index in range(1, col_count + 1)]
         headers, expanded_rows = self._repair_compressed_metric_table(headers, expanded_rows, normalized_rows)
@@ -254,6 +256,57 @@ class TableStructureRestorer:
             return ["Method", "Train Subset", *metric_headers], rebuilt
         return headers, rows
 
+    def _repair_subset_matrix_table(
+        self,
+        headers: list[str] | None,
+        rows: list[list[str]],
+        raw_rows: list[list[str]],
+    ) -> tuple[list[str] | None, list[list[str]]]:
+        if not self._looks_like_subset_matrix(raw_rows):
+            return headers, rows
+
+        rebuilt_rows: list[list[str]] = []
+        section_metric_headers: list[list[str]] = []
+        index = 0
+        while index < len(raw_rows):
+            row = self._pad_row(raw_rows[index], 4)
+            header_cell = row[0]
+            if "Test Subset" not in header_cell or "Train Set" not in header_cell:
+                index += 1
+                continue
+
+            subset_name = header_cell.splitlines()[0].strip()
+            metric_headers = self._extract_subset_metric_headers(header_cell)
+            if len(metric_headers) < 3:
+                index += 1
+                continue
+            section_metric_headers.append(metric_headers)
+
+            index += 1
+            while index < len(raw_rows) and self._is_placeholder_train_row(raw_rows[index]):
+                index += 1
+            if index >= len(raw_rows):
+                break
+
+            first_data_row = self._pad_row(raw_rows[index], 4)
+            if first_data_row[0] and first_data_row[1] and first_data_row[2] and first_data_row[3]:
+                rebuilt_rows.extend(self._expand_first_subset_style(subset_name, metric_headers, raw_rows, index))
+                while index < len(raw_rows) and "Test Subset" not in self._pad_row(raw_rows[index], 4)[0]:
+                    index += 1
+                continue
+
+            if first_data_row[0]:
+                rebuilt_rows.extend(self._expand_second_subset_style(subset_name, metric_headers, first_data_row[0]))
+            while index < len(raw_rows) and "Test Subset" not in self._pad_row(raw_rows[index], 4)[0]:
+                index += 1
+
+        if rebuilt_rows:
+            unified_headers = list(section_metric_headers[0]) if section_metric_headers else []
+            if any(headers_list and headers_list[0] != unified_headers[0] for headers_list in section_metric_headers[1:]):
+                unified_headers[0] = "Source Set"
+            return ["Test Subset", "Method", "Train Set", *unified_headers], rebuilt_rows
+        return headers, rows
+
     @staticmethod
     def _split_cell_lines(cell: str) -> list[str]:
         if not cell:
@@ -342,6 +395,86 @@ class TableStructureRestorer:
         first_cell = row[0] if row else ""
         compact = re.sub(r"\s+", " ", first_cell.replace("<br>", " ")).strip().lower()
         return "method" in compact and "subset" in compact and "none" in compact
+
+    @staticmethod
+    def _looks_like_subset_matrix(raw_rows: list[list[str]]) -> bool:
+        first_cells = " ".join(row[0] for row in raw_rows if row and row[0])
+        compact = re.sub(r"\s+", " ", first_cells)
+        return "Test Subset" in compact and "Train Set" in compact
+
+    @staticmethod
+    def _extract_subset_metric_headers(header_text: str) -> list[str]:
+        compact = re.sub(r"\s+", " ", header_text)
+        tokens = re.findall(r"(FF\+\+|DFor|T2I|I2I|FS|FE)", compact, re.IGNORECASE)
+        ordered: list[str] = []
+        for token in tokens:
+            normalized = "FF++" if token.upper() == "FF++" else token
+            normalized = "DFor" if token.lower() == "dfor" else normalized
+            normalized = normalized.upper() if normalized in {"T2I", "I2I", "FS", "FE"} else normalized
+            if normalized not in ordered:
+                ordered.append(normalized)
+        return ordered
+
+    @staticmethod
+    def _is_placeholder_train_row(row: list[str]) -> bool:
+        padded = TableStructureRestorer._pad_row(row, 4)
+        return not padded[0] and padded[1] == "Train Set" and not padded[2] and not padded[3]
+
+    def _expand_first_subset_style(
+        self,
+        subset_name: str,
+        metric_headers: list[str],
+        raw_rows: list[list[str]],
+        start: int,
+    ) -> list[list[str]]:
+        first = self._pad_row(raw_rows[start], 4)
+        methods = self._split_cell_lines(first[0])
+        train_set = first[1]
+        first_column_values = [first[2]]
+        remaining_metrics = [self._split_numeric_tokens(line) for line in self._split_cell_lines(first[3])]
+
+        index = start + 1
+        while len(first_column_values) < len(methods) and index < len(raw_rows):
+            candidate = self._pad_row(raw_rows[index], 4)
+            if not candidate[0] and not candidate[1] and candidate[2] and not candidate[3]:
+                first_column_values.append(candidate[2])
+                index += 1
+                continue
+            break
+
+        rebuilt_rows: list[list[str]] = []
+        if len(first_column_values) != len(methods):
+            return rebuilt_rows
+
+        for row_index, method in enumerate(methods):
+            metric_values = remaining_metrics[row_index] if row_index < len(remaining_metrics) else []
+            if len(metric_values) != len(metric_headers) - 1:
+                continue
+            rebuilt_rows.append([subset_name, method, train_set, first_column_values[row_index], *metric_values])
+        return rebuilt_rows
+
+    def _expand_second_subset_style(
+        self,
+        subset_name: str,
+        metric_headers: list[str],
+        cell_text: str,
+    ) -> list[list[str]]:
+        lines = self._split_cell_lines(cell_text)
+        train_set = metric_headers[0] if metric_headers else ""
+        rebuilt_rows: list[list[str]] = []
+        for line in lines:
+            if line == train_set or line.startswith(train_set + " "):
+                continue
+            numeric_values = self._split_numeric_tokens(line)
+            if len(numeric_values) < len(metric_headers):
+                continue
+            metric_values = numeric_values[-len(metric_headers):]
+            numeric_start = line.rfind(metric_values[0])
+            method = line[:numeric_start].strip()
+            if not method:
+                continue
+            rebuilt_rows.append([subset_name, method, train_set, *metric_values])
+        return rebuilt_rows
 
     @staticmethod
     def _pad_row(row: list[str], size: int) -> list[str]:

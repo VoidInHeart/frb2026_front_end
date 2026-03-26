@@ -149,6 +149,23 @@ class MarkdownRendererTest(unittest.TestCase):
         self.assertEqual(repaired_rows[0], ["Xception", "T2I", "59.52", "47.65", "15.02", "56.59", "58.69"])
         self.assertEqual(repaired_rows[1], ["F3-Net", "T2I", "76.08", "48.04", "74.67", "71.68", "74.61"])
 
+    def test_table_reconstructor_repairs_subset_matrix_table(self) -> None:
+        restorer = TableStructureRestorer()
+        raw_rows = [
+            ["Deepfake Test Subset\nMethod Train Set FF++ T2I I2I FS FE", "", "", ""],
+            ["", "Train Set", "", ""],
+            ["Xception† [49]\nF3-Net† [43]\nEfficientNet† [58]\nDIRE‡ [63]", "FF++ [49]", "98.12", "62.43 56.83 85.97 58.64\n66.87 67.64 81.01 60.60\n74.12 57.27 82.11 57.20\n44.22 64.64 84.98 57.72"],
+            ["", "", "98.89", ""],
+            ["", "", "98.51", ""],
+            ["", "", "99.43", ""],
+            ["General Diffusion Test Subset\nMethod Train Set DFor T2I I2I FS FE", "", "", ""],
+            ["Xception† [49] 99.98 20.52 30.92 69.42 37.89\nF3-Net† [43] 99.99 43.88 60.58 52.39 47.06\nDFor [63]\nEfficientNet† [58] 98.99 27.23 44.79 61.25 30.86\nDIRE‡ [63] 98.80 36.37 34.83 36.28 39.92", "", "", ""],
+        ]
+        repaired_headers, repaired_rows = restorer._repair_subset_matrix_table(None, [], raw_rows)
+        self.assertEqual(repaired_headers, ["Test Subset", "Method", "Train Set", "Source Set", "T2I", "I2I", "FS", "FE"])
+        self.assertEqual(repaired_rows[0], ["Deepfake Test Subset", "Xception† [49]", "FF++ [49]", "98.12", "62.43", "56.83", "85.97", "58.64"])
+        self.assertEqual(repaired_rows[4], ["General Diffusion Test Subset", "Xception† [49]", "DFor", "99.98", "20.52", "30.92", "69.42", "37.89"])
+
     def test_reading_order_prefers_left_column_before_right_column(self) -> None:
         resolver = ReadingOrderResolver()
         blocks = [
