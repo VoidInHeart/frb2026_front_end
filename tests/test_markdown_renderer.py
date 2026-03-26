@@ -111,6 +111,18 @@ class MarkdownRendererTest(unittest.TestCase):
         self.assertIn("【page 1】", markdown)
         self.assertIn("【page 2】", markdown)
 
+    def test_embed_image_urls_inserts_images_by_page(self) -> None:
+        content = "【page 1】\n\nHello world\n\n【page 2】\n\nMore text"
+        images_info = [
+            {"page": 1, "index": 1, "url": "images/page_1_img_1.png"},
+            {"page": 2, "index": 1, "url": "images/page_2_img_1.png"},
+        ]
+        markdown = MarkdownRenderer().embed_image_urls(content, images_info)
+        self.assertNotIn("### Images from Page 1", markdown)
+        self.assertNotIn("### Images from Page 2", markdown)
+        self.assertIn("![Image 1 from page 1](images/page_1_img_1.png)", markdown)
+        self.assertIn("![Image 1 from page 2](images/page_2_img_1.png)", markdown)
+
     def test_preserve_paragraph_line_breaks(self) -> None:
         blocks = [
             PaperBlock(block_id="1", page=1, bbox=[0, 0, 1, 1], type="paragraph", text="x\ny"),

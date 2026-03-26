@@ -77,7 +77,59 @@ class MarkdownRenderer:
                 lines.append("　" + paragraph_line)
             lines.append("")
 
-        return "\n".join(lines).strip() + "\n"
+        markdown = "\n".join(lines).strip() + "\n"
+        return markdown
+
+    def embed_image_urls(self, content: str, images_info: list[dict]) -> str:
+        """将图片URL嵌入到markdown内容中，按页面位置插入"""
+        if not images_info:
+            return content
+
+        images_by_page: dict[int, list[dict]] = {}
+        for img in images_info:
+            page = int(img.get("page", 1))
+            images_by_page.setdefault(page, []).append(img)
+
+        lines = content.split("\n")
+        result_lines = []
+        current_page = None
+
+        page_marker_re = re.compile(r"(?:【page|#\s*page)\s*(\d+)", re.IGNORECASE)
+
+        for index, line in enumerate(lines):
+            result_lines.append(line)
+
+            marker_match = page_marker_re.search(line)
+            if marker_match:
+                current_page = int(marker_match.group(1))
+
+            next_is_page_break = False
+            if index + 1 < len(lines):
+                next_line = lines[index + 1]
+                if page_marker_re.search(next_line):
+                    next_is_page_break = True
+
+            is_last_line = index == len(lines) - 1
+
+            if current_page is not None and (next_is_page_break or is_last_line) and current_page in images_by_page:
+                result_lines.append("")
+                for img in images_by_page[current_page]:
+                    alt_text = f"Image {img.get('index', '?')} from page {current_page}"
+                    url = img.get("url") or img.get("path") or ""
+                    result_lines.append(f"![{alt_text}]({url})")
+                    result_lines.append("")
+                del images_by_page[current_page]
+
+        # 处理任何页面后仍未插入的图片
+        for page, imgs in sorted(images_by_page.items()):
+            result_lines.append("")
+            for img in imgs:
+                alt_text = f"Image {img.get('index', '?')} from page {page}"
+                url = img.get("url") or img.get("path") or ""
+                result_lines.append(f"![{alt_text}]({url})")
+                result_lines.append("")
+
+        return "\n".join(result_lines)
 
     def _render_table(self, block: PaperBlock) -> list[str]:
         headers = list(block.table_headers or [])

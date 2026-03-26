@@ -66,13 +66,70 @@ class ReviewPipeline:
             section_tree=section_tree,
         )
 
+    def _extract_images(self, pdf_path: str | Path, images_dir: Path) -> list[dict]:
+        from pathlib import Path
+
+        try:
+            import fitz
+        except ImportError:
+            return []
+
+        images_dir.mkdir(parents=True, exist_ok=True)
+        images_info: list[dict] = []
+
+        pdf = fitz.open(str(pdf_path))
+        for page_index, page in enumerate(pdf, start=1):
+            page_images = page.get_images(full=True)
+            for img_index, img in enumerate(page_images, start=1):
+                xref = img[0]
+                try:
+                    pix = fitz.Pixmap(pdf, xref)
+                    if pix.width < 50 or pix.height < 50:
+                        pix = None
+                        continue
+
+                    if pix.n > 4:
+                        with fitz.Pixmap(fitz.csRGB, pix) as pix_rgb:
+                            img_data = pix_rgb.tobytes("png")
+                    else:
+                        img_data = pix.tobytes("png")
+
+                    pix = None
+
+                    if not img_data:
+                        continue
+
+                    filename = f"page_{page_index}_img_{img_index}.png"
+                    image_path = images_dir / filename
+                    image_path.write_bytes(img_data)
+
+                    images_info.append(
+                        {
+                            "page": page_index,
+                            "index": img_index,
+                            "filename": filename,
+                            "path": str(image_path.resolve()),
+                            "url": f"images/{filename}",
+                        }
+                    )
+                except Exception:
+                    continue
+
+        pdf.close()
+        return images_info
+
     def _write_conversion_artifacts(
         self,
         output_root: Path,
         document: PaperDocument,
         evidence: EvidenceBundle,
     ) -> dict[str, str]:
+        images_dir = output_root / "images"
+        image_infos = self._extract_images(document.source_file, images_dir)
+
         markdown = self.markdown_renderer.render(evidence.clean_blocks)
+        markdown = self.markdown_renderer.embed_image_urls(markdown, image_infos)
+
         document_ir_path = output_root / "document_ir.json"
         evidence_ir_path = output_root / "evidence_ir.json"
         markdown_path = output_root / "paper.md"
