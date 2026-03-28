@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>仿真评审系统 - 前端交互 V1.2 Demo</title>
+    <style>
+        :root {
+            --primary-color: #00b894; /* 协议中的绿色调 */
+            --warning-color: #fab1a0;
+            --error-color: #ff7675;
+            --logic-color: #0984e3;
+            --bg-color: #f5f6fa;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background: var(--bg-color); height: 100vh; overflow: hidden; }
+        
+        /* 顶部导航 */
+        .header { background: white; padding: 10px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .score-badge { background: var(--primary-color); color: white; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
+
+        /* 双栏布局 */
+        .container { display: flex; height: calc(100vh - 60px); padding: 20px; gap: 20px; box-sizing: border-box; }
+
+        /* 左栏：原文对照 */
+        .paper-view { flex: 1.5; background: white; border-radius: 8px; padding: 40px; overflow-y: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.05); line-height: 1.8; color: #2d3436; }
+        .highlight { background-color: #ffeaa7; border-bottom: 2px solid #fdcb6e; cursor: pointer; transition: 0.3s; }
+        .highlight.active { background-color: #fab1a0; border-bottom-color: #e17055; }
+
+        /* 右栏：侧边栏 */
+        .sidebar { flex: 1; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        
+        /* 卡片样式 */
+        .card { background: white; border-radius: 8px; padding: 15px; border-left: 5px solid #ccc; box-shadow: 0 2px 5px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .card.logic { border-left-color: var(--logic-color); }
+        .card.violation { border-left-color: var(--error-color); }
+        .card.improvement { border-left-color: var(--primary-color); background: #f0fff4; }
+        
+        .card-title { font-weight: bold; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .card-tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: #eee; }
+        .card-body { font-size: 14px; color: #636e72; }
+        .card-analysis { margin-top: 10px; font-style: italic; color: var(--logic-color); font-size: 13px; }
+
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 18px; margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div style="font-weight: bold; font-size: 20px;">仿真评审系统 V1.2 <span style="font-size: 14px; font-weight: normal; color: #666;">| 深度语义与逻辑审核</span></div>
+    <div class="score-badge" id="integrityScore">学术自洽分: --</div>
+</div>
+
+<div class="container">
+    <div class="paper-view" id="paperContent">
+        <h1 style="text-align: center;">关于分布式系统效率的研究报告</h1>
+        <p id="Abstract_Para_2"><b>摘要段落 2：</b>本研究提出了一种全新的 <span class="highlight" data-ref="Abstract_Para_2">A 算法</span>，旨在彻底解决大规模集群下的节点同步延迟问题，从而显著提升系统的整体运行效率。</p>
+        <p>... (中间内容略) ...</p>
+        <p id="P15_Line_4"><b>第 15 页第 4 行：</b>在该场景下，我们的系统表现稳定，正如<span class="highlight" data-ref="R-CIT-005">文献 [12]</span> 所述，同步延迟被控制在 10ms 以内。</p>
+        <p>... (中间内容略) ...</p>
+        <p id="Chapter_5_Section_2"><b>第五章第二节：</b>实验数据显示，在 B 场景下，系统的<span class="highlight" data-ref="Chapter_5_Section_2">识别准确率达到了 98.5%</span>，这证明了模型在复杂环境下的鲁棒性。</p>
+    </div>
+
+    <div class="sidebar">
+        <div>
+            <h2>🧠 逻辑分析 (大脑)</h2>
+            <div id="logicContainer"></div>
+        </div>
+        <div>
+            <h2>📏 规则违反 (尺子)</h2>
+            <div id="violationContainer"></div>
+        </div>
+        <div>
+            <h2>💊 改进计划 (药方)</h2>
+            <div id="planContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 这里是你提供的 JSON 数据协议
+const reviewData = {
+// 导入标准处理结果json文件，此处直接拿示例json文件举例
+  "logic_analysis": {
+    "academic_integrity_score": 82, 
+    "core_argument_consistency": {
+      "is_consistent": false,
+      "conflict_summary": "摘要中的技术路径与实验章节的实际执行存在背离。",
+      "details": [
+        {
+          "logical_node": "研究目标 vs. 实验验证",
+          "severity": "critical",
+          "analysis": "摘要声称通过 A 算法解决效率问题，但第五章实验数据仅展示了 B 场景下的准确率，缺乏对‘效率’这一核心指标的量化证明。",
+          "evidence_links": ["Abstract_Para_2", "Chapter_5_Section_2"]
+        }
+      ]
+    }
+  },
+  "rule_violations": [
+    {
+      "id": "R-CIT-005",
+      "category": "Citation_Consistency",
+      "title": "文内引用丢失",
+      "description": "参考文献列表中最高编号仅为 [10]，未找到 [12] 的对应条目。",
+      "fix_type": "auto_suggest"
+    }
+  ],
+  "improvement_plan": {
+    "semantic_refinement": [
+      {
+        "target_ref": "R-CIT-005",
+        "action": "补充缺失文献",
+        "content": "请确认是否漏录了 Smith 等人的 2025 年最新研究。"
+      }
+    ]
+  }
+};
+
+// 初始化页面
+function initDemo() {
+    // 1. 设置分数
+    document.getElementById('integrityScore').innerText = `学术自洽分: ${reviewData.logic_analysis.academic_integrity_score}`;
+
+    // 2. 渲染逻辑分析
+    const logicList = reviewData.logic_analysis.core_argument_consistency.details;
+    logicList.forEach(item => {
+        const card = createCard('logic', item.logical_node, item.analysis, item.evidence_links);
+        document.getElementById('logicContainer').appendChild(card);
+    });
+
+    // 3. 渲染规则违反
+    reviewData.rule_violations.forEach(item => {
+        const card = createCard('violation', item.title, item.description, [item.id]);
+        document.getElementById('violationContainer').appendChild(card);
+    });
+
+    // 4. 渲染改进建议
+    reviewData.improvement_plan.semantic_refinement.forEach(item => {
+        const card = createCard('improvement', `建议: ${item.action}`, item.content, [item.target_ref]);
+        document.getElementById('planContainer').appendChild(card);
+    });
+}
+
+// 创建卡片的辅助函数
+function createCard(type, title, content, links) {
+    const div = document.createElement('div');
+    div.className = `card ${type}`;
+    div.innerHTML = `
+        <div class="card-title">${title} <span class="card-tag">${type}</span></div>
+        <div class="card-body">${content}</div>
+    `;
+    
+    // 点击卡片联动左侧高亮
+    div.onclick = () => {
+        // 清除之前的高亮
+        document.querySelectorAll('.highlight').forEach(el => el.classList.remove('active'));
+        
+        // 高亮新目标
+        links.forEach(refId => {
+            const target = document.querySelector(`[data-ref="${refId}"]`);
+            if(target) {
+                target.classList.add('active');
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    };
+    return div;
+}
+
+initDemo();
+</script>
+
+</body>
+</html>
