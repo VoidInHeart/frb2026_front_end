@@ -20,10 +20,32 @@ npm run dev
 ```bash
 VITE_USE_MOCK=true
 VITE_API_BASE_URL=http://localhost:8000/api
+VITE_USE_LOCAL_PARSER=true
+VITE_PARSER_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 - `VITE_USE_MOCK=true` 时，前端默认读取 `public/mock` 中的示例 `paper.md`、`document_ir.json` 和图片资源
 - `VITE_USE_MOCK=false` 时，前端调用真实后端接口
+- `VITE_USE_LOCAL_PARSER=true` 时，只要上传了 PDF，就优先调用本地 `paper-review-system` 的解析接口
+
+## 对接本地解析服务
+
+先启动后端解析服务：
+
+```bash
+cd C:\Users\26305\Desktop\frb_project2026\paper-review-system
+python -m paper_review_system.web_api
+```
+
+或：
+
+```bash
+paper-review-api
+```
+
+服务默认监听 `http://127.0.0.1:8000`，前端上传 PDF 后会调用：
+
+`POST http://127.0.0.1:8000/papers/parse`
 
 ## 预留接口
 

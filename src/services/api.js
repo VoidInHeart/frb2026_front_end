@@ -1,7 +1,10 @@
 import { readFileAsJson, readFileAsText } from "../utils/file";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const PARSER_API_BASE_URL =
+  import.meta.env.VITE_PARSER_API_BASE_URL || "http://127.0.0.1:8000";
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+const USE_LOCAL_PARSER = import.meta.env.VITE_USE_LOCAL_PARSER !== "false";
 
 const mockRecommendations = [
   {
@@ -47,7 +50,7 @@ const mockRecommendationDetails = {
     abstract:
       "This paper proposes a retrieval-augmented architecture that grounds review comments in matched evidence from prior scientific papers and policy rubrics.",
     relevanceAnalysis:
-      "这篇论文与当前系统中的推荐论文、评语生成链路高度一致，适合作为“检索增强审稿”的方法参考，也能帮助定义推荐理由字段。",
+      "这篇论文与当前系统中的推荐论文、评语生成链路高度一致，适合作为检索增强审稿的方法参考，也能帮助定义推荐理由字段。",
     keyTakeaways: [
       "将检索证据与评审维度绑定，减少空泛评语。",
       "推荐模块与评语模块共享底层表示，有助于降低系统耦合度。",
@@ -88,7 +91,7 @@ const mockRecommendationDetails = {
       "与当前前端右侧展示的分维度评分、优缺点和改进建议非常契合，适合借鉴字段设计与交互呈现。",
     keyTakeaways: [
       "支持多维度评分卡展示。",
-      "强调“摘要评论 + 可执行建议”双层输出结构。",
+      "强调摘要评论与可执行建议的双层输出结构。",
       "适合作为后续真实接口返回格式的参考。"
     ],
     keywords: ["review agent", "critique generation", "scoring"],
@@ -137,9 +140,9 @@ function buildMockSummary(documentIr) {
       "若图片资源由后端托管，需保证 Markdown 中相对路径与 image_base_url 对齐。"
     ],
     nextActions: [
-      "补齐后端 `/reviews/generate` 的真实实现。",
+      "补齐后端 /reviews/generate 的真实实现。",
       "将推荐接口返回的论文摘要、作者、来源期刊统一为前端约定字段。",
-      "把 `document_ir.json` 与推荐召回逻辑打通，形成真正的内容相似推荐。"
+      "把 document_ir.json 与推荐召回逻辑打通，形成真正的内容相似推荐。"
     ],
     dimensionScores: [
       { label: "创新性", score: 84 },
@@ -150,12 +153,49 @@ function buildMockSummary(documentIr) {
   };
 }
 
+async function uploadViaLocalParser(paperFile) {
+  const formData = new FormData();
+  formData.append("paper", paperFile);
+
+  let data;
+
+  try {
+    data = await fetchJson(`${PARSER_API_BASE_URL}/papers/parse`, {
+      method: "POST",
+      body: formData
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "unknown parser error";
+    throw new Error(
+      `本地解析服务不可用，请先启动 paper-review-system 接口。${message}`
+    );
+  }
+
+  return {
+    submissionId: data.submissionId ?? makeSubmissionId(),
+    paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
+    paperMarkdown: data.paperMarkdown ?? "",
+    paperAssetBase: data.paperAssetBase ?? "",
+    documentIr: data.documentIr ?? {},
+    uploadedAt: new Date().toISOString(),
+    sourceMode: "local-parser-api",
+    artifacts: data.artifacts ?? null
+  };
+}
+
 export async function uploadPaper({
   paperFile,
   markdownFile,
   documentIrFile,
   imageBaseUrl
 }) {
+  const hasLocalArtifacts = markdownFile && documentIrFile;
+
+  if (USE_LOCAL_PARSER && paperFile) {
+    return uploadViaLocalParser(paperFile);
+  }
+
   if (!USE_MOCK) {
     const formData = new FormData();
 
@@ -191,7 +231,6 @@ export async function uploadPaper({
     };
   }
 
-  const hasLocalArtifacts = markdownFile && documentIrFile;
   const paperMarkdown = hasLocalArtifacts
     ? await readFileAsText(markdownFile)
     : await fetch("/mock/paper.md").then((response) => response.text());
