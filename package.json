@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:parser": "cd paper-review-system && python -m paper_review_system.web_api",
+    "dev:all": "python scripts/dev_orchestrator.py",
     "build": "vite build",
     "preview": "vite preview"
   },

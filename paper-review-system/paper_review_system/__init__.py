@@ -1,4 +1,4 @@
-"""Paper review system package."""
+"""Paper parser package."""
 
 from .api.review_pipeline import ReviewPipeline
 

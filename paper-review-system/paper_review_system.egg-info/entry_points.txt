@@ -1,2 +1,0 @@
-[console_scripts]
-paper-review = paper_review_system.cli:main

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "paper-review-system"
 version = "0.1.0"
-description = "PDF to Markdown and paper review report pipeline."
+description = "PDF to Markdown and document IR parser service."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
