@@ -61,6 +61,47 @@ paper-review review path/to/paper.pdf --output-dir outputs
 - `paper.md`
 - `review_report.json`
 
+## 本地解析接口
+
+项目现在提供了一个最小本地 HTTP 接口，便于前端直接上传 PDF 并获取解析结果。
+
+启动方式：
+
+```bash
+python -m paper_review_system.web_api
+```
+
+或：
+
+```bash
+paper-review-api
+```
+
+默认地址：
+
+`http://127.0.0.1:8000`
+
+健康检查：
+
+`GET /health`
+
+解析接口：
+
+`POST /papers/parse`
+
+表单字段：
+
+- `paper`: PDF 文件
+
+返回字段包含：
+
+- `submissionId`
+- `paperName`
+- `paperMarkdown`
+- `paperAssetBase`
+- `documentIr`
+- `artifacts`
+
 ## 设计说明
 
 - 解析层与协议层解耦，便于未来替换 parser 或升级协议版本。
