@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { parseMarkdownToBlocks } from "../utils/markdown";
+import { renderMarkdownHtml } from "../utils/markdown";
 
 const props = defineProps({
   markdown: {
@@ -17,8 +17,8 @@ const props = defineProps({
   }
 });
 
-const blocks = computed(() =>
-  parseMarkdownToBlocks(props.markdown, {
+const renderedHtml = computed(() =>
+  renderMarkdownHtml(props.markdown, {
     showImages: props.showImages,
     assetBase: props.assetBase
   })
@@ -26,150 +26,151 @@ const blocks = computed(() =>
 </script>
 
 <template>
-  <article class="article-frame">
-    <template v-if="blocks.length">
-      <template v-for="(block, index) in blocks" :key="`${block.type}-${index}`">
-        <h1
-          v-if="block.type === 'heading' && block.level === 1"
-          class="article-heading article-heading-1"
-          v-html="block.html"
-        ></h1>
-        <h2
-          v-else-if="block.type === 'heading' && block.level === 2"
-          class="article-heading article-heading-2"
-          v-html="block.html"
-        ></h2>
-        <h3
-          v-else-if="block.type === 'heading'"
-          class="article-heading article-heading-3"
-          v-html="block.html"
-        ></h3>
-        <p
-          v-else-if="block.type === 'paragraph'"
-          class="article-paragraph"
-          v-html="block.html"
-        ></p>
-        <blockquote
-          v-else-if="block.type === 'blockquote'"
-          class="article-quote"
-          v-html="block.html"
-        ></blockquote>
-        <ul
-          v-else-if="block.type === 'list' && !block.ordered"
-          class="article-list"
-        >
-          <li
-            v-for="(item, itemIndex) in block.items"
-            :key="`list-${index}-${itemIndex}`"
-            v-html="item.html"
-          ></li>
-        </ul>
-        <ol
-          v-else-if="block.type === 'list' && block.ordered"
-          class="article-list"
-        >
-          <li
-            v-for="(item, itemIndex) in block.items"
-            :key="`olist-${index}-${itemIndex}`"
-            v-html="item.html"
-          ></li>
-        </ol>
-        <hr v-else-if="block.type === 'divider'" class="article-divider" />
-        <figure v-else-if="block.type === 'image'" class="article-image-card">
-          <img :src="block.src" :alt="block.alt" class="article-image" />
-          <figcaption>{{ block.alt }}</figcaption>
-        </figure>
-      </template>
-    </template>
-    <div v-else class="empty-state">当前没有可展示的 Markdown 内容。</div>
+  <article
+    v-if="renderedHtml"
+    class="article-frame markdown-preview"
+    v-html="renderedHtml"
+  ></article>
+  <article v-else class="article-frame">
+    <div class="empty-state">No markdown content available.</div>
   </article>
 </template>
 
 <style scoped>
 .article-frame {
-  display: grid;
-  gap: 16px;
+  color: #24292f;
 }
 
-.article-heading {
-  margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
-  color: #102f4c;
-}
-
-.article-heading-1 {
-  font-size: 32px;
-}
-
-.article-heading-2 {
-  font-size: 24px;
-}
-
-.article-heading-3 {
-  font-size: 20px;
-}
-
-.article-paragraph {
-  margin: 0;
+.markdown-preview {
+  padding: 4px 6px 20px 0;
   font-size: 16px;
-  color: var(--text);
-  line-height: 1.8;
+  line-height: 1.75;
 }
 
-.article-quote {
-  margin: 0;
-  padding: 14px 18px;
-  border-left: 4px solid rgba(208, 122, 53, 0.6);
-  background: rgba(208, 122, 53, 0.08);
-  border-radius: 0 14px 14px 0;
-  color: #78451d;
+.markdown-preview :deep(*) {
+  box-sizing: border-box;
 }
 
-.article-list {
-  margin: 0;
-  padding-left: 22px;
-  display: grid;
-  gap: 10px;
+.markdown-preview :deep(h1),
+.markdown-preview :deep(h2),
+.markdown-preview :deep(h3),
+.markdown-preview :deep(h4),
+.markdown-preview :deep(h5),
+.markdown-preview :deep(h6) {
+  margin: 1.4em 0 0.7em;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #0f2740;
 }
 
-.article-divider {
-  width: 100%;
-  border: none;
-  border-top: 1px solid rgba(19, 63, 103, 0.14);
+.markdown-preview :deep(h1) {
+  margin-top: 0;
+  padding-bottom: 0.3em;
+  border-bottom: 1px solid rgba(31, 42, 55, 0.12);
+  font-size: 2em;
 }
 
-.article-image-card {
-  margin: 0;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.68);
-  border: 1px solid rgba(19, 63, 103, 0.1);
-  border-radius: 22px;
-  display: grid;
-  gap: 12px;
+.markdown-preview :deep(h2) {
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid rgba(31, 42, 55, 0.1);
+  font-size: 1.5em;
 }
 
-.article-image {
-  width: 100%;
-  border-radius: 16px;
-  object-fit: contain;
-  max-height: 520px;
-  background: #fff;
+.markdown-preview :deep(h3) {
+  font-size: 1.25em;
 }
 
-.article-image-card figcaption {
-  color: var(--muted);
-  font-size: 13px;
-  text-align: center;
+.markdown-preview :deep(p),
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol),
+.markdown-preview :deep(blockquote),
+.markdown-preview :deep(table),
+.markdown-preview :deep(pre) {
+  margin: 0 0 16px;
 }
 
-:deep(a) {
-  color: var(--primary);
+.markdown-preview :deep(ul),
+.markdown-preview :deep(ol) {
+  padding-left: 2em;
+}
+
+.markdown-preview :deep(li + li) {
+  margin-top: 0.35em;
+}
+
+.markdown-preview :deep(a) {
+  color: #0969da;
+  text-decoration: none;
+}
+
+.markdown-preview :deep(a:hover) {
   text-decoration: underline;
 }
 
-:deep(code) {
-  padding: 2px 6px;
-  background: rgba(19, 63, 103, 0.08);
-  border-radius: 8px;
+.markdown-preview :deep(blockquote) {
+  padding: 0 1em;
+  color: #57606a;
+  border-left: 0.25em solid #d0d7de;
+}
+
+.markdown-preview :deep(code) {
+  padding: 0.15em 0.35em;
+  background: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.92em;
+}
+
+.markdown-preview :deep(pre) {
+  overflow: auto;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f6f8fa;
+  border: 1px solid rgba(31, 42, 55, 0.08);
+}
+
+.markdown-preview :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.markdown-preview :deep(hr) {
+  height: 1px;
+  margin: 24px 0;
+  border: 0;
+  background: #d8dee4;
+}
+
+.markdown-preview :deep(table) {
+  display: block;
+  width: 100%;
+  overflow: auto;
+  border-collapse: collapse;
+}
+
+.markdown-preview :deep(th),
+.markdown-preview :deep(td) {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+}
+
+.markdown-preview :deep(th) {
+  background: #f6f8fa;
+  font-weight: 700;
+}
+
+.markdown-preview :deep(img) {
+  display: block;
+  max-width: 100%;
+  max-height: 560px;
+  margin: 18px auto;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 24px rgba(15, 39, 64, 0.08);
+}
+
+.markdown-preview :deep(p > img:only-child) {
+  margin-top: 8px;
 }
 </style>
