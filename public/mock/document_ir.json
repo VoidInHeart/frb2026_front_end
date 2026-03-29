@@ -1,0 +1,4658 @@
+{
+  "doc_id": "dataset_diff",
+  "source_file": "C:\\Users\\26305\\Desktop\\frb_project2026\\paper-review-system\\file_test\\Dataset_Diff.pdf",
+  "pages": [
+    {
+      "page": 1,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 2,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 3,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 4,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 5,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 6,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 7,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 8,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 9,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 10,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 11,
+      "width": 612.0,
+      "height": 792.0
+    },
+    {
+      "page": 12,
+      "width": 612.0,
+      "height": 792.0
+    }
+  ],
+  "blocks": [
+    {
+      "block_id": "blk_000012",
+      "page": 1,
+      "bbox": [
+        50.11,
+        541.83,
+        545.12,
+        572.71
+      ],
+      "type": "caption",
+      "text": "Figure 1. DiFF - a diffusion-generated facial forgery dataset encompassing over half a million images. The dataset contains manipulated images created by thirteen state-of-the-art methods under four distinct conditions. The dataset will be released at https://github. com/xaCheng1996/DiFF .",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000016",
+      "page": 1,
+      "bbox": [
+        10.94,
+        214.48,
+        37.62,
+        560.0
+      ],
+      "type": "metadata",
+      "text": "arXiv:2401.15859v1 [cs.CV] 29 Jan 2024",
+      "is_noise": false,
+      "font_size": 20.0,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000013",
+      "page": 1,
+      "bbox": [
+        146.0,
+        584.59,
+        190.48,
+        596.54
+      ],
+      "type": "heading",
+      "text": "Abstract",
+      "level": 2,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000014",
+      "page": 1,
+      "bbox": [
+        50.11,
+        619.58,
+        286.37,
+        713.23
+      ],
+      "type": "paragraph",
+      "text": "Detecting diffusion-generated images has recently grown into an emerging research area. Existing diffusionbased datasets predominantly focus on general image generation. However, facial forgeries, which pose a more severe social risk, have remained less explored thus far. To address this gap, this paper introduces DiFF, a comprehensive dataset dedicated to face-focused diffusion-generated images. DiFF comprises over 500,000 images that are",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000001",
+      "page": 1,
+      "bbox": [
+        191.86,
+        105.92,
+        403.37,
+        120.27
+      ],
+      "type": "heading",
+      "text": "Diffusion Facial Forgery Detection",
+      "level": 2,
+      "is_noise": false,
+      "font_size": 14.35,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000002",
+      "page": 1,
+      "bbox": [
+        148.65,
+        145.72,
+        249.45,
+        171.63
+      ],
+      "type": "paragraph",
+      "text": "Harry Cheng Shandong University",
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000004",
+      "page": 1,
+      "bbox": [
+        294.15,
+        145.72,
+        452.66,
+        171.63
+      ],
+      "type": "paragraph",
+      "text": "Yangyang Guo National University of Singapore",
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000003",
+      "page": 1,
+      "bbox": [
+        142.56,
+        175.43,
+        255.54,
+        184.39
+      ],
+      "type": "paragraph",
+      "text": "xaCheng1996@gmail.com",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000005",
+      "page": 1,
+      "bbox": [
+        314.23,
+        175.43,
+        432.58,
+        184.39
+      ],
+      "type": "paragraph",
+      "text": "guoyang.eric@gmail.com",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000006",
+      "page": 1,
+      "bbox": [
+        122.93,
+        193.54,
+        289.44,
+        219.45
+      ],
+      "type": "paragraph",
+      "text": "Tianyi Wang Nanyang Technological University",
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000008",
+      "page": 1,
+      "bbox": [
+        324.71,
+        193.54,
+        472.3,
+        233.4
+      ],
+      "type": "paragraph",
+      "text": "Liqiang Nie Harbin Institute of Technology (Shenzhen)",
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000007",
+      "page": 1,
+      "bbox": [
+        144.32,
+        223.25,
+        268.05,
+        232.21
+      ],
+      "type": "paragraph",
+      "text": "terry.ai.wang@gmail.com",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000009",
+      "page": 1,
+      "bbox": [
+        344.7,
+        237.2,
+        452.3,
+        246.16
+      ],
+      "type": "paragraph",
+      "text": "nieliqiang@gmail.com",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000010",
+      "page": 1,
+      "bbox": [
+        218.36,
+        255.31,
+        376.87,
+        281.22
+      ],
+      "type": "paragraph",
+      "text": "Mohan Kankanhalli National University of Singapore",
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000011",
+      "page": 1,
+      "bbox": [
+        239.63,
+        285.02,
+        352.61,
+        293.98
+      ],
+      "type": "paragraph",
+      "text": "mohan@comp.nus.edu.sg",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000015",
+      "page": 1,
+      "bbox": [
+        308.86,
+        586.03,
+        545.12,
+        703.59
+      ],
+      "type": "paragraph",
+      "text": "synthesized using thirteen distinct generation methods under four conditions. In particular, this dataset leverages 30,000 carefully collected textual and visual prompts, ensuring the synthesis of images with both high fidelity and semantic consistency. We conduct extensive experiments on the DiFF dataset via a human test and several representative forgery detection methods. The results demonstrate that the binary detection accuracy of both human observers and automated detectors often falls below 30%, shedding light on the challenges in detecting diffusion-generated fa-",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000017",
+      "page": 2,
+      "bbox": [
+        50.11,
+        74.23,
+        286.37,
+        108.1
+      ],
+      "type": "paragraph",
+      "text": "cial forgeries. Furthermore, we propose an edge graph regularization approach to effectively enhance the generalization capability of existing detectors.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000018",
+      "page": 2,
+      "bbox": [
+        50.11,
+        132.73,
+        126.95,
+        144.69
+      ],
+      "type": "heading",
+      "text": "1. Introduction",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000019",
+      "page": 2,
+      "bbox": [
+        50.11,
+        153.34,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Conditional Diffusion Models (CDMs) have achieved impressive results in the field of image generation [ 3 , 48 , 50 , 55 ]. Utilizing simple inputs, such as natural language prompts, CDMs can generate images with a high degree of semantic consistency [ 15 , 25 , 73 ]. However, the precise control over the generation process offered by CDMs has also raised concerns regarding security and privacy. For instance, malicious attackers can mass-produce counterfeit images of any victim at a minimal cost, thus engendering negative social impacts. To address this problem, recent efforts have been made to collect datasets containing diffusion-generated images, wherein distribution differences [ 63 ] or amplitude variations [ 9 ] offer important cues for detection. Nevertheless, as shown in Table 1 , these datasets often encounter deficiencies when applied to detect facial forgeries, which pose more significant threats than generic fake artifacts. Specifically, most large-scale diffusion-based datasets prioritize generic images [ 9 , 26 , 46 , 53 , 57 , 63 ], like bedrooms and kitchens [ 70 ]. Although some facial-related datasets have been introduced [ 5 , 39 ], they all yet suffer from their small scale ( e.g ., only 1.5K facial images in [ 39 ]). Moreover, these facial images are typically collected under restricted conditions with a narrow range of prompts, lacking comprehensive annotations as well. As a result, training a detector with generalizability on these datasets remains less viable. This paper fills the gap by introducing the Diffusion Facial Forgery dataset, dubbed DiFF. There are three notable merits that make our dataset distinguished from existing ones. i) To the best of our knowledge, our DiFF is the first comprehensive dataset that exclusively focuses on diffusion-generated facial forgery. It contains more than 500,000 facial forgery images, a scale that significantly surpasses previous facial datasets (as shown in Table 1 ). ii) DiFF is curated using a rich variety of diffusion methods and prompts. Specifically, it encompasses thirteen state-ofthe-art diffusion techniques across four different conditions, including Text-to-Image, Image-to-Image, Face Swapping, and Face Editing. These methods are applied to generate high-quality images using over 20,000 carefully collected textual and 10,000 visual prompts, derived from 1,070 selected identities. iii) It is worth noting that each forged image in DiFF is meticulously annotated with the forgery method employed and the corresponding prompt. Using the DiFF dataset, we conducted both an in-depth human study and extensive experiments with several deepfake and diffusion detectors [ 43 , 49 , 58 , 63 ]. The results",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000020",
+      "page": 2,
+      "bbox": [
+        308.86,
+        74.41,
+        545.12,
+        347.44
+      ],
+      "type": "paragraph",
+      "text": "highlight that existing detectors exhibit limited reliability in detecting diffusion-synthesized facial forgeries. For instance, the Xception model [ 49 ], originally designed for deepfake detection, achieves an AUC of only 60% on DiFF (versus 99% on conventional deepfake datasets). To overcome this issue, we propose a novel regularization approach that leverages the edge graph of images to discern highlevel facial features, thereby enhancing the generalizability of models. Our approach can be seamlessly integrated into existing detectors, achieving an average of 10% AUC improvements when applied to four popular detectors. The contributions of this paper are three-fold: • We construct a diffusion-based facial forgery dataset with more than half a million images. To the best of our knowledge, this is the first large-scale dataset that focuses on high-quality diffusion-synthesized faces 1 . • We conduct extensive experiments on this dataset and build comprehensive benchmarks for diffusion-generated face forgery detection. • We devise a novel approach based on edge graphs to identify the manipulated faces. Our approach can be seamlessly integrated into existing detection models to enhance their detection ability.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000021",
+      "page": 2,
+      "bbox": [
+        308.86,
+        359.84,
+        391.97,
+        371.8
+      ],
+      "type": "heading",
+      "text": "2. Related Work",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000022",
+      "page": 2,
+      "bbox": [
+        308.86,
+        379.56,
+        519.21,
+        390.52
+      ],
+      "type": "paragraph",
+      "text": "2.1. Image Generation with Diffusion Models",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000023",
+      "page": 2,
+      "bbox": [
+        308.86,
+        398.38,
+        545.12,
+        695.29
+      ],
+      "type": "paragraph",
+      "text": "Following the paradigm of introducing and then removing small perturbations from original images, diffusion models demonstrate the capability to generate high-quality images from white noise [ 55 ]. Early methods require no supervision signals and often perform unconditionally. For instance, Ho et al . [ 19 ] proposed a reverse learning process by estimating the noise in the image at each step. Subsequently, researchers have explored several optimization directions, including backbone architectures [ 4 , 12 , 50 ], sampling strategies [ 34 , 40 , 68 ], and adaptation for downstream tasks [ 1 , 29 , 72 ]. For example, Sinha et al . [ 54 ] proposed mapping latent representations to images using a diffusion decoding model. Song et al . [ 56 ] employed a nonMarkovian forward process to construct denoising diffusion implicit models, resulting in a faster sampling procedure. In contrast to the above unconditional approaches, recent diffusion models have shifted their focus toward conditional image synthesis [ 7 , 23 , 47 , 51 , 69 , 71 ]. These conditions rely on various source signals, including class labels, textual prompts, and visual information, which generally describe specific image attributes. For instance, Cascaded Diffusion Models [ 20 ] initially generate low-resolution images from class labels and then employ subsequent models to increase resolutions. Furthermore, to achieve more detailed control, Text-to-Image Synthesis, which combines",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000024",
+      "page": 2,
+      "bbox": [
+        319.72,
+        703.65,
+        521.74,
+        712.93
+      ],
+      "type": "paragraph",
+      "text": "1 The dataset will be released upon the acceptance of this paper.",
+      "is_noise": false,
+      "font_size": 7.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000025",
+      "page": 3,
+      "bbox": [
+        58.85,
+        77.17,
+        496.53,
+        97.21
+      ],
+      "type": "paragraph",
+      "text": "Dataset Venue Type #Synthetic #Diffusion Conditions Real Images Prompts Images Methods T2I I2I FS FE Source Labels",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000026",
+      "page": 3,
+      "bbox": [
+        58.85,
+        100.65,
+        538.24,
+        163.72
+      ],
+      "type": "paragraph",
+      "text": "St¨ockl et al . [ 57 ] Arxiv’22 General 260K 1 ✓ × × × ✓ × Nouns of WordNet De-Fake [ 53 ] Arxiv’22 General 40K 2 ✓ ✓ × × ✓ ✓ Captions of the image dataset Ricker et al . [ 46 ] Arxiv’22 General 70K 7 × × × × × × Unconditional generation TEdBench [ 26 ] CVPR’23 General 0.1K 1 × × × ✓ ✓ ✓ 100 handwritten prompts for editing DiffusionForensics [ 63 ] ICCV’23 General 80K 8 ✓ × × × ✓ × 1 pre-defined template DMDetection [ 9 ] ICASSP’23 General 200K 3 ✓ × × × ✓ ✓ Captions of the image dataset GenImage [ 77 ] NeurIPS’23 General 1,300K 5 ✓ × × × ✓ × 1 pre-defined template",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000027",
+      "page": 3,
+      "bbox": [
+        58.85,
+        167.16,
+        536.51,
+        194.37
+      ],
+      "type": "paragraph",
+      "text": "GFW [ 5 ] Arxiv’22 Facial 15K 3 ✓ × × × × × Captions of the image dataset Mundra et al . [ 39 ] CVPRW’23 Facial 1.5K 1 ✓ × × × × × 10 pre-defined templates DiFF (Ours) - Facial 500K 13 ✓ ✓ ✓ ✓ ✓ ✓ 30K+ filtered high-quality prompts",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000028",
+      "page": 3,
+      "bbox": [
+        50.11,
+        209.85,
+        545.11,
+        240.73
+      ],
+      "type": "caption",
+      "text": "Table 1. Comparison of DiFF and mainstream diffusion datasets. Existing diffusion datasets primarily focus on general arts synthesis and utilize limited conditional input. For generation conditions - T2I: Text-to-Image, I2I: Image-to-Image, FS: Face Swapping, FE: Face Editing. Pertaining to the Real Images column, Source represents that whether there is a real image collection process.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000029",
+      "page": 3,
+      "bbox": [
+        50.11,
+        254.22,
+        286.37,
+        395.69
+      ],
+      "type": "paragraph",
+      "text": "visual concepts and natural language, has emerged as one of the most notable advancements in diffusion models. These studies, exemplified by Stable Diffusion [ 42 , 48 ], DALLE [ 45 ], and Imagen [ 52 ], align different modalities through pre-trained vision language models such as CLIP [ 44 ]. Additionally, some approaches leverage images as conditional inputs. Zhao et al . [ 74 ] utilized an energy-based function trained on both the source and target domains to generate images that preserve domain-agnostic characteristics. Lugmayr et al . [ 36 ] proposed an inpainting method that is agnostic to mask forms, altering reverse diffusion iterations by sampling unmasked regions from provided images.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000030",
+      "page": 3,
+      "bbox": [
+        50.11,
+        407.73,
+        192.25,
+        418.69
+      ],
+      "type": "paragraph",
+      "text": "2.2. Synthetic Image Detection",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000031",
+      "page": 3,
+      "bbox": [
+        50.11,
+        427.5,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Detecting generated images has long been a popular research focus in computer vision. Earlier methods concentrate on the detection of specific types of forgeries, such as splicing [ 24 ], copy-move [ 35 ], or inpainting [ 31 ]. Thereafter, deep learning-based approaches have been applied to identify high-quality forgeries generated by GANs or diffusion models [ 60 , 61 ]. For instance, Frank et al . [ 14 ] proposed using frequency-domain features to detect forged images, as GAN models inevitably introduce artifacts during up-sampling. Guo et al . [ 16 ] presented a hierarchical finegrained model to learn both comprehensive features and the inherent hierarchical nature of different forgery attributes. Many recent studies have been dedicated to facial forgery detection [ 6 , 62 , 64 ]. Thus far, the majority of them have focused on the detection of swapped faces generated by VAE or GAN, i.e ., deepfakes [ 33 ]. For example, Masi et al . [ 37 ] introduced a two-branch network to extract optical and frequency artifacts separately. RealForensics [ 17 ] leverages visual and auditory correspondences in real videos to improve detection performance. Huang et al . [ 22 ] derived explicit and implicit embeddings using face recognition models, and the distance between these features serves as the foundation for distinguishing real from fake faces. With the rapid development of diffusion models, the risk",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000033",
+      "page": 3,
+      "bbox": [
+        530.88,
+        302.43,
+        537.59,
+        310.51
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 6.62,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000034",
+      "page": 3,
+      "bbox": [
+        530.95,
+        327.99,
+        538.35,
+        354.1
+      ],
+      "type": "paragraph",
+      "text": "Age Group",
+      "is_noise": false,
+      "font_size": 6.07,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000032",
+      "page": 3,
+      "bbox": [
+        530.88,
+        371.93,
+        537.59,
+        380.01
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 6.62,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000035",
+      "page": 3,
+      "bbox": [
+        308.86,
+        409.12,
+        545.11,
+        450.96
+      ],
+      "type": "caption",
+      "text": "Figure 2. Gender and age group distribution of pristine and forgery subsets. Within each subset, percentages for different ages (ranging from 20 to 60) are calculated separately for males ( blue bars) and females ( red bars).",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000036",
+      "page": 3,
+      "bbox": [
+        308.86,
+        480.69,
+        545.12,
+        562.38
+      ],
+      "type": "paragraph",
+      "text": "posed by using them to generate counterfeit faces is gradually increasing [ 28 ]. However, research on the detection of diffusion-generated faces remains relatively unexplored. Although preliminary efforts have contributed to the detection of diffusion-generated outputs [ 9 , 46 , 63 ], they often lack generalizability and do not specifically focus on the detection of facial forgery.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000037",
+      "page": 3,
+      "bbox": [
+        308.86,
+        584.12,
+        429.39,
+        596.07
+      ],
+      "type": "heading",
+      "text": "3. Dataset Construction",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000038",
+      "page": 3,
+      "bbox": [
+        308.86,
+        607.8,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "In this work, our objective is to construct a high-quality dataset for diffusion-based facial forgery. The dataset is composed of three essential components: pristine images, prompts, and forged images. The pristine images constitute the real instances of our dataset. Derived from these pristine images, the prompts serve as textual descriptions or visual cues that guide the diffusion model in generating forged images. We maintain a high degree of semantic consistency between pristine and forged images via these prompts.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000043",
+      "page": 4,
+      "bbox": [
+        141.69,
+        117.33,
+        199.2,
+        127.01
+      ],
+      "type": "paragraph",
+      "text": "2,531 Filtered Faces ! 𝐼 !",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000044",
+      "page": 4,
+      "bbox": [
+        78.21,
+        140.44,
+        118.94,
+        148.25
+      ],
+      "type": "paragraph",
+      "text": "Prompt Reverse",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000046",
+      "page": 4,
+      "bbox": [
+        156.07,
+        156.18,
+        189.16,
+        171.68
+      ],
+      "type": "paragraph",
+      "text": "Manual Modification",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000045",
+      "page": 4,
+      "bbox": [
+        77.93,
+        162.79,
+        119.21,
+        170.61
+      ],
+      "type": "paragraph",
+      "text": "Manual Rewrite",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000039",
+      "page": 4,
+      "bbox": [
+        71.85,
+        183.31,
+        76.5,
+        192.69
+      ],
+      "type": "paragraph",
+      "text": "A",
+      "is_noise": false,
+      "font_size": 7.68,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000040",
+      "page": 4,
+      "bbox": [
+        71.85,
+        183.31,
+        128.31,
+        201.98
+      ],
+      "type": "paragraph",
+      "text": "actor in... A",
+      "is_noise": false,
+      "font_size": 7.68,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000047",
+      "page": 4,
+      "bbox": [
+        140.42,
+        183.62,
+        205.72,
+        211.58
+      ],
+      "type": "paragraph",
+      "text": "A brunette actor in… A woman with … A happy man …",
+      "is_noise": false,
+      "font_size": 7.68,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000041",
+      "page": 4,
+      "bbox": [
+        94.17,
+        192.6,
+        117.43,
+        201.98
+      ],
+      "type": "paragraph",
+      "text": "with …",
+      "is_noise": false,
+      "font_size": 7.68,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000042",
+      "page": 4,
+      "bbox": [
+        102.46,
+        201.9,
+        123.89,
+        211.28
+      ],
+      "type": "paragraph",
+      "text": "man …",
+      "is_noise": false,
+      "font_size": 7.68,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000049",
+      "page": 4,
+      "bbox": [
+        119.43,
+        213.02,
+        203.78,
+        223.49
+      ],
+      "type": "paragraph",
+      "text": "% Modified prompts 𝒫 &\"'",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000048",
+      "page": 4,
+      "bbox": [
+        71.2,
+        214.1,
+        125.51,
+        222.87
+      ],
+      "type": "paragraph",
+      "text": "Textual prompts 𝒫 \"#$",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000053",
+      "page": 4,
+      "bbox": [
+        59.5,
+        237.91,
+        276.97,
+        246.88
+      ],
+      "type": "caption",
+      "text": "Figure 3. Pipeline of prompts construction and modification.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000054",
+      "page": 4,
+      "bbox": [
+        50.11,
+        390.15,
+        286.36,
+        410.89
+      ],
+      "type": "caption",
+      "text": "Figure 4. Word cloud of the top 200 most frequent and content words in P t ori . Each word is sized by its frequency.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000055",
+      "page": 4,
+      "bbox": [
+        50.11,
+        431.96,
+        188.0,
+        442.92
+      ],
+      "type": "heading",
+      "text": "3.1. Pristine Image Collection",
+      "level": 4,
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000056",
+      "page": 4,
+      "bbox": [
+        50.11,
+        450.75,
+        286.37,
+        580.27
+      ],
+      "type": "paragraph",
+      "text": "Our pristine images are sourced from a pool of celebrity identities. Specifically, we manually select 1,070 celebrities from established celebrity datasets such as VoxCeleb2 and CelebA [ 2 , 8 , 30 ]. Figure 2 illustrates that we have ensured a balanced gender distribution and diverse age groups among these identities. In particular, the age distribution of the selected celebrities ranges from 20 to 60 across different subsets. Subsequently, we curate approximately 20 images per identity from online videos and existing datasets, resulting in a pristine collection, denoted as I pri , which encompasses a total of 23,661 images.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000057",
+      "page": 4,
+      "bbox": [
+        50.11,
+        589.01,
+        256.31,
+        599.97
+      ],
+      "type": "heading",
+      "text": "3.2. Prompts Construction and Modification",
+      "level": 4,
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000058",
+      "page": 4,
+      "bbox": [
+        50.11,
+        607.8,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Prior studies have demonstrated a positive correlation between the quality of conditional inputs and that of diffusiongenerated images [ 41 ]. As a result, diverse and precise prompts are particularly useful for generating high-quality images in CDMs. Figure 3 illustrates our dataset includes three categories of prompts: original textual prompts P t ori , modified textual prompts P t mod , and visual prompts P v . These prompts serve as conditions to guide the sampling process of diffusion models. The construction processes of",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000059",
+      "page": 4,
+      "bbox": [
+        317.96,
+        77.17,
+        506.57,
+        84.64
+      ],
+      "type": "paragraph",
+      "text": "Subset Method #Images Remarks",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000061",
+      "page": 4,
+      "bbox": [
+        347.15,
+        89.88,
+        533.45,
+        124.26
+      ],
+      "type": "paragraph",
+      "text": "Midjourney [ 38 ] 40,684 Web Service SDXL [ 42 ] 40,336 Enhanced Stable Diffusion FreeDoM T [ 71 ] 18,207 ICCV’23 HPS [ 67 ] 36,464 ICCV’23",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000060",
+      "page": 4,
+      "bbox": [
+        317.96,
+        103.27,
+        329.59,
+        110.74
+      ],
+      "type": "paragraph",
+      "text": "T2I",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000063",
+      "page": 4,
+      "bbox": [
+        347.15,
+        129.5,
+        536.05,
+        163.87
+      ],
+      "type": "paragraph",
+      "text": "SDXL Refiner [ 42 ] 40,336 Refine module for SDXL LoRA [ 21 ] 42,800 LoRA adaption for diffusion DeamBooth [ 51 ] 40,526 CVPR’23 FreeDoM I [ 71 ] 43,593 ICCV’23",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000052",
+      "page": 4,
+      "bbox": [
+        223.51,
+        138.06,
+        261.11,
+        145.87
+      ],
+      "type": "paragraph",
+      "text": "Facial Analysis",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000062",
+      "page": 4,
+      "bbox": [
+        317.96,
+        142.88,
+        327.51,
+        150.35
+      ],
+      "type": "paragraph",
+      "text": "I2I",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000064",
+      "page": 4,
+      "bbox": [
+        317.96,
+        169.12,
+        537.88,
+        185.56
+      ],
+      "type": "paragraph",
+      "text": "FS DiffFace [ 27 ] 55,693 First diffusion-based FS work DCFace [ 28 ] 44,721 CVPR’23",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000066",
+      "page": 4,
+      "bbox": [
+        347.15,
+        190.8,
+        508.02,
+        216.21
+      ],
+      "type": "paragraph",
+      "text": "Imagic [ 26 ] 40,508 CVPR’23 CoDiff [ 23 ] 48,672 CVPR’23 CycleDiff [ 65 ] 44,926 ICCV’23",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000065",
+      "page": 4,
+      "bbox": [
+        317.96,
+        199.7,
+        327.51,
+        207.17
+      ],
+      "type": "paragraph",
+      "text": "FE",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000050",
+      "page": 4,
+      "bbox": [
+        194.44,
+        213.71,
+        196.55,
+        219.34
+      ],
+      "type": "paragraph",
+      "text": "%",
+      "is_noise": false,
+      "font_size": 4.8,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000051",
+      "page": 4,
+      "bbox": [
+        219.54,
+        214.17,
+        267.49,
+        222.84
+      ],
+      "type": "paragraph",
+      "text": "Visual prompts 𝒫 (",
+      "is_noise": false,
+      "font_size": 6.4,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000067",
+      "page": 4,
+      "bbox": [
+        353.38,
+        221.39,
+        494.53,
+        228.93
+      ],
+      "type": "paragraph",
+      "text": "Total 537,466 -",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000068",
+      "page": 4,
+      "bbox": [
+        308.86,
+        244.4,
+        545.11,
+        275.28
+      ],
+      "type": "caption",
+      "text": "Table 2. Detailed statistics of DiFF. We employ thirteen different methods to synthesize high-quality results based on 2.5K images and their corresponding 20k textual and 10k visual prompts.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000069",
+      "page": 4,
+      "bbox": [
+        308.86,
+        300.78,
+        545.12,
+        598.7
+      ],
+      "type": "paragraph",
+      "text": "these prompts are detailed below. • Original textual prompts P t ori . We generate diverse and natural textual prompts via a semi-automated approach. Initially, we curate a set of 2,531 high-quality images ˆ I s ⊂I pri by selecting the clearest images of the frontal face for each identity. These images are then converted into textual descriptions using prompt inversion tools [ 10 , 38 ]. These descriptions are reviewed and rewritten by experts to remove irrelevant terms and improve clarity. Consequently, we obtain 10,084 polished prompts, and some frequent words are shown in Figure 4 . • Modified textual prompts P t mod . To broaden the diversity of prompts and enable the generation of images with specific modifications, P t mod involves alterations in key attributes of P t ori . In particular, we randomly modify the salient words that describe identities in P t ori , such as gender, hair color, or facial expression. For instance, we transform a prompt like ‘A man with an emotive face’ into ‘A woman with an emotive face.’ • Visual prompts P v . These prompts comprise comprehensive facial features - such as embeddings, sketches, landmarks, and segmentations - extracted from each image in ˆ I s . These features can be applied for diffusion models conditioned on visual cues, which is particularly useful in tasks like face editing.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000070",
+      "page": 4,
+      "bbox": [
+        308.86,
+        610.88,
+        452.17,
+        621.83
+      ],
+      "type": "heading",
+      "text": "3.3. Facial Forgery Generation",
+      "level": 4,
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000071",
+      "page": 4,
+      "bbox": [
+        308.86,
+        630.69,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "As illustrated in Figure 5 , we categorize existing CDMs into four main subsets [ 11 ] based on their input types: Text-toImage (T2I), which operates on textual prompts; Image-toImage (I2I) and Face Swapping (FS), both of which utilize visual inputs; and Face Editing (FE), which incorporates a combination of text and visual conditions. Figure 5a demonstrates that T2I methods receive tex-",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000072",
+      "page": 5,
+      "bbox": [
+        104.3,
+        70.54,
+        487.64,
+        79.88
+      ],
+      "type": "formula",
+      "text": "(a) Text-to-Image (b) Image-to-Image (c) Face Swapping (d) Face Editing",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000073",
+      "page": 5,
+      "bbox": [
+        143.58,
+        88.79,
+        169.6,
+        98.13
+      ],
+      "type": "paragraph",
+      "text": "Prompts",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000077",
+      "page": 5,
+      "bbox": [
+        95.37,
+        88.9,
+        112.5,
+        98.25
+      ],
+      "type": "paragraph",
+      "text": "Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000074",
+      "page": 5,
+      "bbox": [
+        106.05,
+        111.11,
+        155.29,
+        120.46
+      ],
+      "type": "paragraph",
+      "text": "Diffusion Model",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000076",
+      "page": 5,
+      "bbox": [
+        133.82,
+        123.61,
+        155.49,
+        130.62
+      ],
+      "type": "paragraph",
+      "text": "Generate",
+      "is_noise": false,
+      "font_size": 5.74,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000075",
+      "page": 5,
+      "bbox": [
+        104.8,
+        134.36,
+        156.42,
+        143.7
+      ],
+      "type": "paragraph",
+      "text": "Generated Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000101",
+      "page": 5,
+      "bbox": [
+        50.11,
+        194.7,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "tual prompts ( e.g ., ‘A man in uniform’) and synthesize images that align with the inputs’ semantic content [ 48 ]. In contrast, models processing visual input are further divided into I2I and FS categories based on their manipulation processes. Specifically, I2I, as illustrated in Figure 5b , pertains to methods that replicate a single identity. On the other hand, FS models simultaneously handle two identities and perform identity swaps as presented in Figure 5c . Lastly, Figure 5d highlights that FE models utilize multi-modal inputs to modify facial attributes, such as expressions or lip movements, while preserving other attributes. These four subsets achieve comprehensive coverage of the conditions under which existing diffusion models operate. Moreover, to ensure the diversity of generated faces, we utilize multiple cutting-edge techniques within each category. A detailed introduction to these methods is as follows: Text-to-Image. We leverage four state-of-the-art methods - Midjourney [ 38 ], Stable Diffusion XL (SDXL) [ 42 ], FreeDoM T [ 71 ], and HPS [ 67 ] - for this subset. The first two are the most influential web services for which we employ official APIs. The latter two are recently released T2I models, and we apply their pre-trained models. These models are guided by textual prompts P t ori . Image-to-Image. We apply four methods in this context: Low-Rank Adaption (LoRA) [ 21 ], DreamBooth [ 51 ], SDXL Refiner [ 42 ], and FreeDoM I . Among these approaches, the former two require fine-tuning of diffusion models to capture specific facial features. We employ I pri to train these two models. SDXL Refiner optimizes results from SDXL, whereas FreeDoM I substitutes the textual encoder in FreeDoM T with a visual encoder to reconstruct faces. Face Swapping. In this subset, we implement DiffFace [ 27 ] and DCFace [ 28 ] for the face swapping task. For each image in ˆ I s , we randomly choose ten targets from other identities to perform face swaps. In particular, to prevent information leakage, we divide the 1,070 identities into disjoint training, validation, and testing sets in a 8:1:1 ratio. Face Editing. This subset involves three approaches. In particular, the modified textual prompt set P t mod and the pristine image set ˆ I s are both used in Imagic [ 26 ] and Cycle Diffusion (CycleDiff) [ 65 ] to generate edited faces. Moreover, we use visual prompts P v to guide the training of Collaborative Diffusion (CoDiff) [ 23 ].",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000096",
+      "page": 5,
+      "bbox": [
+        344.76,
+        86.04,
+        361.89,
+        95.38
+      ],
+      "type": "paragraph",
+      "text": "Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000088",
+      "page": 5,
+      "bbox": [
+        427.53,
+        86.84,
+        444.66,
+        96.18
+      ],
+      "type": "paragraph",
+      "text": "Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000079",
+      "page": 5,
+      "bbox": [
+        206.74,
+        88.27,
+        223.87,
+        97.62
+      ],
+      "type": "paragraph",
+      "text": "Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000091",
+      "page": 5,
+      "bbox": [
+        476.2,
+        92.46,
+        505.64,
+        101.81
+      ],
+      "type": "paragraph",
+      "text": "Diffusion",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000081",
+      "page": 5,
+      "bbox": [
+        256.34,
+        97.91,
+        285.78,
+        107.26
+      ],
+      "type": "paragraph",
+      "text": "Diffusion",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000092",
+      "page": 5,
+      "bbox": [
+        480.16,
+        101.53,
+        499.96,
+        110.87
+      ],
+      "type": "paragraph",
+      "text": "Model",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000097",
+      "page": 5,
+      "bbox": [
+        318.41,
+        103.94,
+        387.82,
+        113.28
+      ],
+      "type": "paragraph",
+      "text": "Source Target",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000082",
+      "page": 5,
+      "bbox": [
+        260.3,
+        107.04,
+        280.1,
+        116.38
+      ],
+      "type": "paragraph",
+      "text": "Model",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000094",
+      "page": 5,
+      "bbox": [
+        423.09,
+        107.27,
+        449.1,
+        116.61
+      ],
+      "type": "paragraph",
+      "text": "Prompts",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000080",
+      "page": 5,
+      "bbox": [
+        200.16,
+        108.99,
+        230.23,
+        118.33
+      ],
+      "type": "paragraph",
+      "text": "Identity 𝛼",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000078",
+      "page": 5,
+      "bbox": [
+        271.46,
+        119.25,
+        293.12,
+        126.26
+      ],
+      "type": "paragraph",
+      "text": "Generate",
+      "is_noise": false,
+      "font_size": 5.74,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000098",
+      "page": 5,
+      "bbox": [
+        328.85,
+        120.07,
+        377.81,
+        129.41
+      ],
+      "type": "paragraph",
+      "text": "Diffusion Model",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000087",
+      "page": 5,
+      "bbox": [
+        492.14,
+        120.11,
+        501.12,
+        127.12
+      ],
+      "type": "paragraph",
+      "text": "Edit",
+      "is_noise": false,
+      "font_size": 5.74,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000085",
+      "page": 5,
+      "bbox": [
+        217.51,
+        120.22,
+        239.91,
+        127.23
+      ],
+      "type": "paragraph",
+      "text": "Fine-tune",
+      "is_noise": false,
+      "font_size": 5.74,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000089",
+      "page": 5,
+      "bbox": [
+        422.18,
+        126.55,
+        451.76,
+        135.89
+      ],
+      "type": "paragraph",
+      "text": "Modified",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000083",
+      "page": 5,
+      "bbox": [
+        201.45,
+        127.41,
+        230.88,
+        136.76
+      ],
+      "type": "paragraph",
+      "text": "Diffusion",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000095",
+      "page": 5,
+      "bbox": [
+        356.66,
+        129.18,
+        369.03,
+        136.18
+      ],
+      "type": "paragraph",
+      "text": "Swap",
+      "is_noise": false,
+      "font_size": 5.74,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000093",
+      "page": 5,
+      "bbox": [
+        470.93,
+        131.43,
+        509.17,
+        140.77
+      ],
+      "type": "paragraph",
+      "text": "Edited Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000086",
+      "page": 5,
+      "bbox": [
+        254.35,
+        132.0,
+        287.78,
+        141.35
+      ],
+      "type": "paragraph",
+      "text": "Faces of 𝛼",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000090",
+      "page": 5,
+      "bbox": [
+        423.09,
+        135.62,
+        449.1,
+        144.96
+      ],
+      "type": "paragraph",
+      "text": "Prompts",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000099",
+      "page": 5,
+      "bbox": [
+        329.74,
+        135.68,
+        376.9,
+        145.02
+      ],
+      "type": "paragraph",
+      "text": "Swapped Faces",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000084",
+      "page": 5,
+      "bbox": [
+        205.4,
+        136.48,
+        225.21,
+        145.82
+      ],
+      "type": "paragraph",
+      "text": "Model",
+      "is_noise": false,
+      "font_size": 7.65,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000100",
+      "page": 5,
+      "bbox": [
+        194.02,
+        162.46,
+        401.2,
+        171.43
+      ],
+      "type": "caption",
+      "text": "Figure 5. Facial forgery generation under four conditions.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000102",
+      "page": 5,
+      "bbox": [
+        321.59,
+        196.82,
+        535.25,
+        203.2
+      ],
+      "type": "formula",
+      "text": "Text-to-Image Image-to-Image Face Swapping Face Editing",
+      "is_noise": false,
+      "font_size": 6.38,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000103",
+      "page": 5,
+      "bbox": [
+        314.28,
+        207.74,
+        540.98,
+        214.11
+      ],
+      "type": "paragraph",
+      "text": "Method ACC Method ACC Method ACC Method ACC",
+      "is_noise": false,
+      "font_size": 6.38,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000104",
+      "page": 5,
+      "bbox": [
+        314.28,
+        218.46,
+        541.73,
+        247.79
+      ],
+      "type": "paragraph",
+      "text": "Midjourney 65.32 SDXL Refiner 71.85 DiffFace 36.33 Imagic 68.17 SDXL 72.11 LoRA 33.33 DCFace 66.67 CoDiff 27.78 FreeDoM T 25.47 DreamBooth 76.65 CycleDiff 40.65 HPS 75.68 FreeDoM I 56.67",
+      "is_noise": false,
+      "font_size": 6.38,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000105",
+      "page": 5,
+      "bbox": [
+        349.5,
+        262.58,
+        504.48,
+        271.55
+      ],
+      "type": "caption",
+      "text": "Table 3. Human performance (%) on DiFF.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000106",
+      "page": 5,
+      "bbox": [
+        308.86,
+        286.76,
+        545.12,
+        332.59
+      ],
+      "type": "paragraph",
+      "text": "In summary, we show the statistics pertaining to the images generated by the aforementioned methods in Table 2 . As can be observed, the total number of generated images is over 500K from thirteen diffusion methods.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000107",
+      "page": 5,
+      "bbox": [
+        308.86,
+        347.5,
+        418.0,
+        359.46
+      ],
+      "type": "heading",
+      "text": "4. Dataset Evaluation",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000108",
+      "page": 5,
+      "bbox": [
+        308.86,
+        368.91,
+        545.11,
+        402.79
+      ],
+      "type": "paragraph",
+      "text": "Following the methodologies in deepfake detection [ 49 ], we cast the detection of diffusion-generated facial forgeries as a binary classification task.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000109",
+      "page": 5,
+      "bbox": [
+        308.86,
+        414.48,
+        417.15,
+        425.44
+      ],
+      "type": "paragraph",
+      "text": "4.1. Human Evaluation",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000110",
+      "page": 5,
+      "bbox": [
+        308.86,
+        434.13,
+        545.12,
+        660.15
+      ],
+      "type": "paragraph",
+      "text": "We conducted a comprehensive human study involving 70 participants. In this study, participants are instructed to classify the authenticity of randomly selected images that are generated from varied approaches. The image selection followed a 50:50 split between pristine and fake images, with each identity appearing only once to prevent bias. Each participant is required to carefully examine 200 images, yielding 14,000 human results in total. Table 3 presents the results of this experiment across all forgery methods under four conditions. One can observe that human observers struggle to distinguish the vast majority of forgery methods, as accuracy falls below the chance level (50%). For instance, participants achieved an accuracy of merely 27.78% when identifying images generated by CoDiff. Among the four conditions, FE poses the most challenge for human observers. This result can be attributed to the fact that this subset involves modifying a single real image, which allows for a more faithful reproduction of original features, such as illumination and texture.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000111",
+      "page": 5,
+      "bbox": [
+        308.86,
+        671.84,
+        492.73,
+        682.8
+      ],
+      "type": "paragraph",
+      "text": "4.2. Comparison with Existing Datasets",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000112",
+      "page": 5,
+      "bbox": [
+        308.86,
+        691.4,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Statistics analysis . We presented the FID and PSNR metrics in Table 4 . The results reveal notable improvements in",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000113",
+      "page": 6,
+      "bbox": [
+        56.46,
+        77.17,
+        278.39,
+        84.64
+      ],
+      "type": "formula",
+      "text": "Dataset FF++ [ 49 ] ForgeryNet [ 18 ] DFor [ 63 ] GFW [ 5 ] DiFF",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000114",
+      "page": 6,
+      "bbox": [
+        56.46,
+        89.62,
+        279.43,
+        106.32
+      ],
+      "type": "paragraph",
+      "text": "FID ↓ 33.87 36.94 31.79 39.35 25.75 PSNR ↑ 18.47 18.98 19.17 19.14 19.95",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000115",
+      "page": 6,
+      "bbox": [
+        60.36,
+        111.83,
+        276.12,
+        120.8
+      ],
+      "type": "caption",
+      "text": "Table 4. FID and PSNR comparison across various datasets.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000116",
+      "page": 6,
+      "bbox": [
+        98.95,
+        146.46,
+        202.24,
+        158.42
+      ],
+      "type": "paragraph",
+      "text": "Method Dataset",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000117",
+      "page": 6,
+      "bbox": [
+        144.55,
+        159.03,
+        237.01,
+        166.51
+      ],
+      "type": "formula",
+      "text": "FF++ [ 49 ] GFW [ 5 ] DiFF",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000118",
+      "page": 6,
+      "bbox": [
+        98.95,
+        171.75,
+        237.53,
+        206.12
+      ],
+      "type": "paragraph",
+      "text": "Xception 98.12 99.72 93.87 F 3 -Net 98.89 99.17 98.47 EfficientNet 98.51 97.58 94.34 DIRE 99.43 99.59 96.35",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000119",
+      "page": 6,
+      "bbox": [
+        50.11,
+        221.59,
+        286.36,
+        230.56
+      ],
+      "type": "caption",
+      "text": "Table 5. AUC (%) of detectors trained and tested on same datasets.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000120",
+      "page": 6,
+      "bbox": [
+        59.8,
+        254.85,
+        201.35,
+        263.62
+      ],
+      "type": "paragraph",
+      "text": "Method Train Test Set",
+      "is_noise": false,
+      "font_size": 5.48,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000121",
+      "page": 6,
+      "bbox": [
+        89.32,
+        264.07,
+        278.04,
+        269.55
+      ],
+      "type": "formula",
+      "text": "Set FF++ [ 49 ] DFor [ 63 ] GFW [ 5 ] DiFF DFDC [ 13 ] ForgeryNet [ 18 ]",
+      "is_noise": false,
+      "font_size": 5.48,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000123",
+      "page": 6,
+      "bbox": [
+        86.69,
+        273.39,
+        266.41,
+        298.6
+      ],
+      "type": "paragraph",
+      "text": "FF++ - 40.65 43.42 65.96 63.97 50.56 DFor 55.21 - 52.30 75.67 56.35 38.06 GFW 53.37 45.81 - 74.87 51.43 62.75 DiFF 65.33 55.30 63.50 - 67.10 65.78",
+      "is_noise": false,
+      "font_size": 5.48,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000122",
+      "page": 6,
+      "bbox": [
+        59.8,
+        283.26,
+        79.89,
+        288.74
+      ],
+      "type": "paragraph",
+      "text": "Xception",
+      "is_noise": false,
+      "font_size": 5.48,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000124",
+      "page": 6,
+      "bbox": [
+        61.24,
+        312.83,
+        275.23,
+        321.8
+      ],
+      "type": "caption",
+      "text": "Table 6. AUC (%) of detectors trained on different datasets.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000125",
+      "page": 6,
+      "bbox": [
+        50.11,
+        352.68,
+        286.37,
+        374.6
+      ],
+      "type": "paragraph",
+      "text": "DiFF, suggesting that the images in this dataset bear a closer resemblance to reality.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000126",
+      "page": 6,
+      "bbox": [
+        50.11,
+        380.21,
+        286.37,
+        450.04
+      ],
+      "type": "paragraph",
+      "text": "Comparisons with face forgery datasets Beyond the observed benefits in terms of FID and PSNR, Table 5 indicates that the AUCs of DiFF are relatively lower, highlighting the dataset’s greater complexity. This can be attributed to the extensive diversity of conditions in DiFF, which is three times greater than that in GFW.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000127",
+      "page": 6,
+      "bbox": [
+        50.11,
+        455.74,
+        286.37,
+        537.44
+      ],
+      "type": "paragraph",
+      "text": "Moreover, we utilized FF++ (a vanilla deepfake dataset), GFW (a diffusion-generated facial forgery dataset), DFor (a diffusion-generated general forgery dataset), and our DiFF as training datasets to compared their generalization capabilities. Additionally, we utilized two widely acknowledged deepfake datasets, DFDC [ 13 ] and ForgeryNet [ 18 ], for further evaluation.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000128",
+      "page": 6,
+      "bbox": [
+        50.11,
+        543.14,
+        286.37,
+        612.88
+      ],
+      "type": "paragraph",
+      "text": "From Table 6 , it can be seen that the detector trained on DiFF exhibits superior generalization capabilities. It is worth noting that detectors trained on other datasets achieve high accuracy when tested on DiFF. This may be attributed to DiFF’s inclusion of a diverse array of image types, effectively encompassing a wide spectrum of distributions.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000129",
+      "page": 6,
+      "bbox": [
+        50.11,
+        633.12,
+        247.05,
+        644.08
+      ],
+      "type": "heading",
+      "text": "4.3. Detection Results of Existing Methods",
+      "level": 4,
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000130",
+      "page": 6,
+      "bbox": [
+        50.11,
+        655.62,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "For this experiment, we split our DiFF dataset into training, validation, and testing sets with a 8:1:1 ratio. We tuned the hyper-parameters using the validation set, and results on the testing set are reported. Detailed numerical values for all figures are available in the supplemental material.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000131",
+      "page": 6,
+      "bbox": [
+        315.28,
+        77.17,
+        497.67,
+        84.64
+      ],
+      "type": "paragraph",
+      "text": "Deepfake Test Subset",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000132",
+      "page": 6,
+      "bbox": [
+        315.28,
+        89.73,
+        536.52,
+        97.21
+      ],
+      "type": "formula",
+      "text": "Method Train Set FF++ T2I I2I FS FE",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000133",
+      "page": 6,
+      "bbox": [
+        315.28,
+        99.81,
+        360.1,
+        109.99
+      ],
+      "type": "paragraph",
+      "text": "Xception † [ 49 ]",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000135",
+      "page": 6,
+      "bbox": [
+        315.28,
+        102.52,
+        540.57,
+        137.09
+      ],
+      "type": "paragraph",
+      "text": "98.12 62.43 56.83 85.97 58.64 F 3 -Net † [ 43 ] 98.89 66.87 67.64 81.01 60.60 EfficientNet † [ 58 ] 98.51 74.12 57.27 82.11 57.20 DIRE ‡ [ 63 ] 99.43 44.22 64.64 84.98 57.72",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000134",
+      "page": 6,
+      "bbox": [
+        378.31,
+        115.97,
+        409.36,
+        123.44
+      ],
+      "type": "formula",
+      "text": "FF++ [ 49 ]",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000136",
+      "page": 6,
+      "bbox": [
+        315.28,
+        144.21,
+        497.67,
+        151.68
+      ],
+      "type": "paragraph",
+      "text": "General Diffusion Test Subset",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000137",
+      "page": 6,
+      "bbox": [
+        315.28,
+        156.78,
+        536.52,
+        164.25
+      ],
+      "type": "paragraph",
+      "text": "Method Train Set DFor T2I I2I FS FE",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000138",
+      "page": 6,
+      "bbox": [
+        315.28,
+        166.85,
+        360.1,
+        177.03
+      ],
+      "type": "paragraph",
+      "text": "Xception † [ 49 ]",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000140",
+      "page": 6,
+      "bbox": [
+        315.28,
+        169.56,
+        540.57,
+        204.13
+      ],
+      "type": "paragraph",
+      "text": "99.98 20.52 30.92 69.42 37.89 F 3 -Net † [ 43 ] 99.99 43.88 60.58 52.39 47.06 EfficientNet † [ 58 ] 98.99 27.23 44.79 61.25 30.86 DIRE ‡ [ 63 ] 98.80 36.37 34.83 36.28 39.92",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000139",
+      "page": 6,
+      "bbox": [
+        378.84,
+        183.01,
+        408.82,
+        190.48
+      ],
+      "type": "paragraph",
+      "text": "DFor [ 63 ]",
+      "is_noise": false,
+      "font_size": 7.47,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000141",
+      "page": 6,
+      "bbox": [
+        308.86,
+        215.62,
+        545.11,
+        268.42
+      ],
+      "type": "caption",
+      "text": "Table 7. AUC (%) of detectors. Each detector is trained on the deepfake dataset (FF++) and the diffusion-generated general forgery dataset (DFor) separately, and tested on subsets of the DiFF dataset. † : models for deepfake detection. ‡ : models for general diffusion detection.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000142",
+      "page": 6,
+      "bbox": [
+        308.86,
+        291.93,
+        441.23,
+        301.9
+      ],
+      "type": "paragraph",
+      "text": "4.3.1 Cross-domain Detection",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000143",
+      "page": 6,
+      "bbox": [
+        308.86,
+        310.84,
+        545.12,
+        559.98
+      ],
+      "type": "paragraph",
+      "text": "Following previous studies on forgery detection [ 63 ], we adopted a cross-domain testing methodology to explore the challenges of facial forgery detection. This involves evaluating models that have performed well in related detection domains. Initially, these models are trained on benchmark datasets tailored to their respective tasks. We then evaluated their performance on DiFF. Three widely recognized deepfake detection models are utilized: Xception [ 49 ], F 3 - Net [ 43 ], and EfficientNet [ 58 ]. Moreover, we included DIRE [ 63 ], a state-of-the-art detector for general diffusiongenerated images, for this experiment. These models are trained on the FF++ dataset [ 49 ] and the DiffusionForensics dataset [ 63 ], respectively. Table 7 displays the Area under the ROC Curve (AUC) scores for these detectors. From this table, we can observe that these detectors encounter a significant drop in performance upon domain transfer. For example, DIRE exhibits an AUC drop of over 60%. This sharp degradation indicates the inherent challenge of detecting diffusion-based facial forgeries and suggests the considerable obstacles that pre-trained detectors face when applied to this new task.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000144",
+      "page": 6,
+      "bbox": [
+        308.86,
+        576.86,
+        426.47,
+        586.82
+      ],
+      "type": "paragraph",
+      "text": "4.3.2 In-domain Detection",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000145",
+      "page": 6,
+      "bbox": [
+        308.86,
+        595.77,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Given that existing deepfake and general diffusion detectors cannot be seamlessly transferred to detect diffusion facial forgery, one may question the efficacy of re-training these detectors on DiFF. Therefore, we conducted experiments with an in-domain setting. Similar to previous evaluation protocols for the detection of deepfake and general diffusion forgery [ 32 , 63 ], detectors are trained on a single subset of DiFF, followed by the test on the remaining ones. Detection on re-training detectors. We presented the retraining results in Figure 6 . It can be observed that detectors",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000170",
+      "page": 7,
+      "bbox": [
+        90.35,
+        74.56,
+        257.63,
+        78.74
+      ],
+      "type": "paragraph",
+      "text": "Tested on T2I Tested on I2I Tested on FS Tested on FE",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000151",
+      "page": 7,
+      "bbox": [
+        64.93,
+        83.5,
+        72.92,
+        87.68
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000157",
+      "page": 7,
+      "bbox": [
+        169.26,
+        83.5,
+        177.25,
+        87.68
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000150",
+      "page": 7,
+      "bbox": [
+        67.6,
+        95.5,
+        72.92,
+        99.69
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000156",
+      "page": 7,
+      "bbox": [
+        171.92,
+        95.5,
+        177.25,
+        99.69
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000149",
+      "page": 7,
+      "bbox": [
+        67.6,
+        107.51,
+        72.92,
+        111.69
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000155",
+      "page": 7,
+      "bbox": [
+        171.92,
+        107.51,
+        177.25,
+        111.69
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000148",
+      "page": 7,
+      "bbox": [
+        67.6,
+        119.51,
+        72.92,
+        123.69
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000154",
+      "page": 7,
+      "bbox": [
+        171.92,
+        119.51,
+        177.25,
+        123.69
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000147",
+      "page": 7,
+      "bbox": [
+        67.6,
+        131.51,
+        72.92,
+        135.7
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000153",
+      "page": 7,
+      "bbox": [
+        171.92,
+        131.51,
+        177.25,
+        135.7
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000146",
+      "page": 7,
+      "bbox": [
+        77.07,
+        142.85,
+        159.7,
+        155.12
+      ],
+      "type": "paragraph",
+      "text": "Xception F 3 -Net EfficientNet DIRE (a) Trained on T2I",
+      "is_noise": false,
+      "font_size": 5.02,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000163",
+      "page": 7,
+      "bbox": [
+        64.93,
+        159.2,
+        72.92,
+        163.39
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000169",
+      "page": 7,
+      "bbox": [
+        169.26,
+        159.2,
+        177.25,
+        163.39
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000162",
+      "page": 7,
+      "bbox": [
+        67.6,
+        171.21,
+        72.92,
+        175.39
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000168",
+      "page": 7,
+      "bbox": [
+        171.92,
+        171.21,
+        177.25,
+        175.39
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000161",
+      "page": 7,
+      "bbox": [
+        67.6,
+        183.21,
+        72.92,
+        187.39
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000167",
+      "page": 7,
+      "bbox": [
+        171.92,
+        183.21,
+        177.25,
+        187.39
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000160",
+      "page": 7,
+      "bbox": [
+        67.6,
+        195.21,
+        72.92,
+        199.4
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000166",
+      "page": 7,
+      "bbox": [
+        171.92,
+        195.21,
+        177.25,
+        199.4
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000159",
+      "page": 7,
+      "bbox": [
+        67.6,
+        207.22,
+        72.92,
+        211.4
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000165",
+      "page": 7,
+      "bbox": [
+        171.92,
+        207.22,
+        177.25,
+        211.4
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000158",
+      "page": 7,
+      "bbox": [
+        77.07,
+        218.55,
+        159.7,
+        230.82
+      ],
+      "type": "paragraph",
+      "text": "Xception F 3 -Net EfficientNet DIRE (c) Trained on FS",
+      "is_noise": false,
+      "font_size": 5.02,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000171",
+      "page": 7,
+      "bbox": [
+        61.26,
+        242.46,
+        275.21,
+        251.42
+      ],
+      "type": "caption",
+      "text": "Figure 6. AUC (%) comparison among re-trained detectors.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000172",
+      "page": 7,
+      "bbox": [
+        50.11,
+        267.63,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "perform satisfactorily when trained and tested on the same subset. However, when transferred to different subsets, they exhibit varying degrees of performance degradation. The most significant drop reaches up to 80% ( e.g ., Xception, trained on FS and tested on FE). This significant drop highlights the challenge in developing a facial forgery detector that effectively generalizes across various conditions. It is worth noting that detectors trained on the T2I and I2I subsets, which both rely on classical diffusion processes, demonstrate a higher degree of similarity in performance. This is evident from mutual benefits observed in the first two subplots of Figure 6 . FE-trained detectors show better generalization capability than those trained in other subsets. This may be attributed to the FE subset’s utilization of multi-modal inputs, leading to a wider diversity of images, thereby enabling detectors trained on the FE subset to capture more diffusion artifacts. Detection on linear probing detectors. We introduced the strategy of linear probing as an alternative to the full re-training approach. Specifically, we used Xception pretrained on the FF++ dataset as described in Section 4.3.1 and optimized its last linear layer to align with the data distribution of DiFF. The results are presented in Figure 7 . One can observe that models using the linear probing strategy significantly outperform the re-training ones in detecting FS and FE forgeries. For instance, when trained on the I2I subset, the linear probing model for detecting FS and FE forgeries surpass the re-training models by 50% and 40%, respectively. A critical reason is that the pre-training dataset, i.e ., FF++, encompasses a large number of GANbased manipulated faces. This diversity enables linear probing models to effectively identify face-swapping and faceediting images. However, it is worth noting that linear probing models show inferior results when trained and tested on the same subset ( e.g ., both trained and tested on T2I), suggesting insufficient capacity of this strategy. Detection on fine-tuning detectors. In contrast to the lin-",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000197",
+      "page": 7,
+      "bbox": [
+        369.35,
+        75.35,
+        497.42,
+        79.94
+      ],
+      "type": "formula",
+      "text": "Re-training Linear Probing Fine-tuning",
+      "is_noise": false,
+      "font_size": 4.59,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000178",
+      "page": 7,
+      "bbox": [
+        323.97,
+        83.93,
+        331.94,
+        88.11
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000184",
+      "page": 7,
+      "bbox": [
+        428.08,
+        83.93,
+        436.05,
+        88.11
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000177",
+      "page": 7,
+      "bbox": [
+        326.63,
+        96.02,
+        331.94,
+        100.19
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000183",
+      "page": 7,
+      "bbox": [
+        430.74,
+        96.02,
+        436.05,
+        100.19
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000176",
+      "page": 7,
+      "bbox": [
+        326.63,
+        108.1,
+        331.94,
+        112.28
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000182",
+      "page": 7,
+      "bbox": [
+        430.74,
+        108.1,
+        436.05,
+        112.28
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000175",
+      "page": 7,
+      "bbox": [
+        326.63,
+        120.18,
+        331.94,
+        124.36
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000181",
+      "page": 7,
+      "bbox": [
+        430.74,
+        120.18,
+        436.05,
+        124.36
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000174",
+      "page": 7,
+      "bbox": [
+        326.63,
+        132.27,
+        331.94,
+        136.44
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000180",
+      "page": 7,
+      "bbox": [
+        430.74,
+        132.27,
+        436.05,
+        136.44
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000152",
+      "page": 7,
+      "bbox": [
+        181.39,
+        142.85,
+        264.03,
+        155.12
+      ],
+      "type": "paragraph",
+      "text": "Xception F 3 -Net EfficientNet DIRE (b) Trained on I2I",
+      "is_noise": false,
+      "font_size": 5.02,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000173",
+      "page": 7,
+      "bbox": [
+        340.77,
+        144.37,
+        417.7,
+        155.9
+      ],
+      "type": "paragraph",
+      "text": "T2I I2I FS FE (a) Trained on T2I",
+      "is_noise": false,
+      "font_size": 5.01,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000179",
+      "page": 7,
+      "bbox": [
+        444.88,
+        144.37,
+        521.81,
+        155.9
+      ],
+      "type": "paragraph",
+      "text": "T2I I2I FS FE (b) Trained on I2I",
+      "is_noise": false,
+      "font_size": 5.01,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000190",
+      "page": 7,
+      "bbox": [
+        323.97,
+        159.48,
+        331.94,
+        163.65
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000196",
+      "page": 7,
+      "bbox": [
+        428.08,
+        159.48,
+        436.05,
+        163.65
+      ],
+      "type": "metadata",
+      "text": "100",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000189",
+      "page": 7,
+      "bbox": [
+        326.63,
+        171.56,
+        331.94,
+        175.74
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000195",
+      "page": 7,
+      "bbox": [
+        430.74,
+        171.56,
+        436.05,
+        175.74
+      ],
+      "type": "metadata",
+      "text": "80",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000188",
+      "page": 7,
+      "bbox": [
+        326.63,
+        183.64,
+        331.94,
+        187.82
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000194",
+      "page": 7,
+      "bbox": [
+        430.74,
+        183.64,
+        436.05,
+        187.82
+      ],
+      "type": "metadata",
+      "text": "60",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000187",
+      "page": 7,
+      "bbox": [
+        326.63,
+        195.73,
+        331.94,
+        199.9
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000193",
+      "page": 7,
+      "bbox": [
+        430.74,
+        195.73,
+        436.05,
+        199.9
+      ],
+      "type": "metadata",
+      "text": "40",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000186",
+      "page": 7,
+      "bbox": [
+        326.63,
+        207.81,
+        331.94,
+        211.99
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000192",
+      "page": 7,
+      "bbox": [
+        430.74,
+        207.81,
+        436.05,
+        211.99
+      ],
+      "type": "metadata",
+      "text": "20",
+      "is_noise": false,
+      "font_size": 4.18,
+      "source": "pdf",
+      "role": "header_footer",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000164",
+      "page": 7,
+      "bbox": [
+        181.39,
+        218.55,
+        264.03,
+        230.82
+      ],
+      "type": "paragraph",
+      "text": "Xception F 3 -Net EfficientNet DIRE (d) Trained on FE",
+      "is_noise": false,
+      "font_size": 5.02,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000185",
+      "page": 7,
+      "bbox": [
+        340.77,
+        219.91,
+        417.7,
+        231.45
+      ],
+      "type": "paragraph",
+      "text": "T2I I2I FS FE (c) Trained on FS",
+      "is_noise": false,
+      "font_size": 5.01,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000191",
+      "page": 7,
+      "bbox": [
+        444.88,
+        219.91,
+        521.81,
+        231.45
+      ],
+      "type": "paragraph",
+      "text": "T2I I2I FS FE (d) Trained on FE",
+      "is_noise": false,
+      "font_size": 5.01,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000198",
+      "page": 7,
+      "bbox": [
+        310.23,
+        242.99,
+        543.75,
+        251.95
+      ],
+      "type": "caption",
+      "text": "Figure 7. AUC (%) of Xception with different training strategies.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000199",
+      "page": 7,
+      "bbox": [
+        332.45,
+        264.48,
+        491.45,
+        275.96
+      ],
+      "type": "paragraph",
+      "text": "Method Train Processing Method",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000200",
+      "page": 7,
+      "bbox": [
+        376.23,
+        276.55,
+        521.52,
+        283.72
+      ],
+      "type": "paragraph",
+      "text": "Subset None GN GB MB JPEG",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000201",
+      "page": 7,
+      "bbox": [
+        332.45,
+        288.76,
+        358.75,
+        295.93
+      ],
+      "type": "paragraph",
+      "text": "Xception",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000203",
+      "page": 7,
+      "bbox": [
+        332.45,
+        288.76,
+        521.42,
+        321.76
+      ],
+      "type": "paragraph",
+      "text": "59.52 47.65 15.02 56.59 58.69 F 3 -Net 76.08 48.04 74.67 71.68 74.61 EfficientNet 67.69 40.09 53.62 65.35 54.98 DIRE 66.28 34.07 32.78 41.36 40.99",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000202",
+      "page": 7,
+      "bbox": [
+        380.62,
+        301.67,
+        390.97,
+        308.84
+      ],
+      "type": "paragraph",
+      "text": "T2I",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000204",
+      "page": 7,
+      "bbox": [
+        332.45,
+        326.79,
+        358.75,
+        333.96
+      ],
+      "type": "paragraph",
+      "text": "Xception",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000206",
+      "page": 7,
+      "bbox": [
+        332.45,
+        326.79,
+        521.42,
+        359.79
+      ],
+      "type": "paragraph",
+      "text": "66.74 19.70 54.09 58.07 63.66 F 3 -Net 68.39 21.38 58.77 66.17 63.61 EfficientNet 57.78 27.76 54.75 52.39 51.01 DIRE 67.40 35.69 26.63 65.19 65.67",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000205",
+      "page": 7,
+      "bbox": [
+        381.61,
+        339.7,
+        389.98,
+        346.88
+      ],
+      "type": "paragraph",
+      "text": "I2I",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000207",
+      "page": 7,
+      "bbox": [
+        332.45,
+        364.82,
+        358.75,
+        372.0
+      ],
+      "type": "paragraph",
+      "text": "Xception",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000209",
+      "page": 7,
+      "bbox": [
+        332.45,
+        364.82,
+        521.42,
+        397.82
+      ],
+      "type": "paragraph",
+      "text": "39.44 35.40 34.82 38.58 37.73 F 3 -Net 46.64 44.44 37.91 46.39 42.10 EfficientNet 37.29 36.74 23.82 36.12 35.13 DIRE 46.03 25.36 34.00 28.15 32.11",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000208",
+      "page": 7,
+      "bbox": [
+        381.81,
+        377.73,
+        389.78,
+        384.91
+      ],
+      "type": "paragraph",
+      "text": "FS",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000210",
+      "page": 7,
+      "bbox": [
+        332.45,
+        402.86,
+        358.75,
+        410.03
+      ],
+      "type": "paragraph",
+      "text": "Xception",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000212",
+      "page": 7,
+      "bbox": [
+        332.45,
+        402.86,
+        521.42,
+        435.85
+      ],
+      "type": "paragraph",
+      "text": "82.69 39.69 24.15 79.35 81.19 F 3 -Net 78.84 50.17 25.51 38.76 70.31 EfficientNet 77.33 51.95 39.65 71.10 71.14 DIRE 64.89 35.42 55.59 60.08 53.08",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000211",
+      "page": 7,
+      "bbox": [
+        381.61,
+        415.77,
+        389.98,
+        422.94
+      ],
+      "type": "paragraph",
+      "text": "FE",
+      "is_noise": false,
+      "font_size": 7.17,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000213",
+      "page": 7,
+      "bbox": [
+        308.86,
+        451.14,
+        545.11,
+        503.94
+      ],
+      "type": "caption",
+      "text": "Table 8. AUC (%) comparison among re-trained detectors with different post-processing methods. Each row represents the average performance when tested on all four DiFF subsets. None : no processing methods. GN : Gaussian Noise; GB : Gaussian Blur; MB : Median Blur; JPEG : JPEG Compression.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000214",
+      "page": 7,
+      "bbox": [
+        308.86,
+        521.89,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "ear probing strategy, which updates only the final layer, the fine-tuning approach optimizes all the model parameters. For this experiment, we reduce the learning rate of models for stable training. Figure 7 illustrates that fine-tuning models demonstrate superior performance compared to the re-training ones. For example, fine-tuning models achieve higher AUCs in the detection of FS and FE forgeries, regardless of the training subset used. This can also be attributed to the pre-training on FF++. However, compared to linear probing models, the generalizability of the finetuning approaches is somewhat limited. This may be due to a significant discrepancy between diffusion-generated facial forgeries and GAN-based manipulated faces. Such a domain gap could lead to catastrophic forgetting in the model. Detection with post-processing methods. We evaluated re-training detectors under various image quality settings",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000215",
+      "page": 8,
+      "bbox": [
+        50.11,
+        74.41,
+        286.37,
+        168.06
+      ],
+      "type": "paragraph",
+      "text": "by applying several post-processing techniques. Following previous settings [ 76 ], we processed real and forged images with Gaussian Noise (GN), Gaussian Blur (GB), Median Blur (MB), and JPEG Compression (JPEG). Table 8 reveals that, in most scenarios, applying post-processing methods leads to a degradation in the detection performance. For instance, the use of GB results in a 40% reduction in the AUC for Xception when trained on the T2I subset.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000216",
+      "page": 8,
+      "bbox": [
+        50.11,
+        180.17,
+        203.55,
+        192.13
+      ],
+      "type": "heading",
+      "text": "5. Edge Graph Regularization",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000217",
+      "page": 8,
+      "bbox": [
+        50.11,
+        199.86,
+        120.82,
+        210.82
+      ],
+      "type": "paragraph",
+      "text": "5.1. Motivation",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000218",
+      "page": 8,
+      "bbox": [
+        50.11,
+        218.65,
+        286.37,
+        443.81
+      ],
+      "type": "paragraph",
+      "text": "Compared to real human faces captured by cameras, generated faces are more likely to evoke anomalies such as frequency transitions or brightness fluctuations [ 46 ]. In particular, we extract the edge graphs of pristine and forged images with the Sobel operator [ 59 , 60 ]. Figure 8 illustrates that the edge graphs of the pristine images are significantly different from those of the synthesized images. Specifically, edge graphs extracted from pristine images often capture intricate facial details, such as fine wrinkles around the cheeks and the eyes. In contrast, the synthesized images lack these subtle contours and are of considerable contrast. One naive approach to exploit the discriminative capability of edge graphs for facial forgery detection is to train a binary classifier directly. However, our experiments indicate that this approach is less favorable, as demonstrated in Section 5.3 . Instead, we propose an Edge Graph Regularization (EGR) method, which enhances the discriminative ability of detectors by incorporating edge graphs into the processing of original images.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000219",
+      "page": 8,
+      "bbox": [
+        50.11,
+        452.7,
+        130.78,
+        463.66
+      ],
+      "type": "paragraph",
+      "text": "5.2. Methodology",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000220",
+      "page": 8,
+      "bbox": [
+        50.11,
+        471.49,
+        286.37,
+        553.19
+      ],
+      "type": "paragraph",
+      "text": "Vanilla deepfake and general diffusion detecors entails fitting the distribution of a specific dataset to discriminate between pristine and forged images. Let S = { ( I i , y i ) } n i =1 be the dataset and Θ be the continuous parameter space, where I i is the i -th image with respect to the target label y i . For each parameter set θ ∈ Θ , the empirical risk during training is formulated as follows:",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000223",
+      "page": 8,
+      "bbox": [
+        162.51,
+        559.89,
+        176.9,
+        577.67
+      ],
+      "type": "paragraph",
+      "text": "n X",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000221",
+      "page": 8,
+      "bbox": [
+        110.26,
+        563.27,
+        159.15,
+        580.73
+      ],
+      "type": "paragraph",
+      "text": "ˆ R S ( θ ) := 1",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000222",
+      "page": 8,
+      "bbox": [
+        153.67,
+        576.85,
+        159.65,
+        586.81
+      ],
+      "type": "paragraph",
+      "text": "n",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000225",
+      "page": 8,
+      "bbox": [
+        50.11,
+        600.53,
+        209.77,
+        610.86
+      ],
+      "type": "paragraph",
+      "text": "where ℓ ( · ) is the loss function such that,",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000226",
+      "page": 8,
+      "bbox": [
+        60.07,
+        621.92,
+        286.36,
+        633.51
+      ],
+      "type": "formula",
+      "text": "ℓ ( θ, I i , y i ) = - ( y i log(ˆ y i ) + (1 - y i ) log(1 - ˆ y i )) , (2)",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000227",
+      "page": 8,
+      "bbox": [
+        50.11,
+        643.31,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "where ˆ y i is the score from the predictive function f θ : I i → [0 , 1] associated with θ . However, such training approaches are highly susceptible to overfitting [ 32 , 49 , 66 ]. Therefore, many endeavors have been made to improve generalizability using additional features [ 22 , 75 ]. In light of these studies, our method employs a novel regularization",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000228",
+      "page": 8,
+      "bbox": [
+        333.94,
+        76.82,
+        492.03,
+        83.8
+      ],
+      "type": "paragraph",
+      "text": "Method Train Test Subset",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000229",
+      "page": 8,
+      "bbox": [
+        333.94,
+        88.55,
+        516.26,
+        95.53
+      ],
+      "type": "paragraph",
+      "text": "Backone +EGR Subset T2I I2I FS FE",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000230",
+      "page": 8,
+      "bbox": [
+        333.94,
+        100.17,
+        388.16,
+        107.4
+      ],
+      "type": "paragraph",
+      "text": "Xception ×",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000232",
+      "page": 8,
+      "bbox": [
+        333.94,
+        100.42,
+        520.03,
+        165.98
+      ],
+      "type": "paragraph",
+      "text": "93.32 86.85 34.65 23.28 Xception ✓ 95.57 89.48 43.74 55.50 F 3 -Net × 99.60 88.50 45.07 71.06 F 3 -Net ✓ 99.64 93.30 56.34 79.89 EfficientNet × 99.89 89.72 21.49 49.63 EfficientNet ✓ 99.93 97.89 40.86 52.36 DIRE × 95.04 84.07 35.15 50.86 DIRE ✓ 99.79 99.76 43.59 66.41",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000231",
+      "page": 8,
+      "bbox": [
+        407.3,
+        129.71,
+        417.37,
+        136.69
+      ],
+      "type": "paragraph",
+      "text": "T2I",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000233",
+      "page": 8,
+      "bbox": [
+        333.94,
+        170.62,
+        388.16,
+        177.85
+      ],
+      "type": "paragraph",
+      "text": "Xception ×",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000235",
+      "page": 8,
+      "bbox": [
+        333.94,
+        170.87,
+        520.03,
+        236.43
+      ],
+      "type": "paragraph",
+      "text": "87.82 98.92 36.82 33.39 Xception ✓ 99.00 99.94 49.73 33.81 F 3 -Net × 87.23 99.50 40.62 46.19 F 3 -Net ✓ 96.85 99.70 48.69 47.66 EfficientNet × 84.39 99.80 19.47 27.46 EfficientNet ✓ 99.77 99.99 56.69 61.04 DIRE × 86.20 99.88 41.51 42.01 DIRE ✓ 97.65 99.99 51.84 58.68",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000234",
+      "page": 8,
+      "bbox": [
+        408.27,
+        200.16,
+        416.4,
+        207.14
+      ],
+      "type": "paragraph",
+      "text": "I2I",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000236",
+      "page": 8,
+      "bbox": [
+        333.94,
+        241.07,
+        388.16,
+        248.3
+      ],
+      "type": "paragraph",
+      "text": "Xception ×",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000238",
+      "page": 8,
+      "bbox": [
+        333.94,
+        241.32,
+        520.03,
+        306.88
+      ],
+      "type": "paragraph",
+      "text": "23.17 24.47 99.95 10.17 Xception ✓ 67.41 55.92 99.98 46.01 F 3 -Net × 35.43 30.39 99.98 20.79 F 3 -Net ✓ 63.51 63.75 99.99 31.14 EfficientNet × 16.88 22.17 99.87 10.21 EfficientNet ✓ 64.16 67.92 99.99 22.01 DIRE × 16.08 36.27 99.09 32.68 DIRE ✓ 66.21 70.91 99.99 35.45",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000237",
+      "page": 8,
+      "bbox": [
+        408.45,
+        270.61,
+        416.21,
+        277.59
+      ],
+      "type": "paragraph",
+      "text": "FS",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000239",
+      "page": 8,
+      "bbox": [
+        333.94,
+        311.52,
+        388.16,
+        318.75
+      ],
+      "type": "paragraph",
+      "text": "Xception ×",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000241",
+      "page": 8,
+      "bbox": [
+        333.94,
+        311.77,
+        520.03,
+        377.33
+      ],
+      "type": "paragraph",
+      "text": "80.84 79.12 70.81 99.95 Xception ✓ 94.15 84.04 73.09 99.99 F 3 -Net × 82.32 76.92 56.27 99.60 F 3 -Net ✓ 97.91 93.46 79.33 99.61 EfficientNet × 80.41 63.06 66.62 99.24 EfficientNet ✓ 96.50 89.97 73.28 99.99 DIRE × 56.70 59.22 43.78 99.87 DIRE ✓ 81.40 76.40 74.23 99.99",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000240",
+      "page": 8,
+      "bbox": [
+        408.26,
+        341.06,
+        416.4,
+        348.04
+      ],
+      "type": "paragraph",
+      "text": "FE",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000242",
+      "page": 8,
+      "bbox": [
+        308.86,
+        392.49,
+        545.11,
+        434.33
+      ],
+      "type": "caption",
+      "text": "Table 9. Model performance (%) with and without our edge graph regularization (EGR) method. Each row represents the performance of the model trained on a specific subset and tested on all four DiFF subsets. Better results are highlighted in bold.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000243",
+      "page": 8,
+      "bbox": [
+        308.86,
+        450.62,
+        545.12,
+        508.41
+      ],
+      "type": "paragraph",
+      "text": "method, which incorporates edge graphs as a regularization term into the original empirical risk. This strategy encourages the model to simultaneously focus on the features of both the original and edge graphs, thereby mitigating overfitting. Specifically, we refine the empirical risk as follows:",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000246",
+      "page": 8,
+      "bbox": [
+        439.53,
+        517.43,
+        453.92,
+        535.21
+      ],
+      "type": "paragraph",
+      "text": "n X",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000244",
+      "page": 8,
+      "bbox": [
+        343.13,
+        520.8,
+        436.17,
+        538.26
+      ],
+      "type": "formula",
+      "text": "R S ( θ ) := ˆ R S ( θ ) + λ 1",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000247",
+      "page": 8,
+      "bbox": [
+        440.27,
+        527.54,
+        545.11,
+        548.61
+      ],
+      "type": "paragraph",
+      "text": "i =1 ( ℓ ( θ, E i , y i )) , (3)",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000245",
+      "page": 8,
+      "bbox": [
+        430.69,
+        534.38,
+        436.67,
+        544.34
+      ],
+      "type": "paragraph",
+      "text": "n",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000248",
+      "page": 8,
+      "bbox": [
+        308.86,
+        557.85,
+        545.11,
+        591.96
+      ],
+      "type": "paragraph",
+      "text": "where E i represents the edge graph of the i -th image, and λ ∈ [0 , 1] is a regularization parameter that calibrates the influence of edge graphs.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000224",
+      "page": 8,
+      "bbox": [
+        163.25,
+        570.01,
+        286.36,
+        591.08
+      ],
+      "type": "paragraph",
+      "text": "i =1 ℓ ( θ, I i , y i ) , (1)",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000249",
+      "page": 8,
+      "bbox": [
+        308.86,
+        600.97,
+        417.44,
+        611.93
+      ],
+      "type": "paragraph",
+      "text": "5.3. Evaluation of EGR",
+      "is_noise": false,
+      "font_size": 10.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000250",
+      "page": 8,
+      "bbox": [
+        308.86,
+        619.67,
+        545.12,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "Main results. In Table 9 , we compared the performance of baseline detectors and our method. Each model is trained on one forgery condition and subsequently evaluated on all four conditions. From the table, one can observe that our EGR method significantly improves the generalizability of the baseline detectors. It is worth noting that even when a model is trained and tested in the same subset, EGR still contributes to performance enhancement, such as improv-",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000252",
+      "page": 9,
+      "bbox": [
+        97.08,
+        180.72,
+        498.15,
+        189.69
+      ],
+      "type": "caption",
+      "text": "Figure 8. Edge graphs of pristine images (first row) and non-cherry-picked forged facial images (last two rows).",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000251",
+      "page": 9,
+      "bbox": [
+        95.77,
+        80.42,
+        103.45,
+        148.47
+      ],
+      "type": "paragraph",
+      "text": "Pristine Forgery",
+      "is_noise": false,
+      "font_size": 6.29,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000253",
+      "page": 9,
+      "bbox": [
+        58.58,
+        205.59,
+        206.46,
+        216.75
+      ],
+      "type": "paragraph",
+      "text": "Method Test Subset",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000255",
+      "page": 9,
+      "bbox": [
+        58.58,
+        229.13,
+        277.9,
+        244.53
+      ],
+      "type": "formula",
+      "text": "Xception 95.57 89.48 43.74 55.50 w/o regu. 95.54( -0.03 ) 88.91( -0.57 ) 43.31 ( -0.43 ) 53.21 ( -2.29 )",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000256",
+      "page": 9,
+      "bbox": [
+        58.58,
+        248.37,
+        279.64,
+        264.77
+      ],
+      "type": "formula",
+      "text": "F 3 -Net 99.64 93.30 56.34 79.89 w/o regu. 97.83( -1.81 ) 93.02( -0.28 ) 51.50 ( -4.84 ) 64.80 ( -15.09 )",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000257",
+      "page": 9,
+      "bbox": [
+        58.58,
+        269.61,
+        277.02,
+        285.01
+      ],
+      "type": "formula",
+      "text": "EfficientNet 99.93 97.89 40.86 52.36 w/o regu. 98.97 ( -0.96 ) 96.34 ( -1.55 ) 26.09( -14.77 ) 49.82( -2.54 )",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000258",
+      "page": 9,
+      "bbox": [
+        58.58,
+        289.84,
+        277.9,
+        305.25
+      ],
+      "type": "formula",
+      "text": "DIRE 99.79 99.76 43.59 66.41 w/o regu. 99.78( -0.01 ) 99.70 ( -0.06 ) 32.36 ( -11.23 ) 61.61 ( -4.80 )",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "formula_like",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000259",
+      "page": 9,
+      "bbox": [
+        50.11,
+        320.41,
+        286.36,
+        340.34
+      ],
+      "type": "caption",
+      "text": "Table 10. AUC (%) comparison of detectors with the removal of the regularization approaches. All models are trained on T2I.",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "caption",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000260",
+      "page": 9,
+      "bbox": [
+        50.11,
+        361.03,
+        286.37,
+        514.57
+      ],
+      "type": "paragraph",
+      "text": "ing Xception with 2.2% AUC on T2I. Ablation study. To evaluate the impact of the proposed EGR method, we conducted experiments using edge graphs as the only input. In other words, we removed the ˆ R S ( θ ) in Equation ( 3 ), and optimized the model with E i . The results of these tests are presented in Table 10 . We can observe a significant decline in detector performance upon removing the regularization approach. For instance, in the FE subset, the AUC of F 3 -Net drops by 15%. The dominant reason is that relying solely on edge graphs overlooks vital information in original images, such as color and texture. On the other hand, incorporating the EGR enables models to capture a more broad context, leading to better performance.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000261",
+      "page": 9,
+      "bbox": [
+        50.11,
+        527.25,
+        198.26,
+        539.2
+      ],
+      "type": "heading",
+      "text": "6. Discussion and Conclusion",
+      "level": 3,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000262",
+      "page": 9,
+      "bbox": [
+        50.11,
+        547.91,
+        286.37,
+        713.41
+      ],
+      "type": "paragraph",
+      "text": "We propose DiFF, a large-scale, high-quality diffusiongenerated facial forgery dataset, to address limitations of existing datasets that underestimate the risks associated with facial forgeries. Our dataset comprises over 500,000 facial images. Each image maintains high semantic consistency with its original counterpart, guided by diverse prompts. We conduct extensive experiments using DiFF and establish a facial forgery detection benchmark. Moreover, we design an edge graph regularization method that effectively improves detector performance. In the future, we plan to further expand DiFF in terms of methods and conditions and explore new tasks based on DiFF, such as the traceability and retrieval of diffusion-generated images. Potential Ethical Considerations. The pristine faces in our",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000263",
+      "page": 9,
+      "bbox": [
+        308.86,
+        203.18,
+        545.12,
+        272.92
+      ],
+      "type": "paragraph",
+      "text": "dataset are sourced from publicly accessible celebrity online videos. We have rigorously reviewed all prompts to ensure that they do not describe specific biometric details. Each generated image has been carefully examined to align with societal values. We will try our best to control the acquisition procedure of DiFF to mitigate potential misuse.",
+      "is_noise": false,
+      "font_size": 9.96,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000254",
+      "page": 9,
+      "bbox": [
+        114.55,
+        217.32,
+        263.66,
+        224.3
+      ],
+      "type": "paragraph",
+      "text": "T2I I2I FS FE",
+      "is_noise": false,
+      "font_size": 6.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000264",
+      "page": 10,
+      "bbox": [
+        50.11,
+        72.79,
+        105.66,
+        84.74
+      ],
+      "type": "heading",
+      "text": "References",
+      "level": 2,
+      "is_noise": false,
+      "font_size": 11.96,
+      "source": "pdf",
+      "role": "section_heading",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000265",
+      "page": 10,
+      "bbox": [
+        50.11,
+        93.1,
+        286.36,
+        713.17
+      ],
+      "type": "paragraph",
+      "text": "[1] Omri Avrahami, Dani Lischinski, and Ohad Fried. Blended diffusion for text-driven editing of natural images. In CVPR , pages 18187-18197, 2022. 2 [2] Yeqi Bai, Tao Ma, Lipo Wang, and Zhenjie Zhang. Speech fusion to face: Bridging the gap between human’s vocal characteristics and facial imaging. In ACM MM , pages 2042- 2050, 2022. 4 [3] Fan Bao, Chongxuan Li, Jun Zhu, and Bo Zhang. Analyticdpm: an analytic estimate of the optimal reverse variance in diffusion probabilistic models. In ICLR , pages 1-12, 2022. 2 [4] Sam Bond-Taylor, Peter Hessey, Hiroshi Sasaki, Toby P. Breckon, and Chris G. Willcocks. Unleashing transformers: Parallel token prediction with discrete absorbing diffusion for fast high-resolution image generation from vectorquantized codes. In ECCV , pages 170-188, 2022. 2 [5] Ali Borji. Generated faces in the wild: Quantitative comparison of stable diffusion, midjourney and DALL-E 2. CoRR , pages 1-4, 2022. 2 , 3 , 6 [6] Liang Chen, Yong Zhang, Yibing Song, Lingqiao Liu, and Jue Wang. Self-supervised learning of adversarial example: Towards good generalizations for deepfake detection. In CVPR , pages 18689-18698, 2022. 3 [7] Wenhu Chen, Hexiang Hu, Chitwan Saharia, and William W. Cohen. Re-imagen: Retrieval-augmented text-to-image generator. In ICLR , pages 1-9, 2023. 2 [8] Joon Son Chung, Arsha Nagrani, and Andrew Zisserman. Voxceleb2: Deep speaker recognition. In Interspeech , pages 1086-1090, 2018. 4 [9] Riccardo Corvi, Davide Cozzolino, Giada Zingarini, Giovanni Poggi, Koki Nagano, and Luisa Verdoliva. On the detection of synthetic images generated by diffusion models. In ICASSP , pages 1-5, 2023. 2 , 3 [10] Florinel-Alin Croitoru, Vlad Hondru, Radu Tudor Ionescu, and Mubarak Shah. Reverse stable diffusion: What prompt was used to generate this image? CoRR , pages 1-13, 2023. 4 [11] Florinel-Alin Croitoru, Vlad Hondru, Radu Tudor Ionescu, and Mubarak Shah. Diffusion models in vision: A survey. IEEE TPAMI , 45(9):10850-10869, 2023. 4 [12] Prafulla Dhariwal and Alexander Quinn Nichol. Diffusion models beat gans on image synthesis. In NeurIPS , pages 8780-8794, 2021. 2 [13] Brian Dolhansky, Joanna Bitton, Ben Pflaum, Jikuo Lu, Russ Howes, Menglin Wang, and Cristian Canton-Ferrer. The deepfake detection challenge dataset. CoRR , pages 1-13, 2020. 6 [14] Joel Frank, Thorsten Eisenhofer, Lea Sch¨onherr, Asja Fischer, Dorothea Kolossa, and Thorsten Holz. Leveraging frequency analysis for deep fake image recognition. In ICML , pages 3247-3258, 2020. 3 [15] Shuyang Gu, Dong Chen, Jianmin Bao, Fang Wen, Bo Zhang, Dongdong Chen, Lu Yuan, and Baining Guo. Vector quantized diffusion model for text-to-image synthesis. In CVPR , pages 10686-10696, 2022. 2",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000266",
+      "page": 10,
+      "bbox": [
+        308.86,
+        75.16,
+        545.11,
+        713.16
+      ],
+      "type": "paragraph",
+      "text": "[16] Xiao Guo, Xiaohong Liu, Zhiyuan Ren, Steven Grosz, Iacopo Masi, and Xiaoming Liu. Hierarchical fine-grained image forgery detection and localization. In CVPR , pages 3155-3165, 2023. 3 [17] Alexandros Haliassos, Rodrigo Mira, Stavros Petridis, and Maja Pantic. Leveraging real talking faces via selfsupervision for robust forgery detection. In CVPR , pages 14930-14942, 2022. 3 [18] Yinan He, Bei Gan, Siyu Chen, Yichun Zhou, Guojun Yin, Luchuan Song, Lu Sheng, Jing Shao, and Ziwei Liu. Forgerynet: A versatile benchmark for comprehensive forgery analysis. In CVPR , pages 4360-4369, 2021. 6 [19] Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. In NeurIPS , pages 1-12, 2020. 2 [20] Jonathan Ho, Chitwan Saharia, William Chan, David J. Fleet, Mohammad Norouzi, and Tim Salimans. Cascaded diffusion models for high fidelity image generation. JMLR , 23:47:1- 47:33, 2022. 2 [21] Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan AllenZhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models. In ICLR , pages 1-13, 2022. 4 , 5 [22] Baojin Huang, Zhongyuan Wang, Jifan Yang, Jiaxin Ai, Qin Zou, Qian Wang, and Dengpan Ye. Implicit identity driven deepfake face swapping detection. In CVPR , pages 4490- 4499, 2023. 3 , 8 [23] Ziqi Huang, Kelvin C. K. Chan, Yuming Jiang, and Ziwei Liu. Collaborative diffusion for multi-modal face generation and editing. In CVPR , pages 6080-6090, 2023. 2 , 4 , 5 [24] Minyoung Huh, Andrew Liu, Andrew Owens, and Alexei A. Efros. Fighting fake news: Image splice detection via learned self-consistency. In ECCV , pages 106-124, 2018. 3 [25] Yuming Jiang, Shuai Yang, Haonan Qiu, Wayne Wu, Chen Change Loy, and Ziwei Liu. Text2human: text-driven controllable human image generation. ACM Transactions on Graphics , 41(4):162:1-162:11, 2022. 2 [26] Bahjat Kawar, Shiran Zada, Oran Lang, Omer Tov, Huiwen Chang, Tali Dekel, Inbar Mosseri, and Michal Irani. Imagic: Text-based real image editing with diffusion models. In CVPR , pages 6007-6017, 2023. 2 , 3 , 4 , 5 [27] Kihong Kim, Yunho Kim, Seokju Cho, Junyoung Seo, Jisu Nam, Kychul Lee, Seungryong Kim, and KwangHee Lee. Diffface: Diffusion-based face swapping with facial guidance. CoRR , pages 1-11, 2022. 4 , 5 [28] Minchul Kim, Feng Liu, Anil K. Jain, and Xiaoming Liu. Dcface: Synthetic face generation with dual condition diffusion model. In CVPR , pages 12715-12725, 2023. 3 , 4 , 5 [29] Max W. Y. Lam, Jun Wang, Dan Su, and Dong Yu. BDDM: bilateral denoising diffusion models for fast and high-quality speech synthesis. In ICLR , pages 1-12, 2022. 2 [30] Cheng-Han Lee, Ziwei Liu, Lingyun Wu, and Ping Luo. Maskgan: Towards diverse and interactive facial image manipulation. In CVPR , pages 5548-5557, 2020. 4",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000267",
+      "page": 11,
+      "bbox": [
+        50.11,
+        75.16,
+        286.37,
+        713.17
+      ],
+      "type": "paragraph",
+      "text": "[31] Haodong Li, Weiqi Luo, and Jiwu Huang. Localization of diffusion-based inpainting in digital images. IEEE TIFS , 12 (12):3050-3064, 2017. 3 [32] Lingzhi Li, Jianmin Bao, Ting Zhang, Hao Yang, Dong Chen, Fang Wen, and Baining Guo. Face x-ray for more general face forgery detection. In CVPR , pages 5000-5009, 2020. 6 , 8 [33] Yixuan Li, Chao Ma, Yichao Yan, Wenhan Zhu, and Xiaokang Yang. 3d-aware face swapping. In CVPR , pages 12705-12714, 2023. 3 [34] Luping Liu, Yi Ren, Zhijie Lin, and Zhou Zhao. Pseudo numerical methods for diffusion models on manifolds. In ICLR , pages 1-11, 2022. 2 [35] Yaqi Liu, Chao Xia, Xiaobin Zhu, and Shengwei Xu. Twostage copy-move forgery detection with self deep matching and proposal superglue. IEEE TIP , 31:541-555, 2022. 3 [36] Andreas Lugmayr, Martin Danelljan, Andr´es Romero, Fisher Yu, Radu Timofte, and Luc Van Gool. Repaint: Inpainting using denoising diffusion probabilistic models. In CVPR , pages 11451-11461, 2022. 3 [37] Iacopo Masi, Aditya Killekar, Royston Marian Mascarenhas, Shenoy Pratik Gurudatt, and Wael AbdAlmageed. Twobranch recurrent network for isolating deepfakes in videos. In ECCV , pages 667-684, 2020. 3 [38] Midjourney. https://www.midjourney.com, 2022. 4 , 5 [39] Shivansh Mundra, Gonzalo J. Aniano Porcile, Smit Marvaniya, James R. Verbus, and Hany Farid. Exposing gangenerated profile photos from compact embeddings. In CVPRW , pages 884-892, 2023. 2 , 3 [40] Alexander Quinn Nichol and Prafulla Dhariwal. Improved denoising diffusion probabilistic models. In ICML , pages 8162-8171, 2021. 2 [41] Nikita Pavlichenko and Dmitry Ustalov. Best prompts for text-to-image models and how to find them. In SIGIR , pages 2067-2071, 2023. 4 [42] Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas M¨uller, Joe Penna, and Robin Rombach. SDXL: improving latent diffusion models for high-resolution image synthesis. CoRR , pages 1-21, 2023. 3 , 4 , 5 [43] Yuyang Qian, Guojun Yin, Lu Sheng, Zixuan Chen, and Jing Shao. Thinking in frequency: Face forgery detection by mining frequency-aware clues. In ECCV , pages 86-103, 2020. 2 , 6 [44] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision. In ICML , pages 8748-8763, 2021. 3 [45] Aditya Ramesh, Mikhail Pavlov, Gabriel Goh, Scott Gray, Chelsea Voss, Alec Radford, Mark Chen, and Ilya Sutskever. Zero-shot text-to-image generation. In ICML , pages 8821- 8831, 2021. 3 [46] Jonas Ricker, Simon Damm, Thorsten Holz, and Asja Fischer. Towards the detection of diffusion model deepfakes. CoRR , pages 1-11, 2022. 2 , 3 , 8",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000268",
+      "page": 11,
+      "bbox": [
+        308.86,
+        75.16,
+        545.11,
+        713.17
+      ],
+      "type": "paragraph",
+      "text": "[47] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bj¨orn Ommer. High-resolution image synthesis with latent diffusion models. In CVPR , pages 10674- 10685, 2022. 2 [48] Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bj¨orn Ommer. High-resolution image synthesis with latent diffusion models. In CVPR , pages 10674- 10685. IEEE, 2022. 2 , 3 , 5 [49] Andreas R¨ossler, Davide Cozzolino, Luisa Verdoliva, Christian Riess, Justus Thies, and Matthias Nießner. Faceforensics++: Learning to detect manipulated facial images. In ICCV , pages 1-11, 2019. 2 , 5 , 6 , 8 [50] Ludan Ruan, Yiyang Ma, Huan Yang, Huiguo He, Bei Liu, Jianlong Fu, Nicholas Jing Yuan, Qin Jin, and Baining Guo. Mm-diffusion: Learning multi-modal diffusion models for joint audio and video generation. In CVPR , pages 10219- 10228, 2023. 2 [51] Nataniel Ruiz, Yuanzhen Li, Varun Jampani, Yael Pritch, Michael Rubinstein, and Kfir Aberman. Dreambooth: Fine tuning text-to-image diffusion models for subject-driven generation. In CVPR , pages 22500-22510, 2023. 2 , 4 , 5 [52] Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily L. Denton, Seyed Kamyar Seyed Ghasemipour, Raphael Gontijo Lopes, Burcu Karagol Ayan, Tim Salimans, Jonathan Ho, David J. Fleet, and Mohammad Norouzi. Photorealistic text-to-image diffusion models with deep language understanding. In NeurIPS , pages 1-15, 2022. 3 [53] Zeyang Sha, Zheng Li, Ning Yu, and Yang Zhang. DEFAKE: detection and attribution of fake images generated by text-to-image diffusion models. CoRR , pages 1-14, 2022. 2 , 3 [54] Abhishek Sinha, Jiaming Song, Chenlin Meng, and Stefano Ermon. D2C: diffusion-decoding models for few-shot conditional generation. In NeurIPS , pages 12533-12548, 2021. 2 [55] Jascha Sohl-Dickstein, Eric A. Weiss, Niru Maheswaranathan, and Surya Ganguli. Deep unsupervised learning using nonequilibrium thermodynamics. In ICML , pages 2256-2265, 2015. 2 [56] Jiaming Song, Chenlin Meng, and Stefano Ermon. Denoising diffusion implicit models. In ICLR , pages 1-12, 2021. 2 [57] Andreas St¨ockl. Evaluating a synthetic image dataset generated with stable diffusion. CoRR , pages 1-13, 2022. 2 , 3 [58] Mingxing Tan and Quoc V. Le. Efficientnet: Rethinking model scaling for convolutional neural networks. In ICML , pages 6105-6114, 2019. 2 , 6 [59] O Rebecca Vincent, Olusegun Folorunso, et al. A descriptive algorithm for sobel image edge detection. In InSITE , pages 97-107, 2009. 8 [60] Jingtian Wang, Xiaolong Li, and Yao Zhao. A novel face forgery detection method based on edge details and reusednetwork. In ICCSNT , pages 100-104, 2021. 3 , 8 [61] Sheng-Yu Wang, Oliver Wang, Richard Zhang, Andrew Owens, and Alexei A. Efros. Cnn-generated images are sur-",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    },
+    {
+      "block_id": "blk_000269",
+      "page": 12,
+      "bbox": [
+        50.11,
+        75.0,
+        286.37,
+        713.17
+      ],
+      "type": "paragraph",
+      "text": "prisingly easy to spot... for now. In CVPR , pages 8692-8701, 2020. 3 [62] Yuan Wang, Kun Yu, Chen Chen, Xiyuan Hu, and Silong Peng. Dynamic graph learning with content-guided spatialfrequency relation reasoning for deepfake detection. In CVPR , pages 7278-7287, 2023. 3 [63] Zhendong Wang, Jianmin Bao, Wengang Zhou, Weilun Wang, Hezhen Hu, Hong Chen, and Houqiang Li. DIRE for diffusion-generated image detection. In ICCV , pages 22445- 22455, 2023. 2 , 3 , 6 [64] Zhendong Wang, Jianmin Bao, Wengang Zhou, Weilun Wang, and Houqiang Li. Altfreezing for more general video face forgery detection. In CVPR , pages 4129-4138, 2023. 3 [65] Chen Henry Wu and Fernando De la Torre. A latent space of stochastic diffusion models for zero-shot image editing and guidance. In ICCV , pages 7378-7387, 2023. 4 , 5 [66] Xi Wu, Zhen Xie, YuTao Gao, and Yu Xiao. Sstnet: Detecting manipulated faces through spatial, steganalysis and temporal features. In ICASSP , pages 2952-2956, 2020. 8 [67] Xiaoshi Wu, Keqiang Sun, Feng Zhu, Rui Zhao, and Hongsheng Li. Better aligning text-to-image models with human preference. In ICCV , pages 2096-2105, 2023. 4 , 5 [68] Zhisheng Xiao, Karsten Kreis, and Arash Vahdat. Tackling the generative learning trilemma with denoising diffusion gans. In ICLR , pages 1-15, 2022. 2 [69] Zhengyuan Yang, Jianfeng Wang, Zhe Gan, Linjie Li, Kevin Lin, Chenfei Wu, Nan Duan, Zicheng Liu, Ce Liu, Michael Zeng, and Lijuan Wang. Reco: Region-controlled text-toimage generation. In CVPR , pages 14246-14255, 2023. 2 [70] Fisher Yu, Yinda Zhang, Shuran Song, Ari Seff, and Jianxiong Xiao. LSUN: construction of a large-scale image dataset using deep learning with humans in the loop. CoRR , pages 1-9, 2015. 2 [71] Jiwen Yu, Yinhuai Wang, Chen Zhao, Bernard Ghanem, and Jian Zhang. Freedom: Training-free energy-guided conditional diffusion model. ICCV , pages 23174-23184, 2023. 2 , 4 , 5 [72] Guanhua Zhang, Jiabao Ji, Yang Zhang, Mo Yu, Tommi S. Jaakkola, and Shiyu Chang. Towards coherent image inpainting using denoising diffusion implicit models. In ICML , pages 41164-41193, 2023. 2 [73] Qinsheng Zhang and Yongxin Chen. Fast sampling of diffusion models with exponential integrator. In ICLR , pages 1-12, 2023. 2 [74] Min Zhao, Fan Bao, Chongxuan Li, and Jun Zhu. EGSDE: unpaired image-to-image translation via energyguided stochastic differential equations. In NeurIPS , pages 1-14, 2022. 3 [75] Yipin Zhou and Ser-Nam Lim. Joint audio-visual deepfake detection. In ICCV , pages 14800-14809, 2021. 8 [76] Jiren Zhu, Russell Kaplan, Justin Johnson, and Li Fei-Fei. Hidden: Hiding data with deep networks. In ECCV , pages 682-697, 2018. 8 [77] Mingjian Zhu, Hanting Chen, Qiangyu Yan, Xudong Huang, Guanyu Lin, Wei Li, Zhijun Tu, Hailin Hu, Jie Hu, and Yunhe Wang. Genimage: A million-scale benchmark for detecting ai-generated image. CoRR , pages 1-11, 2023. 3",
+      "is_noise": false,
+      "font_size": 8.97,
+      "source": "pdf",
+      "role": "body",
+      "render_as_image": false
+    }
+  ],
+  "metadata": {
+    "parser": "pymupdf",
+    "block_count": 269
+  }
+}
