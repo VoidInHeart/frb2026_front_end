@@ -42,7 +42,7 @@ const renderedHtml = computed(() =>
 }
 
 .markdown-preview {
-  padding: 4px 6px 20px 0;
+  padding: 0 6px 0 0;
   font-size: 16px;
   line-height: 1.75;
 }

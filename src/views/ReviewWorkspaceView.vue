@@ -240,13 +240,14 @@ onMounted(async () => {
             :transmission-status="reviewSession.transmissionStatus"
             :review-loading="reviewLoading"
           />
-
-          <RecommendationList
-            :recommendations="recommendations"
-            :loading="recommendationLoading"
-            @select="openRecommendation"
-          />
         </section>
+
+        <RecommendationList
+          class="recommendation-row"
+          :recommendations="recommendations"
+          :loading="recommendationLoading"
+          @select="openRecommendation"
+        />
       </div>
     </section>
   </section>
@@ -277,7 +278,17 @@ onMounted(async () => {
 .meta-row {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 10px;
+}
+
+.meta-row .pill {
+  min-width: 320px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .error-banner {
@@ -291,8 +302,11 @@ onMounted(async () => {
 .workspace-columns {
   display: grid;
   grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
+  grid-template-areas:
+    "paper review"
+    "recommendation recommendation";
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .left-column,
@@ -301,9 +315,11 @@ onMounted(async () => {
 }
 
 .left-column {
+  grid-area: paper;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
-  min-height: calc(100vh - 190px);
+  height: 100%;
 }
 
 .column-head {
@@ -325,14 +341,22 @@ onMounted(async () => {
 }
 
 .article-scroll {
+  height: 100%;
+  min-height: 1000px;
   max-height: calc(100vh - 340px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 6px;
 }
 
 .right-column {
+  grid-area: review;
   display: grid;
   gap: 18px;
+}
+
+.recommendation-row {
+  grid-area: recommendation;
 }
 
 .action-bar {
@@ -343,14 +367,18 @@ onMounted(async () => {
 @media (max-width: 1180px) {
   .workspace-columns {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "paper"
+      "review"
+      "recommendation";
   }
 
   .left-column {
-    min-height: auto;
+    height: auto;
   }
 
   .article-scroll {
-    max-height: none;
+    max-height: 65vh;
   }
 }
 
