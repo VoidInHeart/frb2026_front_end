@@ -11,7 +11,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Paper parser CLI")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    convert_parser = subparsers.add_parser("convert", help="Convert PDF to Markdown and IR")
+    convert_parser = subparsers.add_parser(
+        "convert",
+        help="Convert PDF to a paper_bundle with anchor-list outputs",
+    )
     convert_parser.add_argument("pdf", type=Path, help="Path to input PDF")
     convert_parser.add_argument("--output-dir", type=Path, default=Path("outputs"))
 
@@ -30,8 +33,8 @@ def main() -> None:
     pipeline = ReviewPipeline()
     result = pipeline.convert_pdf(args.pdf, args.output_dir)
     print(f"Markdown written to: {result['markdown_path']}")
-    print(f"Document IR written to: {result['document_ir_path']}")
-    print(f"Evidence IR written to: {result['evidence_ir_path']}")
+    print(f"Paper meta written to: {result['paper_meta_path']}")
+    print(f"Bundle directory: {result['bundle_dir']}")
 
 
 if __name__ == "__main__":

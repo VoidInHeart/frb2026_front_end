@@ -28,8 +28,8 @@ defineProps({
       >
         {{
           transmissionStatus?.success
-            ? "document_ir.json 已发送"
-            : "等待传输 document_ir.json"
+            ? "paper_meta.json 已发送"
+            : "等待传输 paper_meta.json"
         }}
       </span>
     </div>

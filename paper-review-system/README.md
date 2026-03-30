@@ -1,14 +1,26 @@
 # Paper Parser Service
 
-这个目录现在只保留论文解析相关功能，不再包含评审报告、推荐、规则扫描等模块。
+这个目录现在只保留论文解析能力，不再包含评审报告、推荐、规则扫描等模块。
 
-## 保留能力
+## 输出格式
 
-- PDF -> `document_ir.json`
-- PDF -> `evidence_ir.json`
-- PDF -> `paper.md`
-- 自动抽取图片并在 Markdown 中插入图片链接
-- 本地 HTTP 解析接口
+解析结果会写入 `paper_bundle/`，结构如下：
+
+```text
+paper_bundle/
+├─ paper.md
+├─ paper_meta.json
+└─ assets/
+   ├─ figures/
+   └─ tables/
+```
+
+其中：
+
+- `paper.md` 用于阅读和证据引用，包含页码标记与锚点列表
+- `paper_meta.json` 是结构化 sidecar，供前端和后续服务读取
+- `assets/figures` 保存图像导出结果
+- `assets/tables` 保存表格 CSV 与截图
 
 ## 启动方式
 
@@ -48,8 +60,11 @@ paper-review-api
 - `paperName`
 - `paperMarkdown`
 - `paperAssetBase`
-- `documentIr`
-- `artifacts`
+- `paperMeta`
+- `artifacts.markdownPath`
+- `artifacts.paperMetaPath`
+- `artifacts.bundleDir`
+- `artifacts.outputDir`
 
 ## CLI
 

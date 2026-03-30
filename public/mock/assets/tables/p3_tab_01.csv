@@ -1,0 +1,11 @@
+﻿Dataset,Venue,Type,#Synthetic Images,#Diffusion Methods,T2I,I2I,FS,FE,Real Images,Prompts,Source Labels
+St¨ockl et al. [57],Arxiv’22,General,260K,1,✓,×,×,×,✓,×,Nouns of WordNet
+De-Fake [53],Arxiv’22,General,40K,2,✓,✓,×,×,✓,✓,Captions of the image dataset
+Ricker et al. [46],Arxiv’22,General,70K,7,×,×,×,×,×,×,Unconditional generation
+TEdBench [26],CVPR’23,General,0.1K,1,×,×,×,✓,✓,✓,100 handwritten prompts for editing
+DiffusionForensics [63],ICCV’23,General,80K,8,✓,×,×,×,✓,×,1 pre-defined template
+DMDetection [9],ICASSP’23,General,200K,3,✓,×,×,×,✓,✓,Captions of the image dataset
+GenImage [77],NeurIPS’23,General,"1,300K",5,✓,×,×,×,✓,×,1 pre-defined template
+GFW [5],Arxiv’22,Facial,15K,3,✓,×,×,×,×,×,Captions of the image dataset
+Mundra et al. [39],CVPRW’23,Facial,1.5K,1,✓,×,×,×,×,×,10 pre-defined templates
+DiFF (Ours),-,Facial,500K,13,✓,✓,✓,✓,✓,✓,30K+ filtered high-quality prompts

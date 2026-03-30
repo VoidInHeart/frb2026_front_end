@@ -45,7 +45,9 @@ class TableStructureRestorer:
 
         pdf = fitz.open(str(path.resolve()))
         candidates: list[TableCandidate] = []
+        page_words_by_page: dict[int, list[tuple[float, float, float, float, str, int, int, int]]] = {}
         for page_number, page in enumerate(pdf, start=1):
+            page_words_by_page[page_number] = list(page.get_text("words"))
             try:
                 detected_tables = page.find_tables().tables
             except Exception:
@@ -65,7 +67,7 @@ class TableStructureRestorer:
         pdf.close()
 
         merged_candidates = self._merge_candidates(candidates)
-        merged_candidates = self._recover_textual_tables(page_to_blocks, merged_candidates)
+        merged_candidates = self._recover_textual_tables(page_to_blocks, merged_candidates, page_words_by_page)
         self._bind_captions(merged_candidates, page_to_blocks)
 
         generated_tables: list[PaperBlock] = []
@@ -196,6 +198,7 @@ class TableStructureRestorer:
         self,
         page_to_blocks: dict[int, list[PaperBlock]],
         candidates: list[TableCandidate],
+        page_words_by_page: dict[int, list[tuple[float, float, float, float, str, int, int, int]]],
     ) -> list[TableCandidate]:
         recovered = list(candidates)
         for page_number, page_blocks in page_to_blocks.items():
@@ -205,10 +208,14 @@ class TableStructureRestorer:
                 if not block.is_noise and block.type == "caption" and self._is_table_caption(block.text)
             ]
             for caption_block in caption_blocks:
-                source_blocks = self._find_textual_table_blocks(page_blocks, caption_block)
+                source_blocks, caption_position = self._find_textual_table_blocks(page_blocks, caption_block)
                 if not source_blocks:
                     continue
-                parsed = self._parse_textual_table(caption_block.text, source_blocks)
+                parsed = self._parse_textual_table(
+                    caption_block.text,
+                    source_blocks,
+                    page_words_by_page.get(page_number, []),
+                )
                 if parsed is None:
                     continue
 
@@ -222,7 +229,7 @@ class TableStructureRestorer:
                             headers=parsed["headers"],
                             rows=parsed["rows"],
                             caption=caption_block.text,
-                            caption_position="below",
+                            caption_position=caption_position,
                         )
                     )
                 else:
@@ -230,7 +237,7 @@ class TableStructureRestorer:
                     target.headers = parsed["headers"]
                     target.rows = parsed["rows"]
                     target.caption = caption_block.text
-                    target.caption_position = "below"
+                    target.caption_position = caption_position
 
                 caption_block.is_noise = True
                 caption_block.role = "table_caption_bound"
@@ -694,38 +701,66 @@ class TableStructureRestorer:
     @staticmethod
     def _is_table_caption(text: str) -> bool:
         compact = re.sub(r"\s+", " ", text).strip()
+        english_prefix = re.sub(r"[^A-Za-z]+", "", compact[:24]).lower()
+        if english_prefix.startswith("table") and re.search(r"\b(?:\d+|[ivxlcdm]+)\b", compact, re.IGNORECASE):
+            return True
         return bool(re.match(r"^(table)\s*\d+", compact, re.IGNORECASE) or re.match(r"^(表)\s*\d+", compact))
 
-    def _find_textual_table_blocks(self, page_blocks: list[PaperBlock], caption_block: PaperBlock) -> list[PaperBlock]:
+    def _find_textual_table_blocks(
+        self,
+        page_blocks: list[PaperBlock],
+        caption_block: PaperBlock,
+    ) -> tuple[list[PaperBlock], str]:
         column_captions = [
             block
             for block in page_blocks
             if block.type == "caption" and self._is_table_caption(block.text) and self._same_column(block.bbox, caption_block.bbox)
         ]
         previous_bottom = max((block.bbox[3] for block in column_captions if block.bbox[3] <= caption_block.bbox[1]), default=0.0)
-        source_blocks: list[PaperBlock] = []
+        next_top = min((block.bbox[1] for block in column_captions if block.bbox[1] >= caption_block.bbox[3]), default=float("inf"))
+        above_blocks: list[PaperBlock] = []
+        below_blocks: list[PaperBlock] = []
         for block in page_blocks:
             if block.is_noise or block.block_id == caption_block.block_id:
                 continue
             if block.type not in {"paragraph", "formula", "table"}:
                 continue
-            if block.bbox[3] > caption_block.bbox[1] + 2:
-                continue
-            if block.bbox[1] < previous_bottom - 2:
-                continue
-            if caption_block.bbox[1] - block.bbox[3] > 180:
-                continue
             if not self._same_column(block.bbox, caption_block.bbox):
                 continue
             if not self._looks_like_textual_table_block(block):
                 continue
-            source_blocks.append(block)
-        return sorted(source_blocks, key=self._block_sort_key)
+
+            if block.bbox[3] <= caption_block.bbox[1] + 2:
+                if block.bbox[1] < previous_bottom - 2:
+                    continue
+                if caption_block.bbox[1] - block.bbox[3] > 180:
+                    continue
+                above_blocks.append(block)
+                continue
+
+            if block.bbox[1] >= caption_block.bbox[3] - 2:
+                if block.bbox[3] > next_top + 2:
+                    continue
+                if block.bbox[1] - caption_block.bbox[3] > 220:
+                    continue
+                below_blocks.append(block)
+
+        below_blocks = self._select_contiguous_table_blocks(below_blocks, direction="below")
+        above_blocks = self._select_contiguous_table_blocks(above_blocks, direction="above")
+        scored_candidates = [
+            (self._textual_table_block_score(below_blocks), sorted(below_blocks, key=self._block_sort_key), "above"),
+            (self._textual_table_block_score(above_blocks), sorted(above_blocks, key=self._block_sort_key), "below"),
+        ]
+        score, blocks, position = max(scored_candidates, key=lambda item: item[0])
+        if score <= 0:
+            return [], "below"
+        return blocks, position
 
     def _parse_textual_table(
         self,
         caption_text: str,
         source_blocks: list[PaperBlock],
+        page_words: list[tuple[float, float, float, float, str, int, int, int]],
     ) -> dict[str, list] | None:
         compact_caption = re.sub(r"\s+", " ", caption_text).strip().lower()
         if "fid" in compact_caption and "psnr" in compact_caption:
@@ -740,7 +775,7 @@ class TableStructureRestorer:
             return self._parse_cross_dataset_auc_table(source_blocks)
         if "removal of the regularization" in compact_caption:
             return self._parse_regularization_ablation_table(source_blocks)
-        return None
+        return self._parse_word_aligned_table(source_blocks, page_words)
 
     def _parse_metric_comparison_table(self, source_blocks: list[PaperBlock]) -> dict[str, list] | None:
         dataset_text = next((block.text for block in source_blocks if "Dataset" in block.text), "")
@@ -1032,9 +1067,13 @@ class TableStructureRestorer:
                 continue
             if not self._same_column(candidate.bbox, caption_block.bbox):
                 continue
-            distance = caption_block.bbox[1] - candidate.bbox[3]
-            if 0 <= distance <= 60:
-                matches.append((distance, candidate))
+            above_distance = candidate.bbox[1] - caption_block.bbox[3]
+            if 0 <= above_distance <= 80:
+                matches.append((above_distance, candidate))
+                continue
+            below_distance = caption_block.bbox[1] - candidate.bbox[3]
+            if 0 <= below_distance <= 80:
+                matches.append((below_distance, candidate))
         if not matches:
             return None
         return min(matches, key=lambda item: item[0])[1]
@@ -1068,6 +1107,243 @@ class TableStructureRestorer:
         numeric_tokens = re.findall(r"\d+(?:\.\d+)?", compact)
         keywords = ("dataset", "method", "train", "test", "fid", "psnr", "ff++", "dfor", "gfw", "diff", "forgerynet", "dfdc")
         return len(numeric_tokens) >= 3 or any(keyword in compact.lower() for keyword in keywords)
+
+    @staticmethod
+    def _textual_table_block_score(blocks: list[PaperBlock]) -> int:
+        if not blocks:
+            return 0
+        score = len(blocks) * 4
+        for block in blocks:
+            compact = re.sub(r"\s+", " ", block.text).strip().lower()
+            score += len(re.findall(r"\d+(?:\.\d+)?", compact))
+            if any(keyword in compact for keyword in ("method", "venue", "acc", "auc", "dataset", "train", "test", "ff++", "gfw", "dfor")):
+                score += 8
+        return score
+
+    def _select_contiguous_table_blocks(
+        self,
+        blocks: list[PaperBlock],
+        direction: str,
+    ) -> list[PaperBlock]:
+        if not blocks:
+            return []
+
+        ordered = sorted(blocks, key=self._block_sort_key)
+        if direction == "below":
+            selected = [ordered[0]]
+            for block in ordered[1:]:
+                gap = block.bbox[1] - selected[-1].bbox[3]
+                if gap > 24:
+                    break
+                selected.append(block)
+            return selected
+
+        selected = [ordered[-1]]
+        for block in reversed(ordered[:-1]):
+            gap = selected[0].bbox[1] - block.bbox[3]
+            if gap > 24:
+                break
+            selected.insert(0, block)
+        return selected
+
+    @staticmethod
+    def _word_in_bbox(
+        word: tuple[float, float, float, float, str, int, int, int],
+        bbox: list[float],
+        padding: float = 0.0,
+    ) -> bool:
+        x0, y0, x1, y1 = word[:4]
+        return not (
+            x1 < bbox[0] - padding
+            or x0 > bbox[2] + padding
+            or y1 < bbox[1] - padding
+            or y0 > bbox[3] + padding
+        )
+
+    @staticmethod
+    def _cluster_words_to_lines(
+        words: list[tuple[float, float, float, float, str, int, int, int]],
+    ) -> list[list[tuple[float, float, float, float, str, int, int, int]]]:
+        sorted_words = sorted(words, key=lambda word: (round((word[1] + word[3]) / 2, 2), word[0]))
+        lines: list[list[tuple[float, float, float, float, str, int, int, int]]] = []
+        current_line: list[tuple[float, float, float, float, str, int, int, int]] = []
+        current_center: float | None = None
+
+        for word in sorted_words:
+            center_y = (word[1] + word[3]) / 2
+            if current_center is None or abs(center_y - current_center) <= 2.4:
+                current_line.append(word)
+                current_center = center_y if current_center is None else (current_center + center_y) / 2
+                continue
+            lines.append(sorted(current_line, key=lambda item: item[0]))
+            current_line = [word]
+            current_center = center_y
+
+        if current_line:
+            lines.append(sorted(current_line, key=lambda item: item[0]))
+        return lines
+
+    @staticmethod
+    def _group_line_words_to_cells(
+        line_words: list[tuple[float, float, float, float, str, int, int, int]],
+    ) -> list[dict[str, float | str]]:
+        cells: list[dict[str, float | str]] = []
+        current_words: list[str] = []
+        current_bbox: list[float] | None = None
+
+        for word in line_words:
+            x0, y0, x1, y1, text = word[:5]
+            if current_bbox is None:
+                current_bbox = [float(x0), float(y0), float(x1), float(y1)]
+                current_words = [str(text)]
+                continue
+
+            gap = float(x0) - current_bbox[2]
+            if gap > 10:
+                cells.append(
+                    {
+                        "x0": current_bbox[0],
+                        "y0": current_bbox[1],
+                        "x1": current_bbox[2],
+                        "y1": current_bbox[3],
+                        "text": " ".join(current_words),
+                    }
+                )
+                current_bbox = [float(x0), float(y0), float(x1), float(y1)]
+                current_words = [str(text)]
+                continue
+
+            current_bbox[2] = max(current_bbox[2], float(x1))
+            current_bbox[3] = max(current_bbox[3], float(y1))
+            current_words.append(str(text))
+
+        if current_bbox is not None:
+            cells.append(
+                {
+                    "x0": current_bbox[0],
+                    "y0": current_bbox[1],
+                    "x1": current_bbox[2],
+                    "y1": current_bbox[3],
+                    "text": " ".join(current_words),
+                }
+            )
+        return cells
+
+    @staticmethod
+    def _find_first_data_line(line_cells: list[list[dict[str, float | str]]]) -> int:
+        for index, cells in enumerate(line_cells):
+            texts = [str(cell["text"]).strip() for cell in cells]
+            line_text = " ".join(texts)
+            if re.search(r"\b(?:19|20)\d{2}\b", line_text):
+                return index
+            value_cell_count = sum(1 for text in texts if re.fullmatch(r"(?:-|\d+(?:\.\d+)?)", text))
+            if value_cell_count >= 2 and any(re.search(r"[A-Za-z]", text) and not re.fullmatch(r"(?:-|\d+(?:\.\d+)?)", text) for text in texts):
+                return index
+        return -1
+
+    @staticmethod
+    def _infer_table_columns(data_lines: list[list[dict[str, float | str]]]) -> list[float]:
+        starts = sorted(float(cell["x0"]) for line in data_lines for cell in line)
+        if not starts:
+            return []
+
+        clusters: list[list[float]] = [[starts[0]]]
+        for start in starts[1:]:
+            if abs(start - clusters[-1][-1]) <= 18:
+                clusters[-1].append(start)
+            else:
+                clusters.append([start])
+        return [sum(cluster) / len(cluster) for cluster in clusters]
+
+    def _build_headers_from_lines(
+        self,
+        header_lines: list[list[dict[str, float | str]]],
+        column_centers: list[float],
+    ) -> list[str]:
+        header_parts: list[list[str]] = [[] for _ in column_centers]
+        for line in header_lines:
+            for cell in line:
+                text = re.sub(r"\s+", " ", str(cell["text"])).strip()
+                if not text:
+                    continue
+                assigned_indexes = [
+                    index
+                    for index, center in enumerate(column_centers)
+                    if float(cell["x0"]) - 3 <= center <= float(cell["x1"]) + 3
+                ]
+                if not assigned_indexes:
+                    assigned_indexes = [self._nearest_column_index(float(cell["x0"]), column_centers)]
+                for index in assigned_indexes:
+                    if text not in header_parts[index]:
+                        header_parts[index].append(text)
+
+        headers: list[str] = []
+        for index, parts in enumerate(header_parts, start=1):
+            header = " ".join(parts).strip()
+            headers.append(header or f"Column {index}")
+        return headers
+
+    def _build_rows_from_lines(
+        self,
+        data_lines: list[list[dict[str, float | str]]],
+        column_centers: list[float],
+    ) -> list[list[str]]:
+        rows: list[list[str]] = []
+        for line in data_lines:
+            row = [""] * len(column_centers)
+            for cell in line:
+                text = re.sub(r"\s+", " ", str(cell["text"])).strip()
+                if not text:
+                    continue
+                index = self._nearest_column_index(float(cell["x0"]), column_centers)
+                row[index] = f"{row[index]} {text}".strip() if row[index] else text
+
+            if not any(row):
+                continue
+            if rows and not row[0] and sum(1 for cell in row if cell) <= max(2, len(row) // 2):
+                rows[-1] = [previous or current for previous, current in zip(rows[-1], row)]
+                continue
+            rows.append(row)
+        return rows
+
+    def _parse_word_aligned_table(
+        self,
+        source_blocks: list[PaperBlock],
+        page_words: list[tuple[float, float, float, float, str, int, int, int]],
+    ) -> dict[str, list] | None:
+        if not source_blocks or not page_words:
+            return None
+
+        bbox = self._combine_bbox(source_blocks)
+        words = [word for word in page_words if self._word_in_bbox(word, bbox, padding=4.0)]
+        if len(words) < 8:
+            return None
+
+        line_words = self._cluster_words_to_lines(words)
+        line_cells = [self._group_line_words_to_cells(line) for line in line_words]
+        line_cells = [cells for cells in line_cells if cells]
+        if len(line_cells) < 2:
+            return None
+
+        data_start = self._find_first_data_line(line_cells)
+        if data_start <= 0 or data_start >= len(line_cells):
+            return None
+
+        header_lines = line_cells[:data_start]
+        data_lines = line_cells[data_start:]
+        column_centers = self._infer_table_columns(data_lines)
+        if len(column_centers) < 2:
+            return None
+
+        headers = self._build_headers_from_lines(header_lines, column_centers)
+        rows = self._build_rows_from_lines(data_lines, column_centers)
+        if not rows:
+            return None
+        return {"headers": headers, "rows": rows}
+
+    @staticmethod
+    def _nearest_column_index(x0: float, column_centers: list[float]) -> int:
+        return min(range(len(column_centers)), key=lambda index: abs(column_centers[index] - x0))
 
     def _mark_overlapping_blocks(self, page_blocks: list[PaperBlock], table_bbox: list[float]) -> None:
         for block in page_blocks:

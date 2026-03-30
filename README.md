@@ -1,25 +1,33 @@
 # 论文评分系统前端
 
-基于 `Vue 3 + Vue Router + Vite` 的三页式前端，当前已经内置本地论文解析服务接入：
+当前仓库包含两部分：
 
-- 上传页：上传 PDF 后直接调用本仓库内的解析接口
-- 评审工作台：左侧展示编译后的 Markdown 预览，右侧展示评语与推荐论文
-- 推荐详情页：展示单篇推荐论文详情
+- `Vue 3 + Vue Router + Vite` 前端
+- 内嵌的本地论文解析服务 `paper-review-system`
 
-## 快速启动
+目前已经切换到新的锚点列表解析格式。上传 PDF 后，解析服务会生成：
 
-推荐直接双击或执行根目录脚本：
+- `paper_bundle/paper.md`
+- `paper_bundle/paper_meta.json`
+- `paper_bundle/assets/figures/*`
+- `paper_bundle/assets/tables/*`
+
+其中 `paper.md` 包含 `[Page x]`、`[Anchor: ...]`、`[FigureRef: ...]`、`[TableRef: ...]`，前端左侧会按编译后的 Markdown preview 展示；右侧继续展示评语区、评分维度和推荐论文列表。
+
+## 一键启动
+
+在仓库根目录运行：
 
 ```bash
 start-dev.cmd
 ```
 
-它会同时启动：
+会同时启动：
 
-- 前端开发服务器：`http://127.0.0.1:5173`
+- 前端开发服务：`http://127.0.0.1:5173`
 - 本地解析接口：`http://127.0.0.1:8000`
 
-如果你只想启动解析接口：
+如果只想启动解析接口：
 
 ```bash
 start-parser.cmd
@@ -46,24 +54,24 @@ VITE_USE_LOCAL_PARSER=true
 VITE_PARSER_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-- `VITE_USE_LOCAL_PARSER=true` 时，只要上传了 PDF，就优先调用仓库内的本地解析接口
-- `VITE_USE_MOCK=true` 时，评语和推荐仍使用 mock 数据
+- `VITE_USE_LOCAL_PARSER=true` 时，上传 PDF 会优先调用本仓库内置的解析接口。
+- `VITE_USE_MOCK=true` 时，评语和推荐仍使用 mock 数据。
 
-## 当前仓库结构
+## 目录说明
 
-- [src](C:\Users\26305\Desktop\frb_project2026\fore_end\src)：前端源码
-- [paper-review-system](C:\Users\26305\Desktop\frb_project2026\fore_end\paper-review-system)：精简后的本地论文解析模块
-- [scripts/dev_orchestrator.py](C:\Users\26305\Desktop\frb_project2026\fore_end\scripts\dev_orchestrator.py)：一键同时拉起前端和解析接口
+- `src/`: 前端源码
+- `paper-review-system/`: 内嵌的论文解析服务
+- `scripts/dev_orchestrator.py`: 一键同时启动前端和解析服务
 
-## 预留接口
+## 当前接口约定
 
-目前真实接通的是本地解析接口：
+已经接通的真实接口：
 
 - `POST http://127.0.0.1:8000/papers/parse`
 
-前端里仍预留了后续接口位置：
+前端预留的后续接口：
 
-- `POST /papers/document-ir`
+- `POST /papers/paper-meta`
 - `POST /reviews/generate`
 - `POST /recommendations`
 - `GET /recommendations/:paperId`
