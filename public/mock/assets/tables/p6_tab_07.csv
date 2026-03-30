@@ -1,0 +1,9 @@
+﻿Test Subset,Method,Train Set,Source Set,T2I,I2I,FS,FE
+Deepfake Test Subset,Xception† [49],FF++ [49],98.12,62.43,56.83,85.97,58.64
+Deepfake Test Subset,F3-Net† [43],FF++ [49],98.89,66.87,67.64,81.01,60.60
+Deepfake Test Subset,EffciientNet† [58],FF++ [49],98.51,74.12,57.27,82.11,57.20
+Deepfake Test Subset,DIRE‡ [63],FF++ [49],99.43,44.22,64.64,84.98,57.72
+General Diffusion Test Subset,Xception† [49],DFor,99.98,20.52,30.92,69.42,37.89
+General Diffusion Test Subset,F3-Net† [43],DFor,99.99,43.88,60.58,52.39,47.06
+General Diffusion Test Subset,EffciientNet† [58],DFor,98.99,27.23,44.79,61.25,30.86
+General Diffusion Test Subset,DIRE‡ [63],DFor,98.80,36.37,34.83,36.28,39.92

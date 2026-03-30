@@ -54,7 +54,7 @@ const mockRecommendationDetails = {
     keyTakeaways: [
       "将检索证据与评审维度绑定，减少空泛评语。",
       "推荐模块与评语模块共享底层表示，有助于降低系统耦合度。",
-      "适合作为后续把 document_ir.json 接入 RAG 流程的设计样板。"
+      "适合作为后续把锚点列表接入 RAG 流程的设计样板。"
     ],
     keywords: ["peer review", "retrieval", "grounding"],
     link: "#"
@@ -72,7 +72,7 @@ const mockRecommendationDetails = {
       "如果你的论文主题聚焦扩散伪造检测，这篇工作可以直接作为相关工作与实验对标项，尤其适合展示 benchmark 和多维证据分析。",
     keyTakeaways: [
       "适合作为 related work 页面的强相关基线。",
-      "可帮助解释 document_ir 中图文混排内容如何映射到检测证据。",
+      "可帮助解释锚点列表如何映射到检测证据。",
       "能为推荐列表提供更可信的相似任务来源。"
     ],
     keywords: ["diffusion", "forgery detection", "evidence"],
@@ -109,6 +109,14 @@ async function fetchJson(url, options = {}) {
   return response.json();
 }
 
+async function loadMockPaperMeta() {
+  try {
+    return await fetchJson("/mock/paper_meta.json");
+  } catch (error) {
+    return fetchJson("/mock/document_ir.json");
+  }
+}
+
 function makeSubmissionId() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
@@ -117,38 +125,61 @@ function makeSubmissionId() {
   return `submission-${Date.now()}`;
 }
 
-function buildMockSummary(documentIr) {
-  const pageCount = documentIr?.pages?.length ?? 0;
-  const blockCount = documentIr?.blocks?.length ?? 0;
-  const headingCount = (documentIr?.blocks ?? []).filter(
-    (block) => block.type === "heading"
-  ).length;
+export function getPaperMeta(submissionOrMeta) {
+  if (!submissionOrMeta) {
+    return null;
+  }
+
+  return submissionOrMeta.paperMeta ?? submissionOrMeta.documentIr ?? submissionOrMeta;
+}
+
+export function getPageCount(submissionOrMeta) {
+  const meta = getPaperMeta(submissionOrMeta);
+  return meta?.total_pages ?? meta?.pages?.length ?? 0;
+}
+
+export function getAnchorCount(submissionOrMeta) {
+  const meta = getPaperMeta(submissionOrMeta);
+  return meta?.anchors?.length ?? meta?.blocks?.length ?? 0;
+}
+
+export function countAnchorsByType(submissionOrMeta, type) {
+  const meta = getPaperMeta(submissionOrMeta);
+  return (meta?.anchors ?? []).filter((anchor) => anchor.type === type).length;
+}
+
+function buildMockSummary(metaSource) {
+  const paperMeta = getPaperMeta(metaSource);
+  const pageCount = getPageCount(paperMeta);
+  const anchorCount = getAnchorCount(paperMeta);
+  const figureCount = countAnchorsByType(paperMeta, "figure");
+  const tableCount = countAnchorsByType(paperMeta, "table");
 
   return {
-    overallScore: Math.min(95, 72 + headingCount + Math.round(pageCount / 2)),
+    overallScore: Math.min(95, 72 + Math.round(pageCount / 2) + figureCount),
     verdict: "建议大修后进入下一轮评审",
     summary:
-      "论文已经具备较清晰的问题定义与结构化内容，但实验论证和贡献表述仍有加强空间，适合在补充证据后继续推进。",
+      "当前解析结果已经符合锚点列表式输出的方向，适合继续把评语生成、推荐检索等后续模块接到统一的 paper_meta.json 上。",
     strengths: [
-      `文档结构较完整，已解析出 ${pageCount} 页、${blockCount} 个内容块。`,
-      "标题、摘要与正文层次清晰，适合做结构化评审与证据定位。",
-      "Markdown 结果可直接用于左侧论文浏览区，便于联动图文与点评。"
+      `已生成 ${pageCount} 页内容和 ${anchorCount} 条锚点，结构化程度比旧版更高。`,
+      `图表锚点已拆分，当前包含 ${figureCount} 个 figure 锚点、${tableCount} 个 table 锚点。`,
+      "Markdown 与 sidecar 元数据已分离，便于前端展示和后端程序读取。"
     ],
     weaknesses: [
-      "目前示例评语仍为 mock 结果，接入真实后端后建议结合规则和大模型双路生成。",
-      "推荐论文列表尚未根据真实检索结果动态刷新，需要后端提供召回与排序。",
-      "若图片资源由后端托管，需保证 Markdown 中相对路径与 image_base_url 对齐。"
+      "当前评语结果仍为 mock，后续建议基于 paper_meta.json 的 anchors 做真正的证据引用。",
+      "推荐论文列表尚未根据新的锚点格式进行检索适配。",
+      "若后续甲方继续细化 anchor 命名规范，可能还需要同步调整。"
     ],
     nextActions: [
-      "补齐后端 /reviews/generate 的真实实现。",
-      "将推荐接口返回的论文摘要、作者、来源期刊统一为前端约定字段。",
-      "把 document_ir.json 与推荐召回逻辑打通，形成真正的内容相似推荐。"
+      "基于 paper_meta.json 的 anchors 接入真实评语接口。",
+      "让推荐接口消费 figure/table/paragraph 三类锚点。",
+      "把规范校验脚本纳入启动或 CI 流程。"
     ],
     dimensionScores: [
-      { label: "创新性", score: 84 },
-      { label: "技术深度", score: 81 },
-      { label: "表达清晰度", score: 89 },
-      { label: "实验充分性", score: 78 }
+      { label: "结构完整度", score: 90 },
+      { label: "可追溯性", score: 92 },
+      { label: "展示友好度", score: 87 },
+      { label: "联调准备度", score: 85 }
     ]
   };
 }
@@ -172,12 +203,15 @@ async function uploadViaLocalParser(paperFile) {
     );
   }
 
+  const paperMeta = data.paperMeta ?? data.documentIr ?? {};
+
   return {
     submissionId: data.submissionId ?? makeSubmissionId(),
     paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
     paperMarkdown: data.paperMarkdown ?? "",
     paperAssetBase: data.paperAssetBase ?? "",
-    documentIr: data.documentIr ?? {},
+    paperMeta,
+    documentIr: paperMeta,
     uploadedAt: new Date().toISOString(),
     sourceMode: "local-parser-api",
     artifacts: data.artifacts ?? null
@@ -220,12 +254,15 @@ export async function uploadPaper({
       body: formData
     });
 
+    const paperMeta = data.paperMeta ?? data.documentIr ?? {};
+
     return {
       submissionId: data.submissionId ?? makeSubmissionId(),
       paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
       paperMarkdown: data.paperMarkdown ?? "",
       paperAssetBase: data.paperAssetBase ?? imageBaseUrl ?? "",
-      documentIr: data.documentIr ?? {},
+      paperMeta,
+      documentIr: paperMeta,
       uploadedAt: new Date().toISOString(),
       sourceMode: "api"
     };
@@ -234,31 +271,34 @@ export async function uploadPaper({
   const paperMarkdown = hasLocalArtifacts
     ? await readFileAsText(markdownFile)
     : await fetch("/mock/paper.md").then((response) => response.text());
-  const documentIr = hasLocalArtifacts
+  const paperMeta = hasLocalArtifacts
     ? await readFileAsJson(documentIrFile)
-    : await fetchJson("/mock/document_ir.json");
+    : await loadMockPaperMeta();
 
   return {
     submissionId: makeSubmissionId(),
-    paperName: paperFile?.name ?? documentIr?.doc_id ?? "示例论文",
+    paperName: paperFile?.name ?? paperMeta?.doc_id ?? "示例论文",
     paperMarkdown,
     paperAssetBase: imageBaseUrl || "/mock",
-    documentIr,
+    paperMeta,
+    documentIr: paperMeta,
     uploadedAt: new Date().toISOString(),
     sourceMode: hasLocalArtifacts ? "local-artifacts" : "mock"
   };
 }
 
-export async function submitDocumentIr({ submissionId, documentIr }) {
+export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr;
+
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}/papers/document-ir`, {
+    return fetchJson(`${API_BASE_URL}/papers/paper-meta`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
         submissionId,
-        documentIr
+        paperMeta: meta
       })
     });
   }
@@ -267,14 +307,18 @@ export async function submitDocumentIr({ submissionId, documentIr }) {
 
   return {
     success: true,
-    docId: documentIr?.doc_id ?? "unknown-doc",
-    pageCount: documentIr?.pages?.length ?? 0,
-    blockCount: documentIr?.blocks?.length ?? 0,
+    docId: meta?.doc_id ?? "unknown-doc",
+    pageCount: getPageCount(meta),
+    blockCount: getAnchorCount(meta),
     sentAt: new Date().toISOString()
   };
 }
 
-export async function generateReviewComment({ submissionId, documentIr }) {
+export const submitDocumentIr = submitPaperMeta;
+
+export async function generateReviewComment({ submissionId, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr;
+
   if (!USE_MOCK) {
     return fetchJson(`${API_BASE_URL}/reviews/generate`, {
       method: "POST",
@@ -283,16 +327,18 @@ export async function generateReviewComment({ submissionId, documentIr }) {
       },
       body: JSON.stringify({
         submissionId,
-        documentIr
+        paperMeta: meta
       })
     });
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 300));
-  return buildMockSummary(documentIr);
+  return buildMockSummary(meta);
 }
 
-export async function fetchRecommendations({ submissionId, documentIr }) {
+export async function fetchRecommendations({ submissionId, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr;
+
   if (!USE_MOCK) {
     return fetchJson(`${API_BASE_URL}/recommendations`, {
       method: "POST",
@@ -301,7 +347,7 @@ export async function fetchRecommendations({ submissionId, documentIr }) {
       },
       body: JSON.stringify({
         submissionId,
-        documentIr
+        paperMeta: meta
       })
     });
   }
@@ -311,7 +357,7 @@ export async function fetchRecommendations({ submissionId, documentIr }) {
   return mockRecommendations.map((item, index) => ({
     ...item,
     rank: index + 1,
-    docId: documentIr?.doc_id ?? submissionId
+    docId: meta?.doc_id ?? submissionId
   }));
 }
 

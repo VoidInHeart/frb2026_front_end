@@ -1,0 +1,5 @@
+﻿Method,Train Set,FF++ [49],DFor [63],GFW [5],DiFF,DFDC [13],ForgeryNet [18]
+Xception,FF++ [49],-,40.65,43.42,65.96,63.97,50.56
+Xception,DFor [63],55.21,-,52.30,75.67,56.35,38.06
+Xception,GFW [5],53.37,45.81,-,74.87,51.43,62.75
+Xception,DiFF,65.33,55.30,63.50,-,67.10,65.78

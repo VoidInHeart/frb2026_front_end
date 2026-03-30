@@ -1,0 +1,14 @@
+﻿Condition,Method,ACC
+Text-to-Image,Midjourney,65.32
+Image-to-Image,SDXL Refiner,71.85
+Face Swapping,DiffFace,36.33
+Face Editing,Imagic,68.17
+Text-to-Image,SDXL,72.11
+Image-to-Image,LoRA,33.33
+Face Swapping,DCFace,66.67
+Face Editing,CoDiff,27.78
+Text-to-Image,FreeDoM T,25.47
+Image-to-Image,DreamBooth,76.65
+Face Swapping,CycleDiff,40.65
+Face Editing,HPS,75.68
+Face Editing,FreeDoM I,56.67

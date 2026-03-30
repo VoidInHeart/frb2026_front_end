@@ -67,19 +67,19 @@ async def parse_paper(
     result = pipeline.convert_pdf(uploaded_pdf_path, output_root)
 
     markdown_path = Path(result["markdown_path"])
-    document_ir_path = Path(result["document_ir_path"])
-    evidence_ir_path = Path(result["evidence_ir_path"])
+    paper_meta_path = Path(result["paper_meta_path"])
+    bundle_dir = Path(result["bundle_dir"])
 
     return {
         "submissionId": submission_id,
         "paperName": original_name,
         "paperMarkdown": markdown_path.read_text(encoding="utf-8"),
-        "paperAssetBase": _build_asset_base(request, submission_id),
-        "documentIr": _read_json(document_ir_path),
+        "paperAssetBase": f"{_build_asset_base(request, submission_id)}/paper_bundle",
+        "paperMeta": _read_json(paper_meta_path),
         "artifacts": {
             "markdownPath": str(markdown_path),
-            "documentIrPath": str(document_ir_path),
-            "evidenceIrPath": str(evidence_ir_path),
+            "paperMetaPath": str(paper_meta_path),
+            "bundleDir": str(bundle_dir),
             "outputDir": str(output_root),
         },
     }

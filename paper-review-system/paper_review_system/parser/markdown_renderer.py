@@ -6,138 +6,73 @@ from paper_review_system.models import PaperBlock
 
 
 class MarkdownRenderer:
-    """Render cleaned blocks into a readable markdown document."""
+    """Render parser output into the anchor-list markdown format."""
 
-    def _clean_text(self, text: str) -> str:
+    def clean_text(self, text: str) -> str:
         normalized = []
         for line in text.splitlines():
             line = line.strip()
             line = re.sub(r"[ \t\u3000]+", " ", line)
-
-            while True:
-                new_line = re.sub(r"([\u4E00-\u9FFF])[ \u3000]+([\u4E00-\u9FFF])", r"\1\2", line)
-                new_line = re.sub(r"([\u4E00-\u9FFF])[ \u3000]+([A-Za-z0-9])", r"\1\2", new_line)
-                new_line = re.sub(r"([A-Za-z0-9])[ \u3000]+([\u4E00-\u9FFF])", r"\1\2", new_line)
-                if new_line == line:
-                    break
-                line = new_line
-
             if line:
                 normalized.append(line)
-
         return "\n".join(normalized)
 
-    def render(self, clean_blocks: list[PaperBlock]) -> str:
-        lines: list[str] = []
-        current_page = None
+    def render_page_marker(self, page_no: int) -> list[str]:
+        return [f"[Page {page_no}]", ""]
 
-        for block in clean_blocks:
-            if block.is_noise:
-                continue
+    def render_text_anchor(self, anchor_id: str) -> list[str]:
+        return [f"[Anchor: {anchor_id}]"]
 
-            text = self._clean_text(block.text)
-            if not text:
-                continue
+    def render_text_block(self, block: PaperBlock) -> list[str]:
+        text = self.clean_text(block.text)
+        if not text:
+            return []
 
-            if block.page != current_page:
-                if current_page is not None:
-                    lines.append("")
-                lines.append(f"# Page {block.page}")
-                lines.append("")
-                current_page = block.page
+        if block.type == "heading":
+            level = min(block.level or 2, 6)
+            return [f"{'#' * level} {text}", ""]
 
-            if block.type == "heading":
-                level = min(block.level or 2, 6)
-                lines.append(f"{'#' * level} {text}")
-                lines.append("")
-                continue
+        if block.type == "caption":
+            return [f"> {text}", ""]
 
-            if block.type == "caption":
-                lines.append(f"> {text}")
-                lines.append("")
-                continue
+        if block.type == "formula":
+            return ["```math", *text.splitlines(), "```", ""]
 
-            if block.type == "table":
-                lines.extend(self._render_table(block))
-                lines.append("")
-                continue
+        return [*text.splitlines(), ""]
 
-            if block.type == "formula":
-                lines.append("```math")
-                lines.extend(text.splitlines())
-                lines.append("```")
-                lines.append("")
-                continue
+    def render_figure_ref(self, figure_ref: dict[str, str | int]) -> list[str]:
+        return [
+            f"[FigureRef: {figure_ref['figure_id']}]",
+            f"- anchor_id: {figure_ref['anchor_id']}",
+            f"- page_no: {figure_ref['page_no']}",
+            f"- caption: {figure_ref['caption']}",
+            f"- image_path: {figure_ref['image_path']}",
+            "",
+            f"![{figure_ref['figure_id']}]({figure_ref['image_path']})",
+            "",
+        ]
 
-            for paragraph_line in text.splitlines():
-                lines.append(paragraph_line)
-            lines.append("")
+    def render_table_ref(self, table_ref: dict[str, str | int], block: PaperBlock) -> list[str]:
+        lines = [
+            f"[TableRef: {table_ref['table_id']}]",
+            f"- anchor_id: {table_ref['anchor_id']}",
+            f"- page_no: {table_ref['page_no']}",
+            f"- caption: {table_ref['caption']}",
+            f"- table_path: {table_ref['table_path']}",
+            f"- screenshot_path: {table_ref['screenshot_path']}",
+            "",
+        ]
+        lines.extend(self.render_table_markdown(block))
+        lines.append("")
+        return lines
 
-        return "\n".join(lines).strip() + "\n"
-
-    def embed_image_urls(self, content: str, images_info: list[dict]) -> str:
-        """Embed extracted image URLs into the markdown near page markers."""
-        if not images_info:
-            return content
-
-        images_by_page: dict[int, list[dict]] = {}
-        for img in images_info:
-            page = int(img.get("page", 1))
-            images_by_page.setdefault(page, []).append(img)
-
-        lines = content.split("\n")
-        result_lines: list[str] = []
-        current_page = None
-        page_marker_re = re.compile(r"(?:#\s*page)\s*(\d+)", re.IGNORECASE)
-
-        for index, line in enumerate(lines):
-            result_lines.append(line)
-
-            marker_match = page_marker_re.search(line)
-            if marker_match:
-                current_page = int(marker_match.group(1))
-
-            next_is_page_break = False
-            if index + 1 < len(lines):
-                next_line = lines[index + 1]
-                if page_marker_re.search(next_line):
-                    next_is_page_break = True
-
-            is_last_line = index == len(lines) - 1
-
-            if current_page is not None and (next_is_page_break or is_last_line) and current_page in images_by_page:
-                result_lines.append("")
-                for img in images_by_page[current_page]:
-                    alt_text = f"Image {img.get('index', '?')} from page {current_page}"
-                    url = img.get("url") or img.get("path") or ""
-                    result_lines.append(f"![{alt_text}]({url})")
-                    result_lines.append("")
-                del images_by_page[current_page]
-
-        for page, imgs in sorted(images_by_page.items()):
-            result_lines.append("")
-            for img in imgs:
-                alt_text = f"Image {img.get('index', '?')} from page {page}"
-                url = img.get("url") or img.get("path") or ""
-                result_lines.append(f"![{alt_text}]({url})")
-                result_lines.append("")
-
-        return "\n".join(result_lines)
-
-    def _render_table(self, block: PaperBlock) -> list[str]:
+    def render_table_markdown(self, block: PaperBlock) -> list[str]:
         headers = list(block.table_headers or [])
         rows = [list(row) for row in (block.table_rows or [])]
-        lines: list[str] = []
-
-        caption_lines = [f"> {block.table_caption}", ""] if block.table_caption else []
 
         if not rows:
-            if block.table_caption_position != "below":
-                lines.extend(caption_lines)
-            lines.extend(["```text", *block.text.splitlines(), "```"])
-            if block.table_caption_position == "below" and block.table_caption:
-                lines.extend(["", f"> {block.table_caption}"])
-            return lines
+            text = self.clean_text(block.text)
+            return ["```text", *text.splitlines(), "```"]
 
         col_count = max(len(headers), *(len(row) for row in rows))
         if not headers:
@@ -146,21 +81,13 @@ class MarkdownRenderer:
         headers = self._pad_row(headers, col_count)
         normalized_rows = [self._pad_row(row, col_count) for row in rows]
 
-        if block.table_caption_position != "below":
-            lines.extend(caption_lines)
-
-        lines.extend(
-            [
-                "| " + " | ".join(self._escape_cell(cell) for cell in headers) + " |",
-                "| " + " | ".join("---" for _ in range(col_count)) + " |",
-            ]
-        )
+        lines = [
+            "| " + " | ".join(self._escape_cell(cell) for cell in headers) + " |",
+            "| " + " | ".join("---" for _ in range(col_count)) + " |",
+        ]
 
         for row in normalized_rows:
             lines.append("| " + " | ".join(self._escape_cell(cell) for cell in row) + " |")
-
-        if block.table_caption_position == "below" and block.table_caption:
-            lines.extend(["", f"> {block.table_caption}"])
 
         return lines
 

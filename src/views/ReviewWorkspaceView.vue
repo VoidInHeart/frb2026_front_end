@@ -5,9 +5,13 @@ import MarkdownArticle from "../components/MarkdownArticle.vue";
 import RecommendationList from "../components/RecommendationList.vue";
 import ReviewSummaryPanel from "../components/ReviewSummaryPanel.vue";
 import {
+  countAnchorsByType,
   fetchRecommendations,
+  getAnchorCount,
+  getPageCount,
+  getPaperMeta,
   generateReviewComment,
-  submitDocumentIr
+  submitPaperMeta
 } from "../services/api";
 import {
   clearSession,
@@ -25,7 +29,7 @@ const transmissionLoading = ref(false);
 const errorMessage = ref("");
 
 const submission = computed(() => reviewSession.currentSubmission);
-const documentIr = computed(() => submission.value?.documentIr ?? null);
+const paperMeta = computed(() => getPaperMeta(submission.value));
 const reviewSummary = computed(() => reviewSession.reviewSummary);
 const recommendations = computed(() => reviewSession.recommendations);
 const showImages = computed({
@@ -33,13 +37,10 @@ const showImages = computed({
   set: (value) => setShowImages(value)
 });
 
-const pageCount = computed(() => documentIr.value?.pages?.length ?? 0);
-const blockCount = computed(() => documentIr.value?.blocks?.length ?? 0);
-const headingCount = computed(
-  () =>
-    (documentIr.value?.blocks ?? []).filter((block) => block.type === "heading")
-      .length
-);
+const pageCount = computed(() => getPageCount(paperMeta.value));
+const anchorCount = computed(() => getAnchorCount(paperMeta.value));
+const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
+const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
 
 async function resendDocumentIr() {
   if (!submission.value) {
@@ -50,9 +51,9 @@ async function resendDocumentIr() {
   transmissionLoading.value = true;
 
   try {
-    const transmission = await submitDocumentIr({
+    const transmission = await submitPaperMeta({
       submissionId: submission.value.submissionId,
-      documentIr: submission.value.documentIr
+      paperMeta: paperMeta.value
     });
 
     setTransmissionStatus(transmission);
@@ -74,7 +75,7 @@ async function loadReviewSummary() {
   try {
     const summary = await generateReviewComment({
       submissionId: submission.value.submissionId,
-      documentIr: submission.value.documentIr
+      paperMeta: paperMeta.value
     });
 
     setReviewSummary(summary);
@@ -97,7 +98,7 @@ async function loadRecommendations() {
   try {
     const items = await fetchRecommendations({
       submissionId: submission.value.submissionId,
-      documentIr: submission.value.documentIr
+      paperMeta: paperMeta.value
     });
 
     setRecommendations(items);
@@ -149,16 +150,17 @@ onMounted(async () => {
           <p class="summary-kicker">第二界面</p>
           <h1 class="section-title">论文解析结果与评审建议</h1>
           <p class="section-subtitle">
-            左侧展示 `paper.md` 解析内容，右侧展示评语和推荐论文；`document_ir.json`
-            的传输状态也会在右侧同步显示。
+            左侧展示 `paper.md` 解析内容，右侧展示评语和推荐论文；新的
+            `paper_meta.json` 锚点列表传输状态也会在右侧同步显示。
           </p>
         </div>
 
         <div class="hero-pills">
           <span class="pill pill-primary">{{ submission.paperName }}</span>
           <span class="pill pill-neutral">页数 {{ pageCount }}</span>
-          <span class="pill pill-neutral">块数 {{ blockCount }}</span>
-          <span class="pill pill-neutral">标题块 {{ headingCount }}</span>
+          <span class="pill pill-neutral">锚点 {{ anchorCount }}</span>
+          <span class="pill pill-neutral">图 {{ figureCount }}</span>
+          <span class="pill pill-neutral">表 {{ tableCount }}</span>
         </div>
       </header>
 
@@ -181,7 +183,7 @@ onMounted(async () => {
 
           <div class="meta-row">
             <span class="pill pill-primary">
-              doc_id: {{ documentIr?.doc_id || "unknown" }}
+              doc_id: {{ paperMeta?.doc_id || "unknown" }}
             </span>
             <span class="pill pill-neutral">
               source: {{ submission.sourceMode }}

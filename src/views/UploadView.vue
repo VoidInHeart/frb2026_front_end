@@ -1,7 +1,7 @@
 <script setup>
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { submitDocumentIr, uploadPaper } from "../services/api";
+import { submitPaperMeta, uploadPaper } from "../services/api";
 import {
   setSubmission,
   setTransmissionStatus
@@ -38,9 +38,9 @@ async function startReview() {
 
     setSubmission(submission);
 
-    const transmission = await submitDocumentIr({
+    const transmission = await submitPaperMeta({
       submissionId: submission.submissionId,
-      documentIr: submission.documentIr
+      paperMeta: submission.paperMeta
     });
 
     setTransmissionStatus(transmission);
@@ -66,8 +66,8 @@ async function startReview() {
         <article class="hero-card">
           <strong>01 上传与传输</strong>
           <p>
-            支持上传原始论文，同时预留 `paper.md`、`document_ir.json`
-            和图片基础路径；提交后会先把 `document_ir.json` 发送给后端接口。
+            支持上传原始论文，同时预留 `paper.md`、`paper_meta.json`
+            和图片基础路径；提交后会先把锚点 sidecar 发送给后端接口。
           </p>
         </article>
         <article class="hero-card">
@@ -89,7 +89,7 @@ async function startReview() {
         <span class="pill pill-primary">已预留接口</span>
         <ul>
           <li>`POST /papers/parse` 上传与解析论文</li>
-          <li>`POST /papers/document-ir` 发送 document_ir.json</li>
+          <li>`POST /papers/paper-meta` 发送 paper_meta.json</li>
           <li>`POST /reviews/generate` 生成评语</li>
           <li>`POST /recommendations` 获取推荐论文</li>
           <li>`GET /recommendations/:paperId` 获取推荐论文详情</li>
@@ -132,7 +132,7 @@ async function startReview() {
 
       <div class="field-group">
         <label class="field-label" for="document-ir-file">
-          解析后的 `document_ir.json`（可选）
+          解析后的 `paper_meta.json`（可选）
         </label>
         <input
           id="document-ir-file"
