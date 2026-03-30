@@ -185,6 +185,12 @@ class PDFParser:
     @staticmethod
     def _looks_like_caption(text: str) -> bool:
         compact = re.sub(r"\s+", " ", text).strip()
+        english_prefix = re.sub(r"[^A-Za-z]+", "", compact[:24]).lower()
+        if (
+            (english_prefix.startswith("figure") or english_prefix.startswith("fig") or english_prefix.startswith("table"))
+            and re.search(r"\b(?:\d+|[ivxlcdm]+)\b", compact, re.IGNORECASE)
+        ):
+            return True
         return bool(
             re.match(r"^(figure|fig\.|table)\s*\d+[.:]?\s", compact, re.IGNORECASE)
             or re.match(r"^(图|表)\s*\d+[.:：]?\s*", compact)
