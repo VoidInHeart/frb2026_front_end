@@ -1,6 +1,10 @@
 :root {
   color-scheme: light;
   --bg: #f4efe6;
+  --app-bg:
+    radial-gradient(circle at top left, rgba(214, 160, 107, 0.22), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(19, 63, 103, 0.2), transparent 24%),
+    linear-gradient(140deg, #f8f2e7 0%, #f4efe6 40%, #f9f5ee 100%);
   --panel: rgba(255, 252, 247, 0.84);
   --border: rgba(19, 42, 76, 0.12);
   --text: #1f2a37;
@@ -10,6 +14,12 @@
   --accent: #d07a35;
   --success: #2f855a;
   --danger: #c05621;
+  --surface-muted: rgba(255, 255, 255, 0.58);
+  --input-bg: rgba(255, 255, 255, 0.86);
+  --ambient-left: rgba(208, 122, 53, 0.22);
+  --ambient-right: rgba(19, 63, 103, 0.18);
+  --button-gradient: linear-gradient(135deg, #103b62, #1f5f8b);
+  --button-shadow: 0 18px 36px rgba(19, 63, 103, 0.2);
   --shadow: 0 24px 70px rgba(31, 42, 55, 0.11);
   --radius-lg: 28px;
   --radius-md: 20px;
@@ -18,10 +28,81 @@
   line-height: 1.5;
   font-weight: 400;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(214, 160, 107, 0.22), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(19, 63, 103, 0.2), transparent 24%),
-    linear-gradient(140deg, #f8f2e7 0%, #f4efe6 40%, #f9f5ee 100%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f141a;
+  --app-bg:
+    radial-gradient(circle at top left, rgba(76, 120, 170, 0.28), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(119, 72, 187, 0.22), transparent 26%),
+    linear-gradient(145deg, #0d131b 0%, #111a24 42%, #121927 100%);
+  --panel: rgba(17, 24, 35, 0.8);
+  --border: rgba(148, 163, 184, 0.22);
+  --text: #e5ebf4;
+  --muted: #a0aec0;
+  --primary: #90cdf4;
+  --primary-soft: rgba(144, 205, 244, 0.16);
+  --accent: #f6ad55;
+  --success: #68d391;
+  --danger: #fc8181;
+  --surface-muted: rgba(30, 41, 59, 0.7);
+  --input-bg: rgba(15, 23, 42, 0.78);
+  --ambient-left: rgba(76, 120, 170, 0.2);
+  --ambient-right: rgba(119, 72, 187, 0.2);
+  --button-gradient: linear-gradient(135deg, #1f3f6f, #245b91);
+  --button-shadow: 0 18px 36px rgba(36, 91, 145, 0.3);
+  --shadow: 0 24px 72px rgba(2, 8, 23, 0.5);
+}
+
+:root[data-theme="sci-fi"] {
+  color-scheme: dark;
+  --bg: #030b17;
+  --app-bg:
+    radial-gradient(circle at top left, rgba(0, 220, 255, 0.26), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(0, 255, 170, 0.2), transparent 26%),
+    linear-gradient(150deg, #010612 0%, #041027 46%, #020918 100%);
+  --panel: rgba(5, 20, 38, 0.76);
+  --border: rgba(56, 189, 248, 0.25);
+  --text: #d1f7ff;
+  --muted: #88c7d8;
+  --primary: #00d4ff;
+  --primary-soft: rgba(0, 212, 255, 0.16);
+  --accent: #00f5b8;
+  --success: #2ee6a6;
+  --danger: #ff7fa2;
+  --surface-muted: rgba(8, 30, 55, 0.72);
+  --input-bg: rgba(4, 24, 48, 0.78);
+  --ambient-left: rgba(0, 212, 255, 0.2);
+  --ambient-right: rgba(0, 245, 184, 0.16);
+  --button-gradient: linear-gradient(135deg, #008ecb, #00c38b);
+  --button-shadow: 0 18px 40px rgba(0, 195, 139, 0.28);
+  --shadow: 0 24px 78px rgba(0, 18, 40, 0.58);
+}
+
+:root[data-theme="vivid"] {
+  color-scheme: light;
+  --bg: #fff4f9;
+  --app-bg:
+    radial-gradient(circle at top left, rgba(255, 122, 162, 0.28), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(57, 177, 255, 0.23), transparent 28%),
+    linear-gradient(145deg, #fff2f7 0%, #fffaf0 44%, #f4f9ff 100%);
+  --panel: rgba(255, 255, 255, 0.82);
+  --border: rgba(237, 111, 149, 0.2);
+  --text: #3b2740;
+  --muted: #8c5d78;
+  --primary: #d5437d;
+  --primary-soft: rgba(213, 67, 125, 0.14);
+  --accent: #ff7a45;
+  --success: #2f9e7c;
+  --danger: #d94848;
+  --surface-muted: rgba(255, 255, 255, 0.68);
+  --input-bg: rgba(255, 255, 255, 0.92);
+  --ambient-left: rgba(255, 122, 162, 0.24);
+  --ambient-right: rgba(57, 177, 255, 0.2);
+  --button-gradient: linear-gradient(135deg, #d5437d, #ff7a45);
+  --button-shadow: 0 18px 36px rgba(213, 67, 125, 0.26);
+  --shadow: 0 24px 66px rgba(213, 67, 125, 0.18);
 }
 
 * {
@@ -37,6 +118,8 @@ body,
 
 body {
   min-height: 100vh;
+  color: var(--text);
+  background: var(--app-bg);
 }
 
 a {
@@ -74,7 +157,7 @@ button {
   left: -90px;
   width: 360px;
   height: 360px;
-  background: rgba(208, 122, 53, 0.22);
+  background: var(--ambient-left);
 }
 
 .ambient-right {
@@ -82,7 +165,7 @@ button {
   bottom: 120px;
   width: 300px;
   height: 300px;
-  background: rgba(19, 63, 103, 0.18);
+  background: var(--ambient-right);
 }
 
 .page-shell {
@@ -176,8 +259,8 @@ button {
 
 .primary-button {
   color: #fff;
-  background: linear-gradient(135deg, #103b62, #1f5f8b);
-  box-shadow: 0 18px 36px rgba(19, 63, 103, 0.2);
+  background: var(--button-gradient);
+  box-shadow: var(--button-shadow);
 }
 
 .secondary-button {
@@ -188,7 +271,7 @@ button {
 
 .ghost-button {
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--surface-muted);
   border-color: var(--border);
 }
 
@@ -213,7 +296,7 @@ button {
   padding: 13px 14px;
   border-radius: 14px;
   border: 1px solid rgba(19, 42, 76, 0.14);
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--input-bg);
   color: var(--text);
 }
 
@@ -225,7 +308,7 @@ button {
   padding: 28px;
   border-radius: var(--radius-md);
   border: 1px dashed rgba(19, 63, 103, 0.2);
-  background: rgba(255, 255, 255, 0.42);
+  background: var(--surface-muted);
   text-align: center;
 }
 
