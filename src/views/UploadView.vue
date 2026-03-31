@@ -18,10 +18,34 @@ const form = reactive({
 
 const loading = ref(false);
 const errorMessage = ref("");
+const dragOverField = reactive({
+  paper: false,
+  markdown: false,
+  documentIr: false
+});
 
 function handleFileChange(event, field) {
   const [file] = event.target.files ?? [];
   form[field] = file ?? null;
+}
+
+function handleDragOver(event, field) {
+  event.preventDefault();
+  dragOverField[field] = true;
+}
+
+function handleDragLeave(field) {
+  dragOverField[field] = false;
+}
+
+function handleDrop(event, field) {
+  event.preventDefault();
+  dragOverField[field] = false;
+
+  const [file] = event.dataTransfer?.files ?? [];
+  if (file) {
+    form[field] = file;
+  }
 }
 
 async function startReview() {
@@ -107,7 +131,14 @@ async function startReview() {
         </p>
       </div>
 
-      <div class="field-group">
+      <div
+        class="field-group drop-zone"
+        :class="{ 'drop-zone-active': dragOverField.paper }"
+        @dragover.prevent="handleDragOver($event, 'paper')"
+        @dragenter.prevent="handleDragOver($event, 'paper')"
+        @dragleave.prevent="handleDragLeave('paper')"
+        @drop.prevent="handleDrop($event, 'paper')"
+      >
         <label class="field-label" for="paper-file">论文文件</label>
         <input
           id="paper-file"
@@ -116,10 +147,21 @@ async function startReview() {
           accept=".pdf,.doc,.docx"
           @change="(event) => handleFileChange(event, 'paperFile')"
         />
-        <span class="field-hint">真实后端联调时至少上传这个文件。</span>
+        <div class="drop-zone-content">
+          <p>{{ form.paperFile ? form.paperFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p class="drop-text" v-if="dragOverField.paper">松手上传</p>
+        </div>
+        <span class="field-hint">上传这个文件，求你了。</span>
       </div>
 
-      <div class="field-group">
+      <div
+        class="field-group drop-zone"
+        :class="{ 'drop-zone-active': dragOverField.markdown }"
+        @dragover.prevent="handleDragOver($event, 'markdown')"
+        @dragenter.prevent="handleDragOver($event, 'markdown')"
+        @dragleave.prevent="handleDragLeave('markdown')"
+        @drop.prevent="handleDrop($event, 'markdown')"
+      >
         <label class="field-label" for="markdown-file">解析后的 `paper.md`（可选）</label>
         <input
           id="markdown-file"
@@ -128,9 +170,20 @@ async function startReview() {
           accept=".md,.markdown,.txt"
           @change="(event) => handleFileChange(event, 'markdownFile')"
         />
+        <div class="drop-zone-content">
+          <p>{{ form.markdownFile ? form.markdownFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p class="drop-text" v-if="dragOverField.markdown">松手上传</p>
+        </div>
       </div>
 
-      <div class="field-group">
+      <div
+        class="field-group drop-zone"
+        :class="{ 'drop-zone-active': dragOverField.documentIr }"
+        @dragover.prevent="handleDragOver($event, 'documentIr')"
+        @dragenter.prevent="handleDragOver($event, 'documentIr')"
+        @dragleave.prevent="handleDragLeave('documentIr')"
+        @drop.prevent="handleDrop($event, 'documentIr')"
+      >
         <label class="field-label" for="document-ir-file">
           解析后的 `paper_meta.json`（可选）
         </label>
@@ -141,6 +194,10 @@ async function startReview() {
           accept=".json"
           @change="(event) => handleFileChange(event, 'documentIrFile')"
         />
+        <div class="drop-zone-content">
+          <p>{{ form.documentIrFile ? form.documentIrFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p class="drop-text" v-if="dragOverField.documentIr">松手上传</p>
+        </div>
       </div>
 
       <div class="field-group">
@@ -257,6 +314,60 @@ async function startReview() {
   gap: 18px;
   align-content: start;
 }
+
+.drop-zone {
+  position: relative;
+  border: 2px dashed rgba(94, 138, 223, 0.35);
+  border-radius: 14px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.drop-zone-active {
+  border-color: rgba(50, 96, 197, 0.85);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.drop-zone .file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.drop-zone-content {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  min-height: 70px;
+  align-items: center;
+  justify-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.drop-zone-content p {
+  margin: 0;
+}
+
+.drop-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: rgb(28, 40, 118);
+  background: rgba(255, 255, 255, 0.78);
+  border-radius: 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
 
 .summary-kicker {
   margin: 0 0 6px;
