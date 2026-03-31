@@ -5,6 +5,9 @@ import { reviewSession } from "../stores/reviewSession";
 
 const route = useRoute();
 const workspaceReady = computed(() => Boolean(reviewSession.currentSubmission));
+const ruleSelectionCount = computed(
+  () => reviewSession.ruleLibrary.selectedSystemRuleIds.length
+);
 </script>
 
 <template>
@@ -23,6 +26,13 @@ const workspaceReady = computed(() => Boolean(reviewSession.currentSubmission));
       </RouterLink>
       <RouterLink
         class="nav-link"
+        :class="{ active: route.name === 'rule-library-management' }"
+        to="/rule-library"
+      >
+        规则库管理
+      </RouterLink>
+      <RouterLink
+        class="nav-link"
         :class="{
           active: route.name === 'workspace',
           disabled: !workspaceReady
@@ -33,6 +43,9 @@ const workspaceReady = computed(() => Boolean(reviewSession.currentSubmission));
       </RouterLink>
       <span class="pill pill-primary">
         {{ workspaceReady ? "已加载论文" : "等待上传" }}
+      </span>
+      <span class="pill pill-neutral">
+        {{ `已选规则 ${ruleSelectionCount}` }}
       </span>
     </nav>
   </header>

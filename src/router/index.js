@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from "vue-router";
-import UploadView from "../views/UploadView.vue";
-import ReviewWorkspaceView from "../views/ReviewWorkspaceView.vue";
 import RecommendationDetailView from "../views/RecommendationDetailView.vue";
+import ReviewWorkspaceView from "../views/ReviewWorkspaceView.vue";
+import RuleLibraryManagementView from "../views/RuleLibraryManagementView.vue";
+import UploadView from "../views/UploadView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -10,28 +11,43 @@ const router = createRouter({
       path: "/",
       name: "upload",
       component: UploadView,
-      meta: { title: "上传论文" }
+      meta: {
+        title: "上传论文"
+      }
+    },
+    {
+      path: "/rule-library",
+      name: "rule-library-management",
+      component: RuleLibraryManagementView,
+      meta: {
+        title: "规则库管理"
+      }
     },
     {
       path: "/workspace",
       name: "workspace",
       component: ReviewWorkspaceView,
-      meta: { title: "评审工作台" }
+      meta: {
+        title: "论文评分工作台"
+      }
     },
     {
       path: "/recommendations/:paperId",
       name: "recommendation-detail",
       component: RecommendationDetailView,
-      meta: { title: "推荐论文详情" }
+      meta: {
+        title: "推荐论文详情"
+      }
     }
-  ],
-  scrollBehavior() {
-    return { top: 0 };
-  }
+  ]
 });
 
 router.afterEach((to) => {
-  document.title = `${to.meta.title || "论文评分系统"} · 论文评分系统`;
+  if (typeof document !== "undefined") {
+    document.title = to.meta?.title
+      ? `${to.meta.title} | 论文评分系统`
+      : "论文评分系统";
+  }
 });
 
 export default router;

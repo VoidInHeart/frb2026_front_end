@@ -1,8 +1,9 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { submitPaperMeta, uploadPaper } from "../services/api";
 import {
+  reviewSession,
   setSubmission,
   setTransmissionStatus
 } from "../stores/reviewSession";
@@ -23,6 +24,13 @@ const dragOverField = reactive({
   markdown: false,
   documentIr: false
 });
+
+const selectedRuleCount = computed(
+  () => reviewSession.ruleLibrary.selectedSystemRuleIds.length
+);
+const hasCustomRules = computed(() =>
+  Boolean(reviewSession.ruleLibrary.customRulesText.trim())
+);
 
 function handleFileChange(event, field) {
   const [file] = event.target.files ?? [];
@@ -75,55 +83,64 @@ async function startReview() {
     loading.value = false;
   }
 }
+
+function goToRuleLibrary() {
+  router.push({ name: "rule-library-management" });
+}
 </script>
 
 <template>
   <section class="upload-layout">
     <div class="hero-panel glass-card">
       <span class="pill pill-accent">三页流程</span>
-      <h1 class="section-title hero-title">上传论文，进入结构化评审工作台</h1>
+      <h1 class="section-title hero-title">上传论文，进入结构化评分流程</h1>
       <p class="hero-text">
-        这个前端已经按你的流程拆成三步：先上传，再进入论文与评语并排展示页，最后从推荐列表进入单篇推荐论文详情页。
+        现在第一步除了上传解析产物，还可以先进入规则库管理页面完成规则筛选。后端后续返回的规则反馈，可以直接沿用这里保存的规则配置。
       </p>
 
       <div class="hero-grid">
         <article class="hero-card">
           <strong>01 上传与传输</strong>
           <p>
-            支持上传原始论文，同时预留 `paper.md`、`paper_meta.json`
-            和图片基础路径；提交后会先把锚点 sidecar 发送给后端接口。
+            支持上传原始论文，同时预留 `paper.md`、`paper_meta.json` 和图片基础路径；提交后会先把解析结果发给后端接口。
           </p>
         </article>
         <article class="hero-card">
-          <strong>02 评审工作台</strong>
+          <strong>02 规则筛选</strong>
           <p>
-            左侧展示 Markdown 论文内容，并支持切换“是否显示 Markdown
-            中的图片”；右侧展示评语、维度评分和推荐论文列表。
+            新增规则库管理页面，分别维护系统标准规则库与用户自建规则库，为后续问题反馈和评语生成做前置配置。
           </p>
         </article>
         <article class="hero-card">
-          <strong>03 推荐论文详情</strong>
+          <strong>03 工作台与推荐</strong>
           <p>
-            点击推荐论文即可进入详情页，后续你只需要把真实检索接口接进来即可。
+            第二页继续展示论文、评语和推荐论文；后续接真实后端时，规则筛选结果也可以一并传过去。
           </p>
         </article>
       </div>
 
-      <div class="endpoint-panel">
-        <span class="pill pill-primary">已预留接口</span>
-        <ul>
-          <li>`POST /papers/parse` 上传与解析论文</li>
-          <li>`POST /papers/paper-meta` 发送 paper_meta.json</li>
-          <li>`POST /reviews/generate` 生成评语</li>
-          <li>`POST /recommendations` 获取推荐论文</li>
-          <li>`GET /recommendations/:paperId` 获取推荐论文详情</li>
-        </ul>
+      <div class="rule-entry-panel">
+        <div class="rule-entry-copy">
+          <span class="pill pill-primary">规则库管理</span>
+          <h2>先配置规则，再进入上传与评审流程</h2>
+          <p>
+            当前已选系统规则 {{ selectedRuleCount }} 条，{{ hasCustomRules ? "已维护自建规则" : "暂未填写自建规则" }}。
+            你可以在规则库管理页勾选标准规则、上传文本并抽取自建规则。
+          </p>
+          <div class="rule-entry-stats">
+            <span class="stat-chip">系统规则 {{ selectedRuleCount }}</span>
+            <span class="stat-chip">自建规则 {{ hasCustomRules ? "已配置" : "未配置" }}</span>
+          </div>
+        </div>
+        <button class="secondary-button rule-entry-button" type="button" @click="goToRuleLibrary">
+          进入规则库管理
+        </button>
       </div>
     </div>
 
     <section class="form-panel glass-card">
       <div>
-        <p class="summary-kicker">第一界面</p>
+        <p class="summary-kicker">第一个界面</p>
         <h2 class="section-title">上传论文</h2>
         <p class="section-subtitle">
           没接后端时会默认读取 `public/mock` 中的示例数据；接入真实后端后，只需要把
@@ -148,10 +165,10 @@ async function startReview() {
           @change="(event) => handleFileChange(event, 'paperFile')"
         />
         <div class="drop-zone-content">
-          <p>{{ form.paperFile ? form.paperFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p>{{ form.paperFile ? form.paperFile.name : "拖拽文件到此或点击上传" }}</p>
           <p class="drop-text" v-if="dragOverField.paper">松手上传</p>
         </div>
-        <span class="field-hint">上传这个文件，求你了。</span>
+        <span class="field-hint">上传这个文件后，会优先走本地解析接口。</span>
       </div>
 
       <div
@@ -171,7 +188,7 @@ async function startReview() {
           @change="(event) => handleFileChange(event, 'markdownFile')"
         />
         <div class="drop-zone-content">
-          <p>{{ form.markdownFile ? form.markdownFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p>{{ form.markdownFile ? form.markdownFile.name : "拖拽文件到此或点击上传" }}</p>
           <p class="drop-text" v-if="dragOverField.markdown">松手上传</p>
         </div>
       </div>
@@ -195,7 +212,7 @@ async function startReview() {
           @change="(event) => handleFileChange(event, 'documentIrFile')"
         />
         <div class="drop-zone-content">
-          <p>{{ form.documentIrFile ? form.documentIrFile.name : '拖拽文件到此或点击上传' }}</p>
+          <p>{{ form.documentIrFile ? form.documentIrFile.name : "拖拽文件到此或点击上传" }}</p>
           <p class="drop-text" v-if="dragOverField.documentIr">松手上传</p>
         </div>
       </div>
@@ -225,7 +242,7 @@ async function startReview() {
           :disabled="loading"
           @click="startReview"
         >
-          {{ loading ? "正在提交..." : "提交并进入评审工作台" }}
+          {{ loading ? "正在提交..." : "提交并进入评分工作台" }}
         </button>
         <button
           class="ghost-button"
@@ -276,7 +293,7 @@ async function startReview() {
 }
 
 .hero-card,
-.endpoint-panel {
+.rule-entry-panel {
   padding: 18px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.62);
@@ -292,21 +309,49 @@ async function startReview() {
   color: var(--primary);
 }
 
-.hero-card p,
-.endpoint-panel ul {
+.hero-card p {
   margin: 0;
   color: var(--muted);
 }
 
-.endpoint-panel {
+.rule-entry-panel {
   display: grid;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
 }
 
-.endpoint-panel ul {
-  padding-left: 18px;
+.rule-entry-copy {
   display: grid;
   gap: 10px;
+}
+
+.rule-entry-copy h2,
+.rule-entry-copy p {
+  margin: 0;
+}
+
+.rule-entry-copy p {
+  color: var(--muted);
+}
+
+.rule-entry-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stat-chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(19, 63, 103, 0.08);
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rule-entry-button {
+  min-width: 180px;
 }
 
 .form-panel {
@@ -368,7 +413,6 @@ async function startReview() {
   pointer-events: none;
 }
 
-
 .summary-kicker {
   margin: 0 0 6px;
   font-size: 12px;
@@ -387,7 +431,8 @@ async function startReview() {
 
 @media (max-width: 1080px) {
   .upload-layout,
-  .hero-grid {
+  .hero-grid,
+  .rule-entry-panel {
     grid-template-columns: 1fr;
   }
 }

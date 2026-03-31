@@ -76,7 +76,7 @@ const mockRecommendationDetails = {
     relevanceAnalysis:
       "如果你的论文主题聚焦扩散伪造检测，这篇工作可以直接作为相关工作与实验对标项，尤其适合展示 benchmark 和多维证据分析。",
     keyTakeaways: [
-      "适合作为 related work 页面的强相关基线。",
+      "适合作为 related work 页面中的强相关基线。",
       "可帮助解释锚点列表如何映射到检测证据。",
       "能为推荐列表提供更可信的相似任务来源。"
     ],
@@ -104,11 +104,50 @@ const mockRecommendationDetails = {
   }
 };
 
+const mockSystemRuleLibraries = [
+  {
+    id: "system-clarity-001",
+    title: "论文结构完整性",
+    category: "结构规范",
+    summary: "检查摘要、引言、方法、实验、结论等核心章节是否齐全且层次清晰。",
+    tags: ["章节结构", "摘要", "实验"],
+    questionCount: 6,
+    defaultSelected: true
+  },
+  {
+    id: "system-method-002",
+    title: "方法描述严谨性",
+    category: "技术内容",
+    summary: "关注模型设定、符号定义、训练流程和关键超参数是否交代清楚。",
+    tags: ["方法", "公式", "超参数"],
+    questionCount: 8,
+    defaultSelected: true
+  },
+  {
+    id: "system-experiment-003",
+    title: "实验设计充分性",
+    category: "实验评估",
+    summary: "检查数据集、基线、评价指标、消融实验和误差分析是否充分。",
+    tags: ["实验", "基线", "消融"],
+    questionCount: 10,
+    defaultSelected: false
+  },
+  {
+    id: "system-writing-004",
+    title: "学术写作表达",
+    category: "表达质量",
+    summary: "评估术语一致性、图表说明、语言流畅性以及结论是否与证据匹配。",
+    tags: ["写作", "图表", "一致性"],
+    questionCount: 5,
+    defaultSelected: false
+  }
+];
+
 async function fetchJson(url, options = {}) {
   const response = await fetch(url, options);
 
   if (!response.ok) {
-    throw new Error(`请求失败：${response.status}`);
+    throw new Error(`请求失败: ${response.status}`);
   }
 
   return response.json();
@@ -128,6 +167,39 @@ function makeSubmissionId() {
   }
 
   return `submission-${Date.now()}`;
+}
+
+function summarizeRuleLine(line, index) {
+  const compact = line.replace(/^[-*0-9.\s]+/, "").trim();
+  if (!compact) {
+    return `规则 ${index + 1}`;
+  }
+
+  return compact.length > 36 ? `${compact.slice(0, 36)}...` : compact;
+}
+
+function buildMockExtractedRules(sourceText) {
+  const normalized = sourceText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const seeds = normalized.length
+    ? normalized.slice(0, 5)
+    : [
+        "论文必须明确说明研究问题与应用场景。",
+        "核心方法需要说明输入输出与关键模块。",
+        "实验部分需包含数据集、评价指标与主要基线。"
+      ];
+
+  const rules = seeds.map((line, index) => `${index + 1}. ${summarizeRuleLine(line, index)}`);
+
+  return {
+    sourceText,
+    rules,
+    extractedRulesText: rules.join("\n"),
+    extractedAt: new Date().toISOString()
+  };
 }
 
 export function getPaperMeta(submissionOrMeta) {
@@ -164,20 +236,20 @@ function buildMockSummary(metaSource) {
     overallScore: Math.min(95, 72 + Math.round(pageCount / 2) + figureCount),
     verdict: "建议大修后进入下一轮评审",
     summary:
-      "当前解析结果已经符合锚点列表式输出的方向，适合继续把评语生成、推荐检索等后续模块接到统一的 paper_meta.json 上。",
+      "当前解析结果已经符合锚点列表式输出的方向，适合继续把评语生成、推荐检索等后续模块接到统一的 paper_meta.json 中。",
     strengths: [
       `已生成 ${pageCount} 页内容和 ${anchorCount} 条锚点，结构化程度比旧版更高。`,
       `图表锚点已拆分，当前包含 ${figureCount} 个 figure 锚点、${tableCount} 个 table 锚点。`,
       "Markdown 与 sidecar 元数据已分离，便于前端展示和后端程序读取。"
     ],
     weaknesses: [
-      "当前评语结果仍为 mock，后续建议基于 paper_meta.json 的 anchors 做真正的证据引用。",
+      "当前评语结果仍为 mock，后续建议基于 paper_meta.json 的 anchors 做真实证据引用。",
       "推荐论文列表尚未根据新的锚点格式进行检索适配。",
-      "若后续甲方继续细化 anchor 命名规范，可能还需要同步调整。"
+      "如果后续甲方继续细化 anchor 命名规范，可能还需要同步调整。"
     ],
     nextActions: [
       "基于 paper_meta.json 的 anchors 接入真实评语接口。",
-      "让推荐接口消费 figure/table/paragraph 三类锚点。",
+      "让推荐接口消费 figure、table、paragraph 三类锚点。",
       "把规范校验脚本纳入启动或 CI 流程。"
     ],
     dimensionScores: [
@@ -199,8 +271,8 @@ async function uploadViaLocalParser(paperFile) {
     data = await fetchJson(
       `${PARSER_API_BASE_URL}${LOCAL_PARSER_ENDPOINTS.parsePaper.path}`,
       {
-      method: "POST",
-      body: formData
+        method: "POST",
+        body: formData
       }
     );
   } catch (error) {
@@ -379,4 +451,81 @@ export async function fetchRecommendationDetail(paperId) {
 
   await new Promise((resolve) => window.setTimeout(resolve, 220));
   return mockRecommendationDetails[paperId] ?? null;
+}
+
+export async function fetchSystemRuleLibrary() {
+  if (!USE_MOCK) {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.listSystemRules.path}`);
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 180));
+  return mockSystemRuleLibraries;
+}
+
+export async function saveRuleSelection({
+  selectedSystemRuleIds = [],
+  customRulesText = ""
+}) {
+  if (!USE_MOCK) {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.saveRuleSelection.path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        selectedSystemRuleIds,
+        customRulesText
+      })
+    });
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 180));
+
+  return {
+    success: true,
+    selectedSystemRuleIds,
+    customRulesText,
+    savedAt: new Date().toISOString()
+  };
+}
+
+export async function extractCustomRules({ file, text }) {
+  const sourceText = text?.trim()
+    ? text.trim()
+    : file
+      ? await readFileAsText(file)
+      : "";
+
+  if (!sourceText) {
+    throw new Error("请先上传文本文件或输入待抽取的规则说明。");
+  }
+
+  if (!USE_MOCK) {
+    if (file) {
+      const formData = new FormData();
+      formData.append(UPLOAD_FORM_FIELDS.customRuleFile, file);
+
+      if (text?.trim()) {
+        formData.append(UPLOAD_FORM_FIELDS.customRuleText, text.trim());
+      }
+
+      return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.extractCustomRules.path}`, {
+        method: "POST",
+        body: formData
+      });
+    }
+
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.extractCustomRules.path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        [UPLOAD_FORM_FIELDS.customRuleText]: sourceText
+      })
+    });
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 260));
+  return buildMockExtractedRules(sourceText);
 }
