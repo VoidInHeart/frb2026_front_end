@@ -1,4 +1,9 @@
 import { readFileAsJson, readFileAsText } from "../utils/file";
+import {
+  APP_API_ENDPOINTS,
+  LOCAL_PARSER_ENDPOINTS,
+  UPLOAD_FORM_FIELDS
+} from "./apiContract";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const PARSER_API_BASE_URL =
@@ -186,15 +191,18 @@ function buildMockSummary(metaSource) {
 
 async function uploadViaLocalParser(paperFile) {
   const formData = new FormData();
-  formData.append("paper", paperFile);
+  formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
 
   let data;
 
   try {
-    data = await fetchJson(`${PARSER_API_BASE_URL}/papers/parse`, {
+    data = await fetchJson(
+      `${PARSER_API_BASE_URL}${LOCAL_PARSER_ENDPOINTS.parsePaper.path}`,
+      {
       method: "POST",
       body: formData
-    });
+      }
+    );
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "unknown parser error";
@@ -234,22 +242,23 @@ export async function uploadPaper({
     const formData = new FormData();
 
     if (paperFile) {
-      formData.append("paper", paperFile);
+      formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
     }
 
     if (markdownFile) {
-      formData.append("markdown_file", markdownFile);
+      formData.append(UPLOAD_FORM_FIELDS.markdownFile, markdownFile);
     }
 
     if (documentIrFile) {
-      formData.append("document_ir_file", documentIrFile);
+      formData.append(UPLOAD_FORM_FIELDS.paperMetaFile, documentIrFile);
+      formData.append(UPLOAD_FORM_FIELDS.legacyDocumentIrFile, documentIrFile);
     }
 
     if (imageBaseUrl) {
-      formData.append("image_base_url", imageBaseUrl);
+      formData.append(UPLOAD_FORM_FIELDS.imageBaseUrl, imageBaseUrl);
     }
 
-    const data = await fetchJson(`${API_BASE_URL}/papers/parse`, {
+    const data = await fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.parsePaper.path}`, {
       method: "POST",
       body: formData
     });
@@ -291,7 +300,7 @@ export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
   const meta = paperMeta ?? documentIr;
 
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}/papers/paper-meta`, {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.submitPaperMeta.path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -320,7 +329,7 @@ export async function generateReviewComment({ submissionId, documentIr, paperMet
   const meta = paperMeta ?? documentIr;
 
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}/reviews/generate`, {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.generateReview.path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -340,7 +349,7 @@ export async function fetchRecommendations({ submissionId, documentIr, paperMeta
   const meta = paperMeta ?? documentIr;
 
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}/recommendations`, {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.listRecommendations.path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -363,7 +372,9 @@ export async function fetchRecommendations({ submissionId, documentIr, paperMeta
 
 export async function fetchRecommendationDetail(paperId) {
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}/recommendations/${paperId}`);
+    return fetchJson(
+      `${API_BASE_URL}${APP_API_ENDPOINTS.getRecommendationDetail.path.replace(":paperId", paperId)}`
+    );
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 220));
