@@ -1,4 +1,6 @@
 <script setup>
+import { appearanceState } from "../stores/appearance";
+
 defineProps({
   reviewSummary: {
     type: Object,
@@ -16,7 +18,13 @@ defineProps({
 </script>
 
 <template>
-  <section class="summary-panel glass-card">
+  <section
+    :class="[
+      'summary-panel',
+      'glass-card',
+      { 'summary-panel-dark': appearanceState.theme === 'dark' }
+    ]"
+  >
     <div class="summary-header">
       <div>
         <p class="summary-kicker">评审概览</p>
@@ -212,6 +220,17 @@ defineProps({
   padding-left: 18px;
   display: grid;
   gap: 10px;
+}
+
+.summary-panel-dark .score-chip,
+.summary-panel-dark .verdict-block,
+.summary-panel-dark .score-card,
+.summary-panel-dark .insight-card {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.summary-panel-dark .score-track {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 @media (max-width: 720px) {

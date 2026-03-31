@@ -1,4 +1,6 @@
 <script setup>
+import { appearanceState } from "../stores/appearance";
+
 defineProps({
   recommendations: {
     type: Array,
@@ -14,7 +16,13 @@ defineEmits(["select"]);
 </script>
 
 <template>
-  <section class="recommendation-panel glass-card">
+  <section
+    :class="[
+      'recommendation-panel',
+      'glass-card',
+      { 'recommendation-panel-dark': appearanceState.theme === 'dark' }
+    ]"
+  >
     <div class="recommendation-header">
       <div>
         <p class="summary-kicker">推荐论文</p>
@@ -146,6 +154,22 @@ defineEmits(["select"]);
   color: var(--primary);
   font-size: 12px;
   font-weight: 700;
+}
+
+.recommendation-panel-dark .recommendation-card {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.recommendation-panel-dark .recommendation-rank {
+  background: linear-gradient(
+    135deg,
+    rgba(208, 122, 53, 0.1),
+    rgba(19, 63, 103, 0.08)
+  );
+}
+
+.recommendation-panel-dark .tag {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 @media (max-width: 640px) {

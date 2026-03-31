@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { appearanceState } from "../stores/appearance";
 import { renderMarkdownHtml } from "../utils/markdown";
 
 const props = defineProps({
@@ -28,10 +29,17 @@ const renderedHtml = computed(() =>
 <template>
   <article
     v-if="renderedHtml"
-    class="article-frame markdown-preview"
+    :class="[
+      'article-frame',
+      'markdown-preview',
+      { 'article-frame-dark': appearanceState.theme === 'dark' }
+    ]"
     v-html="renderedHtml"
   ></article>
-  <article v-else class="article-frame">
+  <article
+    v-else
+    :class="['article-frame', { 'article-frame-dark': appearanceState.theme === 'dark' }]"
+  >
     <div class="empty-state">No markdown content available.</div>
   </article>
 </template>
@@ -172,5 +180,27 @@ const renderedHtml = computed(() =>
 
 .markdown-preview :deep(p > img:only-child) {
   margin-top: 8px;
+}
+
+.article-frame-dark {
+  color: #d7e3f1;
+}
+
+.article-frame-dark :deep(h1),
+.article-frame-dark :deep(h2),
+.article-frame-dark :deep(h3),
+.article-frame-dark :deep(h4),
+.article-frame-dark :deep(h5),
+.article-frame-dark :deep(h6) {
+  color: #f3f7fb;
+}
+
+.article-frame-dark :deep(a) {
+  color: #7cc3ff;
+}
+
+.article-frame-dark :deep(blockquote) {
+  color: #b2c0d0;
+  border-left-color: rgba(124, 195, 255, 0.35);
 }
 </style>

@@ -2,6 +2,7 @@
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { submitPaperMeta, uploadPaper } from "../services/api";
+import { appearanceState } from "../stores/appearance";
 import {
   setSubmission,
   setTransmissionStatus
@@ -78,7 +79,9 @@ async function startReview() {
 </script>
 
 <template>
-  <section class="upload-layout">
+  <section
+    :class="['upload-layout', { 'upload-layout-dark': appearanceState.theme === 'dark' }]"
+  >
     <div class="hero-panel glass-card">
       <span class="pill pill-accent">三页流程</span>
       <h1 class="section-title hero-title">上传论文，进入结构化评审工作台</h1>
@@ -383,6 +386,23 @@ async function startReview() {
   background: rgba(192, 86, 33, 0.12);
   border: 1px solid rgba(192, 86, 33, 0.18);
   color: var(--danger);
+}
+
+.upload-layout-dark .hero-card,
+.upload-layout-dark .endpoint-panel {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.upload-layout-dark .drop-zone {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.upload-layout-dark .drop-zone-active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.upload-layout-dark .drop-text {
+  background: rgba(255, 255, 255, 0.24);
 }
 
 @media (max-width: 1080px) {
