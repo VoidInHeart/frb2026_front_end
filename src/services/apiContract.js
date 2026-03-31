@@ -29,6 +29,18 @@ export const APP_API_ENDPOINTS = Object.freeze({
   getRecommendationDetail: {
     method: "GET",
     path: "/recommendations/:paperId"
+  },
+  listSystemRules: {
+    method: "GET",
+    path: "/rule-libraries/system"
+  },
+  saveRuleSelection: {
+    method: "POST",
+    path: "/rule-libraries/selection"
+  },
+  extractCustomRules: {
+    method: "POST",
+    path: "/rule-libraries/custom/extract"
   }
 });
 
@@ -37,7 +49,9 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
   markdownFile: "markdown_file",
   paperMetaFile: "paper_meta_file",
   legacyDocumentIrFile: "document_ir_file",
-  imageBaseUrl: "image_base_url"
+  imageBaseUrl: "image_base_url",
+  customRuleFile: "rule_text_file",
+  customRuleText: "rule_text"
 });
 
 /**
@@ -143,6 +157,39 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
  * @property {string} link
  */
 
+/**
+ * @typedef {Object} RuleLibraryItem
+ * @property {string} id
+ * @property {string} title
+ * @property {string} category
+ * @property {string} summary
+ * @property {string[]} tags
+ * @property {number=} questionCount
+ * @property {boolean=} defaultSelected
+ */
+
+/**
+ * @typedef {Object} RuleSelectionPayload
+ * @property {string[]} selectedSystemRuleIds
+ * @property {string} customRulesText
+ */
+
+/**
+ * @typedef {Object} RuleSelectionResponse
+ * @property {boolean} success
+ * @property {string[]} selectedSystemRuleIds
+ * @property {string} customRulesText
+ * @property {string} savedAt
+ */
+
+/**
+ * @typedef {Object} CustomRuleExtractionResponse
+ * @property {string} sourceText
+ * @property {string} extractedRulesText
+ * @property {string[]} rules
+ * @property {string} extractedAt
+ */
+
 export const API_CONTRACT = Object.freeze({
   localParser: {
     parsePaper: {
@@ -187,6 +234,23 @@ export const API_CONTRACT = Object.freeze({
       ...APP_API_ENDPOINTS.getRecommendationDetail,
       contentType: "application/json",
       responseShape: "RecommendationDetail"
+    },
+    listSystemRules: {
+      ...APP_API_ENDPOINTS.listSystemRules,
+      contentType: "application/json",
+      responseShape: "RuleLibraryItem[]"
+    },
+    saveRuleSelection: {
+      ...APP_API_ENDPOINTS.saveRuleSelection,
+      contentType: "application/json",
+      requestShape: "RuleSelectionPayload",
+      responseShape: "RuleSelectionResponse"
+    },
+    extractCustomRules: {
+      ...APP_API_ENDPOINTS.extractCustomRules,
+      contentType: "multipart/form-data | application/json",
+      requestFields: [UPLOAD_FORM_FIELDS.customRuleFile, UPLOAD_FORM_FIELDS.customRuleText],
+      responseShape: "CustomRuleExtractionResponse"
     }
   }
 });

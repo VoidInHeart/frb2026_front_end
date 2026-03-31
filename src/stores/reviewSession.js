@@ -11,6 +11,14 @@ function createInitialState() {
     recommendationDetails: {},
     preferences: {
       showImages: true
+    },
+    ruleLibrary: {
+      systemRules: [],
+      selectedSystemRuleIds: [],
+      customRuleSourceText: "",
+      customRulesText: "",
+      customRuleFileName: "",
+      savedAt: ""
     }
   };
 }
@@ -27,9 +35,15 @@ function readStoredState() {
   }
 
   try {
+    const parsed = JSON.parse(raw);
+
     return {
       ...createInitialState(),
-      ...JSON.parse(raw)
+      ...parsed,
+      ruleLibrary: {
+        ...createInitialState().ruleLibrary,
+        ...parsed.ruleLibrary
+      }
     };
   } catch {
     return createInitialState();
@@ -79,6 +93,48 @@ export function setRecommendationDetail(id, detail) {
 
 export function setShowImages(showImages) {
   reviewSession.preferences.showImages = showImages;
+}
+
+export function setRuleLibraryCatalog(items) {
+  reviewSession.ruleLibrary.systemRules = items;
+
+  if (!reviewSession.ruleLibrary.selectedSystemRuleIds.length) {
+    reviewSession.ruleLibrary.selectedSystemRuleIds = items
+      .filter((item) => item.defaultSelected)
+      .map((item) => item.id);
+  }
+}
+
+export function setSelectedSystemRuleIds(ids) {
+  reviewSession.ruleLibrary.selectedSystemRuleIds = [...ids];
+}
+
+export function toggleSystemRuleSelection(ruleId) {
+  const ids = new Set(reviewSession.ruleLibrary.selectedSystemRuleIds);
+
+  if (ids.has(ruleId)) {
+    ids.delete(ruleId);
+  } else {
+    ids.add(ruleId);
+  }
+
+  reviewSession.ruleLibrary.selectedSystemRuleIds = [...ids];
+}
+
+export function setCustomRuleSourceText(text) {
+  reviewSession.ruleLibrary.customRuleSourceText = text;
+}
+
+export function setCustomRulesText(text) {
+  reviewSession.ruleLibrary.customRulesText = text;
+}
+
+export function setCustomRuleFileName(name) {
+  reviewSession.ruleLibrary.customRuleFileName = name;
+}
+
+export function markRuleLibrarySaved(savedAt) {
+  reviewSession.ruleLibrary.savedAt = savedAt;
 }
 
 export function clearSession() {
