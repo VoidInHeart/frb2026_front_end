@@ -1,6 +1,6 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import MarkdownArticle from "../components/MarkdownArticle.vue";
 import RecommendationList from "../components/RecommendationList.vue";
 import ReviewSummaryPanel from "../components/ReviewSummaryPanel.vue";
@@ -25,6 +25,7 @@ import {
   setTransmissionStatus
 } from "../stores/reviewSession";
 
+const route = useRoute();
 const router = useRouter();
 const reviewLoading = ref(false);
 const recommendationLoading = ref(false);
@@ -51,6 +52,12 @@ const flowItems = [
     kicker: "Flow 03"
   }
 ];
+
+const validFlowIds = new Set(flowItems.map((item) => item.id));
+
+function resolveFlow(flowId) {
+  return validFlowIds.has(flowId) ? flowId : "global-analysis";
+}
 
 const submission = computed(() => reviewSession.currentSubmission);
 const paperMeta = computed(() => getPaperMeta(submission.value));
@@ -304,7 +311,10 @@ async function loadRecommendations() {
 function openRecommendation(paper) {
   router.push({
     name: "recommendation-detail",
-    params: { paperId: paper.id }
+    params: { paperId: paper.id },
+    query: {
+      fromFlow: activeFlow.value
+    }
   });
 }
 
@@ -312,6 +322,32 @@ function restartFlow() {
   clearSession();
   router.push({ name: "upload" });
 }
+
+watch(
+  () => route.query.flow,
+  (flow) => {
+    const nextFlow = resolveFlow(String(flow ?? ""));
+
+    if (nextFlow !== activeFlow.value) {
+      activeFlow.value = nextFlow;
+    }
+  },
+  { immediate: true }
+);
+
+watch(activeFlow, (flow) => {
+  if (route.query.flow === flow) {
+    return;
+  }
+
+  router.replace({
+    name: "workspace",
+    query: {
+      ...route.query,
+      flow
+    }
+  });
+});
 
 onMounted(async () => {
   if (!submission.value) {
