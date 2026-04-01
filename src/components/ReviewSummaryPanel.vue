@@ -42,66 +42,68 @@ defineProps({
       </span>
     </div>
 
-    <div v-if="reviewLoading" class="empty-state">正在生成评语与分维度评分...</div>
+    <div class="summary-content">
+      <div v-if="reviewLoading" class="empty-state">正在生成评语与分维度评分...</div>
 
-    <template v-else-if="reviewSummary">
-      <div class="summary-topline">
-        <div class="score-chip">
-          <span>综合评分</span>
-          <strong>{{ reviewSummary.overallScore }}</strong>
-        </div>
-        <div class="verdict-block">
-          <span class="muted-text">建议结论</span>
-          <strong>{{ reviewSummary.verdict }}</strong>
-        </div>
-      </div>
-
-      <p class="summary-text">{{ reviewSummary.summary }}</p>
-
-      <div class="score-grid">
-        <article
-          v-for="item in reviewSummary.dimensionScores"
-          :key="item.label"
-          class="score-card"
-        >
-          <div class="score-card-head">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.score }}</strong>
+      <template v-else-if="reviewSummary">
+        <div class="summary-topline">
+          <div class="score-chip">
+            <span>综合评分</span>
+            <strong>{{ reviewSummary.overallScore }}</strong>
           </div>
-          <div class="score-track">
-            <div
-              class="score-track-fill"
-              :style="{ width: `${item.score}%` }"
-            ></div>
+          <div class="verdict-block">
+            <span class="muted-text">建议结论</span>
+            <strong>{{ reviewSummary.verdict }}</strong>
           </div>
-        </article>
-      </div>
+        </div>
 
-      <div class="insight-grid">
+        <p class="summary-text">{{ reviewSummary.summary }}</p>
+
+        <div class="score-grid">
+          <article
+            v-for="item in reviewSummary.dimensionScores"
+            :key="item.label"
+            class="score-card"
+          >
+            <div class="score-card-head">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.score }}</strong>
+            </div>
+            <div class="score-track">
+              <div
+                class="score-track-fill"
+                :style="{ width: `${item.score}%` }"
+              ></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="insight-grid">
+          <section class="insight-card">
+            <h3>亮点</h3>
+            <ul>
+              <li v-for="item in reviewSummary.strengths" :key="item">{{ item }}</li>
+            </ul>
+          </section>
+          <section class="insight-card">
+            <h3>待完善点</h3>
+            <ul>
+              <li v-for="item in reviewSummary.weaknesses" :key="item">{{ item }}</li>
+            </ul>
+          </section>
+        </div>
+
         <section class="insight-card">
-          <h3>亮点</h3>
+          <h3>建议动作</h3>
           <ul>
-            <li v-for="item in reviewSummary.strengths" :key="item">{{ item }}</li>
+            <li v-for="item in reviewSummary.nextActions" :key="item">{{ item }}</li>
           </ul>
         </section>
-        <section class="insight-card">
-          <h3>待完善点</h3>
-          <ul>
-            <li v-for="item in reviewSummary.weaknesses" :key="item">{{ item }}</li>
-          </ul>
-        </section>
+      </template>
+
+      <div v-else class="empty-state">
+        还没有评语结果，可以点击上方按钮调用生成评语接口。
       </div>
-
-      <section class="insight-card">
-        <h3>建议动作</h3>
-        <ul>
-          <li v-for="item in reviewSummary.nextActions" :key="item">{{ item }}</li>
-        </ul>
-      </section>
-    </template>
-
-    <div v-else class="empty-state">
-      还没有评语结果，可以点击上方按钮调用生成评语接口。
     </div>
   </section>
 </template>
@@ -110,6 +112,20 @@ defineProps({
 .summary-panel {
   padding: 24px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+.summary-content {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  display: grid;
+  align-content: start;
   gap: 20px;
 }
 

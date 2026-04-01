@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import MarkdownArticle from "../components/MarkdownArticle.vue";
 import RecommendationList from "../components/RecommendationList.vue";
@@ -34,6 +34,8 @@ const errorMessage = ref("");
 const pageMessage = ref("");
 const activeFlow = ref("global-analysis");
 const activeRuleTab = ref("system");
+const repairSummaryShell = ref(null);
+const repairRecommendationShell = ref(null);
 
 const flowItems = [
   {
@@ -323,6 +325,11 @@ function restartFlow() {
   router.push({ name: "upload" });
 }
 
+function resetRepairScroll() {
+  repairSummaryShell.value?.scrollTo({ top: 0 });
+  repairRecommendationShell.value?.scrollTo({ top: 0 });
+}
+
 watch(
   () => route.query.flow,
   (flow) => {
@@ -348,6 +355,19 @@ watch(activeFlow, (flow) => {
     }
   });
 });
+
+watch(
+  activeFlow,
+  async (flow) => {
+    if (flow !== "repair") {
+      return;
+    }
+
+    await nextTick();
+    resetRepairScroll();
+  },
+  { immediate: true }
+);
 
 onMounted(async () => {
   if (!submission.value) {
@@ -605,8 +625,7 @@ onMounted(async () => {
       </section>
 
       <section v-else class="flow-panel repair-flow">
-        <section class="repair-left-column">
-          <section class="action-bar glass-card">
+        <section class="action-bar glass-card repair-action-bar">
             <div>
               <p class="summary-kicker">接口操作</p>
               <h2 class="section-title">评语与推荐调用</h2>
@@ -643,21 +662,24 @@ onMounted(async () => {
             </div>
           </section>
 
-          <div class="scroll-shell">
+        <div ref="repairSummaryShell" class="scroll-shell repair-summary-shell">
+          <div class="panel-fill">
             <ReviewSummaryPanel
               :review-summary="reviewSummary"
               :transmission-status="reviewSession.transmissionStatus"
               :review-loading="reviewLoading"
             />
           </div>
-        </section>
+        </div>
 
-        <div class="scroll-shell">
-          <RecommendationList
-            :recommendations="recommendations"
-            :loading="recommendationLoading"
-            @select="openRecommendation"
-          />
+        <div ref="repairRecommendationShell" class="scroll-shell repair-recommendation-shell">
+          <div class="panel-fill">
+            <RecommendationList
+              :recommendations="recommendations"
+              :loading="recommendationLoading"
+              @select="openRecommendation"
+            />
+          </div>
         </div>
       </section>
     </section>
@@ -915,13 +937,32 @@ onMounted(async () => {
 
 .repair-flow {
   grid-template-columns: minmax(360px, 0.94fr) minmax(360px, 1.06fr);
+  grid-template-areas:
+    "action recommendation"
+    "summary recommendation";
+  grid-template-rows: auto minmax(0, 1fr);
+  height: calc(100vh - 25px);
+  min-height: calc(100vh - 25px);
+  max-height: calc(100vh - 25px);
   align-items: stretch;
 }
 
-.repair-left-column {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 18px;
+.repair-action-bar {
+  grid-area: action;
+}
+
+.repair-summary-shell {
+  grid-area: summary;
+  min-height: 0;
+  max-height: none;
+}
+
+.repair-recommendation-shell {
+  grid-area: recommendation;
+  min-height: 0;
+  height: 100%;
+  max-height: none;
+  overflow-y: auto;
 }
 
 .action-bar {
@@ -930,17 +971,43 @@ onMounted(async () => {
 }
 
 .scroll-shell {
-  min-height: calc(100vh - 320px);
-  max-height: calc(100vh - 320px);
   overflow-y: auto;
   overflow-x: hidden;
   border-radius: 28px;
+}
+
+.repair-summary-shell {
+  overflow-y: hidden;
+  overflow-x: hidden;
+}
+
+.panel-fill {
+  height: 100%;
+  min-height: 100%;
+}
+
+.panel-fill :deep(.summary-panel) {
+  height: 100%;
+  min-height: 100%;
+}
+
+.panel-fill :deep(.recommendation-panel) {
+  height: 100%;
+  min-height: 100%;
 }
 
 @media (max-width: 1240px) {
   .two-column-flow,
   .repair-flow {
     grid-template-columns: 1fr;
+    grid-template-areas:
+      "action"
+      "summary"
+      "recommendation";
+    grid-template-rows: auto;
+    height: auto;
+    min-height: auto;
+    max-height: none;
   }
 
   .paper-panel,

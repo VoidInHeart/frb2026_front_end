@@ -68,7 +68,10 @@ defineEmits(["select"]);
 .recommendation-panel {
   padding: 24px;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
+  height: 100%;
+  min-height: 100%;
 }
 
 .recommendation-header {
@@ -89,6 +92,10 @@ defineEmits(["select"]);
 .recommendation-list {
   display: grid;
   gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  align-content: start;
 }
 
 .recommendation-card {
