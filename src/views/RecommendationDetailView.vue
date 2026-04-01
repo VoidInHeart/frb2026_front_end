@@ -10,6 +10,7 @@ const loading = ref(false);
 const errorMessage = ref("");
 
 const paperId = computed(() => String(route.params.paperId ?? ""));
+const returnFlow = computed(() => String(route.query.fromFlow ?? "repair"));
 const detail = computed(
   () => reviewSession.recommendationDetails[paperId.value] ?? null
 );
@@ -36,6 +37,15 @@ async function loadDetail() {
   }
 }
 
+function backToWorkspace() {
+  router.push({
+    name: "workspace",
+    query: {
+      flow: returnFlow.value
+    }
+  });
+}
+
 onMounted(async () => {
   if (!detail.value) {
     await loadDetail();
@@ -47,7 +57,7 @@ onMounted(async () => {
   <section class="detail-layout">
     <header class="detail-hero glass-card">
       <div class="hero-left">
-        <button class="ghost-button back-button" type="button" @click="router.back()">
+        <button class="ghost-button back-button" type="button" @click="backToWorkspace()">
           返回上一页
         </button>
         <p class="summary-kicker">第三界面</p>
