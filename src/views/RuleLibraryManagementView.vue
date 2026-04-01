@@ -25,13 +25,42 @@ const extractingRules = ref(false);
 const savingRules = ref(false);
 const pageMessage = ref("");
 const errorMessage = ref("");
+
+const editingCustomRules = ref(false);
+const showingAddRuleForm = ref(false);
 const uploadedRuleFile = ref(null);
+const draftSourceText = ref("");
+const draftExtractedRulesText = ref("");
+const draftFileName = ref("");
 
 const ruleLibrary = computed(() => reviewSession.ruleLibrary);
 const systemRules = computed(() => ruleLibrary.value.systemRules);
 const selectedSystemRuleIds = computed(() => ruleLibrary.value.selectedSystemRuleIds);
 const selectedRuleCount = computed(() => selectedSystemRuleIds.value.length);
 const hasCustomRules = computed(() => Boolean(ruleLibrary.value.customRulesText.trim()));
+const customRuleItems = computed(() => parseRuleLines(ruleLibrary.value.customRulesText));
+
+function normalizeRuleLine(line) {
+  return line.replace(/^\d+[.)、]\s*/, "").trim();
+}
+
+function parseRuleLines(text) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => normalizeRuleLine(line))
+    .filter(Boolean);
+}
+
+function serializeRuleLines(items) {
+  return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
+}
+
+function resetDraftState() {
+  uploadedRuleFile.value = null;
+  draftSourceText.value = "";
+  draftExtractedRulesText.value = "";
+  draftFileName.value = "";
+}
 
 async function loadSystemRules() {
   loadingSystemRules.value = true;
@@ -65,7 +94,43 @@ function resetSystemSelection() {
   pageMessage.value = "";
 }
 
-async function handleTextFileChange(event) {
+function toggleCustomRuleEditMode() {
+  editingCustomRules.value = !editingCustomRules.value;
+
+  if (!editingCustomRules.value) {
+    showingAddRuleForm.value = false;
+    resetDraftState();
+  }
+
+  pageMessage.value = "";
+  errorMessage.value = "";
+}
+
+function openAddRuleForm() {
+  showingAddRuleForm.value = true;
+  pageMessage.value = "";
+  errorMessage.value = "";
+
+  if (!draftSourceText.value && ruleLibrary.value.customRuleSourceText) {
+    draftSourceText.value = ruleLibrary.value.customRuleSourceText;
+  }
+}
+
+function cancelAddRule() {
+  showingAddRuleForm.value = false;
+  resetDraftState();
+  errorMessage.value = "";
+}
+
+function removeCustomRule(index) {
+  const nextItems = [...customRuleItems.value];
+  nextItems.splice(index, 1);
+
+  setCustomRulesText(serializeRuleLines(nextItems));
+  pageMessage.value = "已删除选中的自建规则。";
+}
+
+async function handleDraftTextFileChange(event) {
   const [file] = event.target.files ?? [];
   if (!file) {
     return;
@@ -74,8 +139,8 @@ async function handleTextFileChange(event) {
   try {
     const text = await readFileAsText(file);
     uploadedRuleFile.value = file;
-    setCustomRuleFileName(file.name);
-    setCustomRuleSourceText(text);
+    draftFileName.value = file.name;
+    draftSourceText.value = text;
     pageMessage.value = `已读取文件：${file.name}`;
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "文本文件读取失败";
@@ -90,17 +155,36 @@ async function handleExtractRules() {
   try {
     const result = await extractCustomRules({
       file: uploadedRuleFile.value,
-      text: ruleLibrary.value.customRuleSourceText
+      text: draftSourceText.value
     });
 
-    setCustomRuleSourceText(result.sourceText ?? ruleLibrary.value.customRuleSourceText);
-    setCustomRulesText(result.extractedRulesText ?? "");
-    pageMessage.value = "自建规则已抽取完成，可在下方编辑框继续修改。";
+    draftSourceText.value = result.sourceText ?? draftSourceText.value;
+    draftExtractedRulesText.value =
+      result.extractedRulesText ?? (result.rules ?? []).join("\n");
+    pageMessage.value = "规则抽取完成，请确认后提交到自建规则库。";
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "自建规则抽取失败";
   } finally {
     extractingRules.value = false;
   }
+}
+
+function confirmAddRules() {
+  const newItems = parseRuleLines(draftExtractedRulesText.value);
+
+  if (!newItems.length) {
+    errorMessage.value = "请先抽取规则，或在编辑框里填写至少一条规则后再提交。";
+    return;
+  }
+
+  const mergedItems = [...customRuleItems.value, ...newItems];
+  setCustomRulesText(serializeRuleLines(mergedItems));
+  setCustomRuleSourceText(draftSourceText.value);
+  setCustomRuleFileName(draftFileName.value);
+
+  pageMessage.value = `已新增 ${newItems.length} 条自建规则。`;
+  showingAddRuleForm.value = false;
+  resetDraftState();
 }
 
 async function saveCurrentSelection() {
@@ -159,7 +243,7 @@ onMounted(() => {
       </div>
 
       <p class="overview-text">
-        页面分为两部分：上半区用于筛选系统标准规则库，下半区用于上传文本并抽取用户自建规则。后续后端返回选中规则下的问题反馈时，可以直接沿用这里保存的选择结果。
+        页面分为两部分：上半区用于筛选系统标准规则库，下半区用于维护用户自建规则。后续后端返回选中规则下的问题反馈时，可以直接沿用这里保存的选择结果。
       </p>
 
       <div class="overview-stats">
@@ -169,7 +253,7 @@ onMounted(() => {
         </div>
         <div class="metric-card">
           <span>自建规则状态</span>
-          <strong>{{ hasCustomRules ? "已抽取" : "待抽取" }}</strong>
+          <strong>{{ hasCustomRules ? "已配置" : "待配置" }}</strong>
         </div>
         <div class="metric-card">
           <span>最近保存时间</span>
@@ -244,60 +328,116 @@ onMounted(() => {
         <div class="card-head">
           <div>
             <span class="pill pill-primary">用户自建规则库</span>
-            <h2 class="section-title">上传文本并抽取规则</h2>
+            <h2 class="section-title">先展示已有规则，再进入编辑态</h2>
             <p class="section-subtitle">
-              这里预留了给后端调用大模型抽取规则的接口，返回结果会展示在可编辑文本框中。
+              默认先展示当前已有的自建规则；点击右上角“编辑规则”后，可以删除规则或新增规则。
             </p>
           </div>
-          <button
-            class="secondary-button"
-            type="button"
-            :disabled="extractingRules"
-            @click="handleExtractRules"
-          >
-            {{ extractingRules ? "抽取中..." : "抽取自建规则" }}
+          <button class="secondary-button" type="button" @click="toggleCustomRuleEditMode">
+            {{ editingCustomRules ? "完成编辑" : "编辑规则" }}
           </button>
         </div>
 
-        <div class="grid-two">
-          <div class="field-group">
-            <label class="field-label" for="custom-rule-file">上传规则说明文本</label>
-            <input
-              id="custom-rule-file"
-              class="file-input"
-              type="file"
-              accept=".txt,.md"
-              @change="handleTextFileChange"
-            />
-            <span class="field-hint">
-              {{ ruleLibrary.customRuleFileName ? `当前文件：${ruleLibrary.customRuleFileName}` : "支持 txt 或 md 文本文件" }}
-            </span>
+        <div class="custom-rule-list">
+          <article
+            v-for="(rule, index) in customRuleItems"
+            :key="`${index}-${rule}`"
+            class="custom-rule-card"
+          >
+            <div class="custom-rule-body">
+              <span class="custom-rule-index">{{ `${index + 1}`.padStart(2, "0") }}</span>
+              <p>{{ rule }}</p>
+            </div>
+            <button
+              v-if="editingCustomRules"
+              class="ghost-button compact-button"
+              type="button"
+              @click="removeCustomRule(index)"
+            >
+              删除
+            </button>
+          </article>
+
+          <div v-if="!customRuleItems.length" class="empty-state custom-rule-empty">
+            <p>当前还没有自建规则。</p>
+            <p>点击“编辑规则”后即可新增并确认提交。</p>
+          </div>
+        </div>
+
+        <div v-if="editingCustomRules" class="edit-toolbar">
+          <button class="ghost-button" type="button" @click="openAddRuleForm">
+            新增规则
+          </button>
+          <span class="field-hint">
+            可以像成员管理一样先看已有条目，再按需删除或新增。
+          </span>
+        </div>
+
+        <section v-if="editingCustomRules && showingAddRuleForm" class="draft-editor">
+          <div class="draft-editor-head">
+            <div>
+              <h3>新增规则</h3>
+              <p>这里保留上传文本、抽取规则和手动编辑的流程。</p>
+            </div>
+            <button class="ghost-button" type="button" @click="cancelAddRule">
+              取消
+            </button>
+          </div>
+
+          <div class="grid-two">
+            <div class="field-group">
+              <label class="field-label" for="custom-rule-file">上传规则说明文本</label>
+              <input
+                id="custom-rule-file"
+                class="file-input"
+                type="file"
+                accept=".txt,.md"
+                @change="handleDraftTextFileChange"
+              />
+              <span class="field-hint">
+                {{ draftFileName ? `当前文件：${draftFileName}` : "支持 txt 或 md 文本文件" }}
+              </span>
+            </div>
+
+            <div class="field-group">
+              <label class="field-label" for="custom-rule-source">原始规则说明</label>
+              <textarea
+                id="custom-rule-source"
+                class="text-area"
+                :value="draftSourceText"
+                placeholder="在这里粘贴规则说明，或先上传文本文件。"
+                @input="draftSourceText = $event.target.value"
+              />
+              <span class="field-hint">后端可直接消费这里的文本做规则抽取。</span>
+            </div>
           </div>
 
           <div class="field-group">
-            <label class="field-label" for="custom-rule-source">原始规则说明</label>
+            <label class="field-label" for="custom-rule-result">抽取后的规则编辑框</label>
             <textarea
-              id="custom-rule-source"
-              class="text-area"
-              :value="ruleLibrary.customRuleSourceText"
-              placeholder="在这里粘贴规则说明，或先上传文本文件。"
-              @input="setCustomRuleSourceText($event.target.value)"
+              id="custom-rule-result"
+              class="text-area result-area"
+              :value="draftExtractedRulesText"
+              placeholder="抽取完成后，规则会显示在这里，并支持手动修改。"
+              @input="draftExtractedRulesText = $event.target.value"
             />
-            <span class="field-hint">后端可直接消费这里的文本做规则抽取。</span>
+            <span class="field-hint">每一行视为一条规则，确认提交后会加入上面的自建规则列表。</span>
           </div>
-        </div>
 
-        <div class="field-group">
-          <label class="field-label" for="custom-rule-result">抽取后的规则编辑框</label>
-          <textarea
-            id="custom-rule-result"
-            class="text-area result-area"
-            :value="ruleLibrary.customRulesText"
-            placeholder="抽取完成后，规则会显示在这里，并支持手动编辑。"
-            @input="setCustomRulesText($event.target.value)"
-          />
-          <span class="field-hint">这里保留最终给后端或后续页面使用的自建规则文本。</span>
-        </div>
+          <div class="button-row">
+            <button
+              class="secondary-button"
+              type="button"
+              :disabled="extractingRules"
+              @click="handleExtractRules"
+            >
+              {{ extractingRules ? "抽取中..." : "抽取规则" }}
+            </button>
+            <button class="primary-button" type="button" @click="confirmAddRules">
+              确认提交新增规则
+            </button>
+          </div>
+        </section>
       </article>
     </section>
   </section>
@@ -461,6 +601,88 @@ onMounted(() => {
   font-size: 13px;
 }
 
+.custom-rule-list {
+  display: grid;
+  gap: 12px;
+}
+
+.custom-rule-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(19, 63, 103, 0.12);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.custom-rule-body {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.custom-rule-body p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.custom-rule-index {
+  min-width: 38px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(19, 63, 103, 0.08);
+  color: var(--primary);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.custom-rule-empty {
+  min-height: 120px;
+}
+
+.compact-button {
+  min-width: 72px;
+}
+
+.edit-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.draft-editor {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 22px;
+  border: 1px dashed rgba(50, 96, 197, 0.34);
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.draft-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.draft-editor-head h3,
+.draft-editor-head p {
+  margin: 0;
+}
+
+.draft-editor-head p {
+  color: var(--muted);
+  margin-top: 6px;
+}
+
 .text-area {
   min-height: 180px;
   resize: vertical;
@@ -511,7 +733,9 @@ onMounted(() => {
 
 @media (max-width: 860px) {
   .overview-head,
-  .card-head {
+  .card-head,
+  .draft-editor-head,
+  .custom-rule-card {
     flex-direction: column;
   }
 
@@ -525,6 +749,10 @@ onMounted(() => {
 
   .overview-actions {
     justify-self: start;
+  }
+
+  .custom-rule-card {
+    align-items: stretch;
   }
 }
 </style>
