@@ -6,51 +6,44 @@ import RecommendationList from "../components/RecommendationList.vue";
 import ReviewSummaryPanel from "../components/ReviewSummaryPanel.vue";
 import {
   countAnchorsByType,
-  fetchSystemRuleLibrary,
   fetchRecommendations,
+  fetchSystemRuleLibrary,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
-  generateReviewComment,
+  mapTask1AuditToReviewSummary,
+  runGlobalLogicAudit,
+  runRuleBasedAudit,
   submitPaperMeta
 } from "../services/api";
 import {
   clearSession,
   reviewSession,
   setCustomRulesText,
-  setRuleLibraryCatalog,
   setRecommendations,
   setReviewSummary,
+  setRuleLibraryCatalog,
   setShowImages,
   setTransmissionStatus
 } from "../stores/reviewSession";
 
 const route = useRoute();
 const router = useRouter();
+
 const reviewLoading = ref(false);
+const ruleAuditLoading = ref(false);
 const recommendationLoading = ref(false);
 const transmissionLoading = ref(false);
 const errorMessage = ref("");
 const pageMessage = ref("");
-const activeFlow = ref("global-analysis");
 const activeRuleTab = ref("system");
+const logicAuditResult = ref(null);
+const ruleAuditReport = ref([]);
 
 const flowItems = [
-  {
-    id: "global-analysis",
-    label: "全局性问题分析",
-    kicker: "Flow 01"
-  },
-  {
-    id: "rule-analysis",
-    label: "基于规则的问题分析",
-    kicker: "Flow 02"
-  },
-  {
-    id: "repair",
-    label: "修复",
-    kicker: "Flow 03"
-  }
+  { id: "global-analysis", label: "全局性问题分析", kicker: "Flow 01" },
+  { id: "rule-analysis", label: "基于规则的问题分析", kicker: "Flow 02" },
+  { id: "repair", label: "修复", kicker: "Flow 03" }
 ];
 
 const validFlowIds = new Set(flowItems.map((item) => item.id));
@@ -58,6 +51,8 @@ const validFlowIds = new Set(flowItems.map((item) => item.id));
 function resolveFlow(flowId) {
   return validFlowIds.has(flowId) ? flowId : "global-analysis";
 }
+
+const activeFlow = ref(resolveFlow(String(route.query.flow ?? "")));
 
 const submission = computed(() => reviewSession.currentSubmission);
 const paperMeta = computed(() => getPaperMeta(submission.value));
@@ -82,9 +77,6 @@ const selectedSystemRules = computed(() =>
 );
 const customRuleItems = computed(() => parseRuleLines(reviewSession.ruleLibrary.customRulesText));
 
-const globalAnalysisComments = computed(() => buildGlobalAnalysisComments());
-const ruleAnalysisTabs = computed(() => buildRuleAnalysisTabs());
-
 function parseRuleLines(text) {
   return (text ?? "")
     .split(/\r?\n/)
@@ -92,114 +84,125 @@ function parseRuleLines(text) {
     .filter(Boolean);
 }
 
-function formatAnchorLabel(anchor) {
-  if (!anchor) {
-    return "未定位锚点";
-  }
-
-  return `${anchor.anchor_id} · P${anchor.page_no}`;
+function serializeRuleLines(items) {
+  return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
 }
 
-function buildGlobalAnalysisComments() {
-  const anchors = paperMeta.value?.anchors ?? [];
-  const paragraphAnchor = anchors.find((item) => item.type === "paragraph");
-  const figureAnchor = anchors.find((item) => item.type === "figure");
-  const tableAnchor = anchors.find((item) => item.type === "table");
-  const summary = reviewSummary.value;
+function makeIssueSuggestion(issue) {
+  const node = issue?.dimension_keys?.[0] ?? issue?.logical_node ?? "";
+
+  const suggestionMap = {
+    research_problem_closure: "建议在摘要、方法和结论中补上同一条问题闭环，减少章节之间的断裂。",
+    claim_evidence_conclusion_strength: "建议降低结论强度，或补充更直接的实验和证据引用。",
+    figure_table_text_consistency: "建议在图表第一次出现的位置补一条结论性解释句。",
+    method_experiment_alignment: "建议把方法声明与实验设计做一一对应，避免评审觉得验证不足。",
+    scope_and_extrapolation_control: "建议收紧外推范围，并补充适用边界说明。"
+  };
+
+  return (
+    suggestionMap[node] ??
+    "建议把这条问题映射到具体章节位置，并补充直接证据或更谨慎的论述。"
+  );
+}
+
+function mapTask1IssueToComment(issue, index) {
+  return {
+    id: issue.issue_id ?? `global-issue-${index + 1}`,
+    title: issue.logical_node ?? `逻辑问题 ${index + 1}`,
+    anchor: issue.evidence_links?.join(" / ") || "待定位锚点",
+    severity: issue.severity ?? "risk",
+    description: issue.analysis ?? "后端未返回问题分析说明。",
+    suggestion: makeIssueSuggestion(issue)
+  };
+}
+
+const globalAnalysisComments = computed(() => {
+  const issues = logicAuditResult.value?.issues ?? [];
+
+  if (issues.length) {
+    return issues.map(mapTask1IssueToComment);
+  }
 
   return [
     {
-      id: "global-structure",
+      id: "fallback-global-1",
       title: "结构节奏仍然偏松",
-      anchor: formatAnchorLabel(paragraphAnchor),
-      severity: "高优先级",
+      anchor: "待定位锚点",
+      severity: "major",
       description:
-        summary?.summary ??
-        "当前论文整体逻辑可以读通，但摘要到方法之间的过渡还不够紧，关键信息分散，读者需要反复回看才能建立主线。",
-      suggestion:
-        "建议先在摘要末尾补一句研究主张，再在引言结尾明确贡献列表，让后文每个章节都能对齐到这条主线。"
-    },
-    {
-      id: "global-evidence",
-      title: "证据呈现还不够聚焦",
-      anchor: formatAnchorLabel(figureAnchor),
-      severity: "中优先级",
-      description:
-        "图表与文字的互相解释还不够紧密，部分结论没有快速指向图表证据，评审阅读时需要自己做额外映射。",
-      suggestion:
-        "建议在图表首次出现的段落里补上结论性句子，并明确指出对应的观察点，减少读者自己推断的成本。"
-    },
-    {
-      id: "global-experiment",
-      title: "实验结论和分析层次可以再拉开",
-      anchor: formatAnchorLabel(tableAnchor),
-      severity: "中优先级",
-      description:
-        "实验章节现在更像结果罗列，缺少按“主结果、失败案例、局限性”层层展开的阅读节奏。",
-      suggestion:
-        "建议把实验结果拆成主结论和补充观察两层，并在表格后追加针对异常样本或边界场景的解释。"
+        reviewSummary.value?.summary ??
+        "当前论文整体逻辑可以读通，但摘要到方法之间的过渡还不够紧，关键信息分散。",
+      suggestion: "建议先在摘要末尾补一句研究主张，再在引言结尾明确贡献列表。"
     }
   ];
+});
+
+function mapRuleAuditItemToComment(item, index, sourceLabel) {
+  return {
+    id: item.rule_id ?? `${sourceLabel}-${index + 1}`,
+    title: item.rule_id ?? `${sourceLabel} ${index + 1}`,
+    anchor: item.location ?? `问题 ${index + 1}`,
+    sourceLabel,
+    description: item.evidence ?? "后端未返回证据说明。",
+    suggestion: item.suggestion ?? "建议结合该规则补充论文内容。",
+    recommendedRule: item.suggestion ?? item.evidence ?? ""
+  };
 }
 
-function buildRuleAnalysisTabs() {
-  const systemComments = selectedSystemRules.value.map((rule, index) => ({
+const ruleAnalysisTabs = computed(() => {
+  const systemAuditComments = ruleAuditReport.value
+    .filter((item) => String(item.rule_id ?? "").startsWith("R-SYS"))
+    .map((item, index) => mapRuleAuditItemToComment(item, index, "标准规则"));
+
+  const customAuditComments = ruleAuditReport.value
+    .filter((item) => {
+      const ruleId = String(item.rule_id ?? "");
+      return ruleId && !ruleId.startsWith("R-SYS") && !ruleId.startsWith("R-AUTO");
+    })
+    .map((item, index) => mapRuleAuditItemToComment(item, index, "自建规则"));
+
+  const llmAuditComments = ruleAuditReport.value
+    .filter((item) => String(item.rule_id ?? "").startsWith("R-AUTO"))
+    .map((item, index) => mapRuleAuditItemToComment(item, index, "大模型推荐"));
+
+  const fallbackSystemComments = selectedSystemRules.value.map((rule, index) => ({
     id: `system-${rule.id}`,
     title: `${rule.title}：需要补充可执行说明`,
-    anchor: `系统规则 ${index + 1}`,
+    anchor: `标准规则 ${index + 1}`,
     sourceLabel: rule.category,
     description:
-      `基于“${rule.title}”这条标准规则，当前稿件已经覆盖了主要内容，但仍有部分段落缺少显式说明，导致规则命中后反馈不够稳定。`,
-    suggestion:
-      "建议在相关章节补上更明确的结论句或结构提示，让规则反馈可以直接落到具体位置。"
+      `基于“${rule.title}”这条标准规则，当前稿件已经覆盖了主要内容，但仍有部分段落缺少显式说明。`,
+    suggestion: "建议在相关章节补上更明确的结论句或结构提示。"
   }));
 
-  const customComments = customRuleItems.value.map((rule, index) => ({
+  const fallbackCustomComments = customRuleItems.value.map((rule, index) => ({
     id: `custom-${index}`,
     title: `自建规则 ${index + 1}`,
-    anchor: `自建库 · ${index + 1}`,
+    anchor: `自建库 ${index + 1}`,
     sourceLabel: "用户自建",
-    description: `按照“${rule}”这条自建规则看，论文目前有一定覆盖，但还缺少更直接的支撑内容。`,
-    suggestion:
-      "建议把这条规则对应的检查点前置到正文里，让后续自动分析结果更稳定。"
+    description: `按照“${rule}”这条自建规则看，论文目前仍缺少更直接的支撑内容。`,
+    suggestion: "建议把这条规则对应的检查点前置到正文里。"
   }));
 
-  const llmComments = [
+  const fallbackLlmComments = [
     {
       id: "llm-1",
       title: "建议新增“问题定义是否前置”的规则",
       anchor: "大模型推荐 01",
       sourceLabel: "结构建议",
       description:
-        "从整篇论文的阅读路径来看，问题定义与任务边界出现得偏后，容易影响评审对后续方法设计的理解。",
-      suggestion:
-        "可以新增规则：在摘要或引言第一页必须明确说明研究问题、任务边界和评价目标。",
-      recommendedRule:
-        "在摘要或引言第一页明确说明研究问题、任务边界和评价目标。"
+        "从整篇论文的阅读路径来看，问题定义与任务边界出现得偏后，容易影响评审理解。",
+      suggestion: "在摘要或引言第一页明确说明研究问题、任务边界和评价目标。",
+      recommendedRule: "在摘要或引言第一页明确说明研究问题、任务边界和评价目标。"
     },
     {
       id: "llm-2",
       title: "建议新增“图表必须配解释句”的规则",
       anchor: "大模型推荐 02",
       sourceLabel: "图表解释",
-      description:
-        "图表虽然已经存在，但文字部分没有做到首尾呼应，评审很难迅速判断图表想证明什么。",
-      suggestion:
-        "可以新增规则：每个核心图表首次出现时，正文必须配一条结论性解释句。",
-      recommendedRule:
-        "每个核心图表首次出现时，正文必须配一条结论性解释句。"
-    },
-    {
-      id: "llm-3",
-      title: "建议新增“异常案例分析”的规则",
-      anchor: "大模型推荐 03",
-      sourceLabel: "实验分析",
-      description:
-        "当前实验结果展示了总体表现，但缺少异常样本、误判样本或边界场景的补充分析。",
-      suggestion:
-        "可以新增规则：实验部分至少补充一段异常案例、误判分析或边界场景讨论。",
-      recommendedRule:
-        "实验部分至少补充一段异常案例、误判分析或边界场景讨论。"
+      description: "图表虽然存在，但正文没有做到首尾呼应，评审难以迅速判断图表想证明什么。",
+      suggestion: "每个核心图表首次出现时，正文必须配一条结论性解释句。",
+      recommendedRule: "每个核心图表首次出现时，正文必须配一条结论性解释句。"
     }
   ];
 
@@ -207,36 +210,38 @@ function buildRuleAnalysisTabs() {
     {
       id: "system",
       label: "标准规则库",
-      comments: systemComments
+      comments: systemAuditComments.length ? systemAuditComments : fallbackSystemComments
     },
     {
       id: "custom",
       label: "自建规则库",
-      comments: customComments
+      comments: customAuditComments.length ? customAuditComments : fallbackCustomComments
     },
     {
       id: "llm",
       label: "大模型推荐",
-      comments: llmComments
+      comments: llmAuditComments.length ? llmAuditComments : fallbackLlmComments
     }
   ];
-}
+});
 
 const activeRuleTabData = computed(
   () => ruleAnalysisTabs.value.find((item) => item.id === activeRuleTab.value) ?? ruleAnalysisTabs.value[0]
 );
 
 function appendRuleToCustomLibrary(ruleText) {
+  if (!ruleText?.trim()) {
+    return;
+  }
+
   const currentItems = parseRuleLines(reviewSession.ruleLibrary.customRulesText);
 
-  if (currentItems.includes(ruleText)) {
+  if (currentItems.includes(ruleText.trim())) {
     pageMessage.value = "这条规则已经在用户自建库里了。";
     return;
   }
 
-  const nextItems = [...currentItems, ruleText];
-  const serialized = nextItems.map((item, index) => `${index + 1}. ${item}`).join("\n");
-  setCustomRulesText(serialized);
+  setCustomRulesText(serializeRuleLines([...currentItems, ruleText.trim()]));
   pageMessage.value = "已添加到用户自建规则库。";
 }
 
@@ -262,7 +267,7 @@ async function resendDocumentIr() {
   }
 }
 
-async function loadReviewSummary() {
+async function loadLogicAudit() {
   if (!submission.value) {
     return;
   }
@@ -271,17 +276,39 @@ async function loadReviewSummary() {
   reviewLoading.value = true;
 
   try {
-    const summary = await generateReviewComment({
-      submissionId: submission.value.submissionId,
+    const logicAnalysis = await runGlobalLogicAudit({
+      paperMarkdown: submission.value.paperMarkdown,
       paperMeta: paperMeta.value
     });
 
-    setReviewSummary(summary);
+    logicAuditResult.value = logicAnalysis;
+    setReviewSummary(mapTask1AuditToReviewSummary(logicAnalysis));
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "评语生成失败";
+      error instanceof Error ? error.message : "全局逻辑分析失败";
   } finally {
     reviewLoading.value = false;
+  }
+}
+
+async function loadRuleAudit() {
+  if (!submission.value) {
+    return;
+  }
+
+  errorMessage.value = "";
+  ruleAuditLoading.value = true;
+
+  try {
+    ruleAuditReport.value = await runRuleBasedAudit({
+      paperMarkdown: submission.value.paperMarkdown,
+      paperMeta: paperMeta.value
+    });
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "规则分析失败";
+  } finally {
+    ruleAuditLoading.value = false;
   }
 }
 
@@ -369,9 +396,8 @@ onMounted(async () => {
     await resendDocumentIr();
   }
 
-  if (!reviewSummary.value) {
-    await loadReviewSummary();
-  }
+  await loadLogicAudit();
+  await loadRuleAudit();
 
   if (!recommendations.value.length) {
     await loadRecommendations();
@@ -387,7 +413,7 @@ onMounted(async () => {
           <p class="summary-kicker">第二界面</p>
           <h1 class="section-title">论文分析</h1>
           <p class="section-subtitle">
-            这一页现在拆成三个连续流程：先看全局性问题，再切到基于规则的问题分析，最后进入修复与推荐阶段。
+            这一页拆成三个连续流程：先看全局性问题，再切到基于规则的问题分析，最后进入修复与推荐阶段。
           </p>
         </div>
 
@@ -401,11 +427,9 @@ onMounted(async () => {
       </header>
 
       <section class="workflow-card glass-card">
-        <div class="workflow-header">
-          <div>
-            <p class="summary-kicker">流式工作流程</p>
-            <h2 class="section-title">点击不同流程，切换不同分析界面</h2>
-          </div>
+        <div>
+          <p class="summary-kicker">流式工作流程</p>
+          <h2 class="section-title">点击不同流程，切换不同分析界面</h2>
         </div>
 
         <div class="workflow-line" role="tablist" aria-label="论文分析流程">
@@ -414,7 +438,6 @@ onMounted(async () => {
               class="workflow-step"
               :class="{ active: activeFlow === item.id }"
               type="button"
-              role="tab"
               :aria-selected="activeFlow === item.id"
               @click="activeFlow = item.id"
             >
@@ -427,22 +450,14 @@ onMounted(async () => {
             <div
               v-if="index < flowItems.length - 1"
               class="workflow-connector"
-              :class="{
-                active:
-                  flowItems.findIndex((entry) => entry.id === activeFlow) > index
-              }"
+              :class="{ active: flowItems.findIndex((entry) => entry.id === activeFlow) > index }"
             ></div>
           </template>
         </div>
       </section>
 
-      <div v-if="pageMessage" class="success-banner">
-        {{ pageMessage }}
-      </div>
-
-      <div v-if="errorMessage" class="error-banner">
-        {{ errorMessage }}
-      </div>
+      <div v-if="pageMessage" class="success-banner">{{ pageMessage }}</div>
+      <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
 
       <section v-if="activeFlow === 'global-analysis'" class="flow-panel two-column-flow">
         <section class="paper-panel glass-card">
@@ -458,12 +473,8 @@ onMounted(async () => {
           </div>
 
           <div class="meta-row">
-            <span class="pill pill-primary">
-              doc_id: {{ paperMeta?.doc_id || "unknown" }}
-            </span>
-            <span class="pill pill-neutral">
-              source: {{ submission.sourceMode }}
-            </span>
+            <span class="pill pill-primary">doc_id: {{ paperMeta?.doc_id || "unknown" }}</span>
+            <span class="pill pill-neutral">source: {{ submission.sourceMode }}</span>
           </div>
 
           <div class="panel-scroll article-scroll">
@@ -484,7 +495,9 @@ onMounted(async () => {
             <span class="pill pill-accent">{{ globalAnalysisComments.length }} 条</span>
           </div>
 
-          <div class="panel-scroll comment-scroll">
+          <div v-if="reviewLoading" class="empty-state">正在进行全局逻辑分析...</div>
+
+          <div v-else class="panel-scroll comment-scroll">
             <article
               v-for="comment in globalAnalysisComments"
               :key="comment.id"
@@ -497,10 +510,12 @@ onMounted(async () => {
                 </div>
                 <span class="pill pill-neutral">{{ comment.severity }}</span>
               </div>
+
               <section class="analysis-block">
                 <h4>问题叙述</h4>
                 <p>{{ comment.description }}</p>
               </section>
+
               <section class="analysis-block">
                 <h4>修改建议</h4>
                 <p>{{ comment.suggestion }}</p>
@@ -524,12 +539,8 @@ onMounted(async () => {
           </div>
 
           <div class="meta-row">
-            <span class="pill pill-primary">
-              已选标准规则 {{ selectedSystemRules.length }}
-            </span>
-            <span class="pill pill-neutral">
-              自建规则 {{ customRuleItems.length }}
-            </span>
+            <span class="pill pill-primary">已选标准规则 {{ selectedSystemRules.length }}</span>
+            <span class="pill pill-neutral">自建规则 {{ customRuleItems.length }}</span>
           </div>
 
           <div class="panel-scroll article-scroll">
@@ -547,6 +558,9 @@ onMounted(async () => {
               <p class="summary-kicker">基于规则的问题分析</p>
               <h2 class="section-title">按规则来源查看问题反馈</h2>
             </div>
+            <span class="pill pill-neutral">
+              {{ ruleAuditLoading ? "分析中" : `${activeRuleTabData?.comments?.length ?? 0} 条` }}
+            </span>
           </div>
 
           <div class="rule-tabs" role="tablist" aria-label="规则分析标签页">
@@ -562,8 +576,10 @@ onMounted(async () => {
             </button>
           </div>
 
-          <div class="panel-scroll comment-scroll">
-            <div v-if="!activeRuleTabData?.comments.length" class="empty-state">
+          <div v-if="ruleAuditLoading" class="empty-state">正在进行基于规则的问题分析...</div>
+
+          <div v-else class="panel-scroll comment-scroll">
+            <div v-if="!activeRuleTabData?.comments?.length" class="empty-state">
               当前标签还没有可展示的评论。
             </div>
 
@@ -579,14 +595,17 @@ onMounted(async () => {
                 </div>
                 <span class="pill pill-neutral">{{ comment.sourceLabel }}</span>
               </div>
+
               <section class="analysis-block">
                 <h4>问题叙述</h4>
                 <p>{{ comment.description }}</p>
               </section>
+
               <section class="analysis-block">
                 <h4>修改建议</h4>
                 <p>{{ comment.suggestion }}</p>
               </section>
+
               <div
                 v-if="activeRuleTab === 'llm' && comment.recommendedRule"
                 class="analysis-actions"
@@ -617,9 +636,17 @@ onMounted(async () => {
                 class="primary-button"
                 type="button"
                 :disabled="reviewLoading"
-                @click="loadReviewSummary"
+                @click="loadLogicAudit"
               >
-                {{ reviewLoading ? "生成中..." : "生成评语" }}
+                {{ reviewLoading ? "分析中..." : "刷新全局分析" }}
+              </button>
+              <button
+                class="secondary-button"
+                type="button"
+                :disabled="ruleAuditLoading"
+                @click="loadRuleAudit"
+              >
+                {{ ruleAuditLoading ? "分析中..." : "刷新规则分析" }}
               </button>
               <button
                 class="secondary-button"
@@ -723,7 +750,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(5, auto);
   align-items: center;
-  gap: 0;
   justify-content: center;
 }
 
@@ -747,11 +773,9 @@ onMounted(async () => {
   border-radius: 999px;
   border: 3px solid rgba(19, 63, 103, 0.24);
   background: rgba(255, 255, 255, 0.92);
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
 }
 
 .workflow-step.active .workflow-dot {
-  transform: scale(1.12);
   border-color: var(--primary);
   background: var(--accent);
 }
