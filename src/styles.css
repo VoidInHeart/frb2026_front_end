@@ -24,6 +24,7 @@
   --radius-lg: 28px;
   --radius-md: 20px;
   --content-width: 1380px;
+  --topbar-offset: 126px;
   font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -181,7 +182,7 @@ button {
   z-index: 1;
   width: min(calc(100% - 32px), var(--content-width));
   margin: 0 auto;
-  padding: 24px 0 40px;
+  padding: var(--topbar-offset) 0 40px;
 }
 
 .glass-card {
@@ -337,8 +338,12 @@ button {
 }
 
 @media (max-width: 720px) {
+  :root {
+    --topbar-offset: 164px;
+  }
+
   .page-shell {
     width: min(calc(100% - 20px), var(--content-width));
-    padding-top: 18px;
+    padding-top: var(--topbar-offset);
   }
 }
