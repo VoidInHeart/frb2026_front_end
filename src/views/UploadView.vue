@@ -92,7 +92,10 @@ function goToRuleLibrary() {
 
 <template>
   <section
-    :class="['upload-layout', { 'upload-layout-dark': appearanceState.theme === 'dark' }]"
+    :class="[
+      'upload-layout',
+      { 'upload-layout-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
+    ]"
   >
     <div class="hero-panel glass-card">
       <span class="pill pill-accent">三页流程</span>
@@ -433,8 +436,8 @@ function goToRuleLibrary() {
 }
 
 .upload-layout-dark .hero-card,
-.upload-layout-dark .endpoint-panel {
-  background: rgba(255, 255, 255, 0.18);
+.upload-layout-dark .rule-entry-panel {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .upload-layout-dark .drop-zone {
@@ -442,11 +445,11 @@ function goToRuleLibrary() {
 }
 
 .upload-layout-dark .drop-zone-active {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .upload-layout-dark .drop-text {
-  background: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 @media (max-width: 1080px) {

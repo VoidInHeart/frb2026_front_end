@@ -20,7 +20,7 @@ defineEmits(["select"]);
     :class="[
       'recommendation-panel',
       'glass-card',
-      { 'recommendation-panel-dark': appearanceState.theme === 'dark' }
+      { 'recommendation-panel-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
     ]"
   >
     <div class="recommendation-header">
@@ -164,7 +164,7 @@ defineEmits(["select"]);
 }
 
 .recommendation-panel-dark .recommendation-card {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .recommendation-panel-dark .recommendation-rank {

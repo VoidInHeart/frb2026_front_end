@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import { appearanceState } from "../stores/appearance";
 import {
   extractCustomRules,
   fetchSystemRuleLibrary,
@@ -219,7 +220,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="rule-library-layout">
+  <section
+    :class="[
+      'rule-library-layout',
+      { 'rule-library-layout-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
+    ]"
+  >
     <section class="overview-panel glass-card">
       <div class="overview-head">
         <div class="overview-spacer" aria-hidden="true"></div>
@@ -722,6 +728,36 @@ onMounted(() => {
   background: rgba(192, 86, 33, 0.12);
   border: 1px solid rgba(192, 86, 33, 0.18);
   color: var(--danger);
+}
+
+.rule-library-layout-dark .metric-card,
+.rule-library-layout-dark .rule-card,
+.rule-library-layout-dark .custom-rule-card,
+.rule-library-layout-dark .draft-editor,
+.rule-library-layout-dark .text-area {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(124, 195, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+
+.rule-library-layout-dark .rule-category,
+.rule-library-layout-dark .rule-tag,
+.rule-library-layout-dark .custom-rule-index {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(124, 195, 255, 0.16) !important;
+}
+
+.rule-library-layout-dark .rule-card.selected {
+  border-color: rgba(124, 195, 255, 0.34);
+  box-shadow: none;
+}
+
+.rule-library-layout-dark .metric-card span,
+.rule-library-layout-dark .rule-card p,
+.rule-library-layout-dark .custom-rule-body p,
+.rule-library-layout-dark .draft-editor-head p,
+.rule-library-layout-dark .field-hint {
+  color: #d7e3f1;
 }
 
 @media (max-width: 1080px) {

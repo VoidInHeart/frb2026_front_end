@@ -32,13 +32,16 @@ const renderedHtml = computed(() =>
     :class="[
       'article-frame',
       'markdown-preview',
-      { 'article-frame-dark': appearanceState.theme === 'dark' }
+      { 'article-frame-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
     ]"
     v-html="renderedHtml"
   ></article>
   <article
     v-else
-    :class="['article-frame', { 'article-frame-dark': appearanceState.theme === 'dark' }]"
+    :class="[
+      'article-frame',
+      { 'article-frame-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
+    ]"
   >
     <div class="empty-state">No markdown content available.</div>
   </article>

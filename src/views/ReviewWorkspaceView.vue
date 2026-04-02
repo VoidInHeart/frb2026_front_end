@@ -24,6 +24,7 @@ import {
   setShowImages,
   setTransmissionStatus
 } from "../stores/reviewSession";
+import { appearanceState } from "../stores/appearance";
 
 const route = useRoute();
 const router = useRouter();
@@ -400,7 +401,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section v-if="submission" class="workspace-layout">
+  <section
+    v-if="submission"
+    :class="[
+      'workspace-layout',
+      { 'workspace-layout-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
+    ]"
+  >
     <section class="workspace-main">
       <header class="workspace-hero glass-card">
         <div>
@@ -876,6 +883,22 @@ onMounted(async () => {
   border: 1px solid rgba(19, 63, 103, 0.12);
   display: grid;
   gap: 16px;
+}
+
+.workspace-layout-dark .toggle-field,
+.workspace-layout-dark .analysis-card,
+.workspace-layout-dark .rule-tabs,
+.workspace-layout-dark .rule-tab.active {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(124, 195, 255, 0.16) !important;
+  box-shadow: none !important;
+}
+
+.workspace-layout-dark .analysis-card-head h3,
+.workspace-layout-dark .analysis-block p,
+.workspace-layout-dark .workflow-text small,
+.workspace-layout-dark .rule-tab {
+  color: #d7e3f1;
 }
 
 .analysis-card-head {

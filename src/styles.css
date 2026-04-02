@@ -38,7 +38,7 @@
     radial-gradient(circle at bottom right, rgba(119, 72, 187, 0.22), transparent 26%),
     linear-gradient(145deg, #0d131b 0%, #111a24 42%, #121927 100%);
   --panel: rgba(79, 116, 174, 0.072);
-  --border: rgba(148, 163, 184, 0.22);
+  --border: #ffffff25;
   --text: #e5ebf4;
   --muted: #ecf3fc;
   --primary: #74caff;
@@ -61,6 +61,8 @@
     0 0 0 1px rgba(144, 205, 244, 0.1),
     0 0 20px rgba(144, 205, 244, 0.18),
     0 0 48px rgba(119, 72, 187, 0.18);
+  --dark-frost-bg: rgba(255, 255, 255, 0.12);
+  --dark-frost-border: rgba(148, 163, 184, 0.18);
 }
 
 :root[data-theme="sci-fi"] {
@@ -86,31 +88,60 @@
   --button-gradient: linear-gradient(135deg, #008ecb, #00c38b);
   --button-shadow: 0 18px 40px rgba(0, 195, 139, 0.28);
   --shadow: 0 24px 78px rgba(0, 18, 40, 0.58);
+  --dark-frost-bg: rgba(255, 255, 255, 0.12);
+  --dark-frost-border: rgba(124, 195, 255, 0.16);
 }
 
 :root[data-theme="vivid"] {
   color-scheme: light;
-  --bg: #fff4f9;
+  --bg: #fff9fd;
+  --rainbow-text-gradient: linear-gradient(
+    135deg,
+    #ff5f6d 0%,
+    #ff9f43 16%,
+    #ffd93d 32%,
+    #6bcf63 48%,
+    #34d1bf 64%,
+    #4d96ff 82%,
+    #9d4edd 100%
+  );
   --app-bg:
-    radial-gradient(circle at top left, rgba(255, 122, 162, 0.28), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(57, 177, 255, 0.23), transparent 28%),
-    linear-gradient(145deg, #fff2f7 0%, #fffaf0 44%, #f4f9ff 100%);
-  --panel: rgba(255, 255, 255, 0.82);
-  --border: rgba(237, 111, 149, 0.2);
+    linear-gradient(
+      135deg,
+      rgba(255, 95, 109, 0.42) 0%,
+      rgba(255, 159, 67, 0.38) 16%,
+      rgba(255, 217, 61, 0.34) 32%,
+      rgba(107, 207, 99, 0.3) 48%,
+      rgba(52, 209, 191, 0.3) 64%,
+      rgba(77, 150, 255, 0.34) 82%,
+      rgba(157, 78, 221, 0.36) 100%
+    ),
+    linear-gradient(
+      135deg,
+      #fffdfd 0%,
+      #fffdf7 18%,
+      #fffffb 34%,
+      #fbfffc 50%,
+      #f8ffff 66%,
+      #f7fbff 82%,
+      #fbf8ff 100%
+    );
+  --panel: rgba(255, 255, 255, 0.9);
+  --border: rgba(77, 150, 255, 0.3);
   --text: #3b2740;
   --muted: #8c5d78;
-  --primary: #d5437d;
-  --primary-soft: rgba(213, 67, 125, 0.14);
-  --accent: #ff7a45;
+  --primary: #3b82f6;
+  --primary-soft: rgba(59, 130, 246, 0.2);
+  --accent: #ff8c42;
   --success: #2f9e7c;
   --danger: #d94848;
-  --surface-muted: rgba(255, 255, 255, 0.68);
-  --input-bg: rgba(255, 255, 255, 0.92);
-  --ambient-left: rgba(255, 122, 162, 0.24);
-  --ambient-right: rgba(57, 177, 255, 0.2);
-  --button-gradient: linear-gradient(135deg, #d5437d, #ff7a45);
-  --button-shadow: 0 18px 36px rgba(213, 67, 125, 0.26);
-  --shadow: 0 24px 66px rgba(213, 67, 125, 0.18);
+  --surface-muted: rgba(255, 255, 255, 0.78);
+  --input-bg: rgba(255, 255, 255, 0.96);
+  --ambient-left: rgba(255, 159, 67, 0.28);
+  --ambient-right: rgba(77, 150, 255, 0.28);
+  --button-gradient: linear-gradient(135deg, #ff8c42 0%, #34d1bf 52%, #4d96ff 100%);
+  --button-shadow: 0 20px 42px rgba(77, 150, 255, 0.28);
+  --shadow: 0 24px 72px rgba(77, 150, 255, 0.2);
 }
 
 * {
@@ -242,6 +273,28 @@ button {
   background: rgba(95, 108, 123, 0.08);
   color: var(--muted);
   border-color: rgba(95, 108, 123, 0.12);
+}
+
+:root[data-theme="vivid"] .section-title,
+:root[data-theme="vivid"] .topbar-title,
+:root[data-theme="vivid"] .nav-link.active,
+:root[data-theme="vivid"] .pill-primary,
+:root[data-theme="vivid"] .secondary-button,
+:root[data-theme="vivid"] .hero-card strong,
+:root[data-theme="vivid"] .stat-chip,
+:root[data-theme="vivid"] .metric-card strong,
+:root[data-theme="vivid"] .rule-card-headline strong,
+:root[data-theme="vivid"] .rule-category,
+:root[data-theme="vivid"] .rule-tag,
+:root[data-theme="vivid"] .custom-rule-index,
+:root[data-theme="vivid"] .workflow-step.active .workflow-text strong,
+:root[data-theme="vivid"] .analysis-block h4,
+:root[data-theme="vivid"] .rule-tab.active {
+  background-image: var(--rainbow-text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .button-row {

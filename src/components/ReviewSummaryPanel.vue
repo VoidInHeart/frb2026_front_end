@@ -22,7 +22,7 @@ defineProps({
     :class="[
       'summary-panel',
       'glass-card',
-      { 'summary-panel-dark': appearanceState.theme === 'dark' }
+      { 'summary-panel-dark': ['dark', 'sci-fi'].includes(appearanceState.theme) }
     ]"
   >
     <div class="summary-header">
@@ -242,7 +242,7 @@ defineProps({
 .summary-panel-dark .verdict-block,
 .summary-panel-dark .score-card,
 .summary-panel-dark .insight-card {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .summary-panel-dark .score-track {
