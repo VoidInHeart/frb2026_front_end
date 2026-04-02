@@ -107,11 +107,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .topbar {
-  position: sticky;
-  top: 14px;
-  z-index: 8;
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
   width: min(calc(100% - 32px), var(--content-width));
-  margin: 18px auto 0;
+  margin: 0 auto;
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -202,6 +204,7 @@ onBeforeUnmount(() => {
 @media (max-width: 720px) {
   .topbar {
     width: min(calc(100% - 20px), var(--content-width));
+    top: 12px;
     padding: 14px;
     align-items: flex-start;
     flex-direction: column;

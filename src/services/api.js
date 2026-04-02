@@ -261,6 +261,221 @@ function buildMockSummary(metaSource) {
   };
 }
 
+function buildPaperBundle({ paperMarkdown, paperMeta }) {
+  return {
+    paper_md: paperMarkdown ?? "",
+    paper_meta: paperMeta ?? {},
+    assets: {
+      figures_dir: "assets/figures",
+      tables_dir: "assets/tables"
+    }
+  };
+}
+
+function buildMockTask1Audit(metaSource) {
+  const meta = getPaperMeta(metaSource);
+  const anchors = meta?.anchors ?? [];
+  const paragraphAnchor = anchors.find((item) => item.type === "paragraph");
+  const figureAnchor = anchors.find((item) => item.type === "figure");
+  const tableAnchor = anchors.find((item) => item.type === "table");
+
+  return {
+    code: 200,
+    message: "success",
+    data: {
+      schema_version: "task1-chunked-long-audit-v1",
+      mode: "llm_chunked_long",
+      result: {
+        logic_analysis: {
+          core_argument_consistency: {
+            is_consistent: false,
+            conflict_summary: "检测到 3 处需要跨章节复核的逻辑风险。"
+          },
+          logic_dimensions: {
+            research_problem_closure: {
+              status: "risk",
+              summary: "研究问题提出较清楚，但方法与结论的闭环解释还不够紧。",
+              issue_ids: ["issue-1"],
+              evidence_links: [paragraphAnchor?.anchor_id].filter(Boolean)
+            },
+            claim_evidence_conclusion_strength: {
+              status: "risk",
+              summary: "部分强结论缺少对应证据支撑，容易在评审时被追问。",
+              issue_ids: ["issue-2"],
+              evidence_links: [figureAnchor?.anchor_id, tableAnchor?.anchor_id].filter(Boolean)
+            },
+            figure_table_text_consistency: {
+              status: "pass",
+              summary: "主要图表与正文已经建立引用关系，但还可以再强化解释句。",
+              issue_ids: [],
+              evidence_links: [figureAnchor?.anchor_id].filter(Boolean)
+            }
+          },
+          issues: [
+            {
+              issue_id: "issue-1",
+              logical_node: "research_problem_closure",
+              severity: "major",
+              analysis: "摘要和引言已经提出研究目标，但方法章节缺少对关键假设的回扣。",
+              evidence_links: [paragraphAnchor?.anchor_id].filter(Boolean),
+              scope: "cross_chunk",
+              dimension_keys: ["research_problem_closure"],
+              confidence: 0.82
+            },
+            {
+              issue_id: "issue-2",
+              logical_node: "claim_evidence_conclusion_strength",
+              severity: "major",
+              analysis: "实验结果给出了提升趋势，但结论用词明显强于证据覆盖范围。",
+              evidence_links: [tableAnchor?.anchor_id].filter(Boolean),
+              scope: "global",
+              dimension_keys: ["claim_evidence_conclusion_strength"],
+              confidence: 0.79
+            },
+            {
+              issue_id: "issue-3",
+              logical_node: "figure_table_text_consistency",
+              severity: "medium",
+              analysis: "图表首次出现时缺少一条结论性解释句，读者需要自己推断图表意图。",
+              evidence_links: [figureAnchor?.anchor_id].filter(Boolean),
+              scope: "local",
+              dimension_keys: ["figure_table_text_consistency"],
+              confidence: 0.74
+            }
+          ],
+          reasoning_depth: {
+            assessment: "推理链条基本完整，但部分因果论证仍需更多解释性文字支撑。"
+          },
+          structure_rationality: {
+            assessment: "结构总体合理，适合继续做面向评审的精修。"
+          },
+          chunk_count: Math.max(1, Math.ceil((meta?.total_pages ?? 1) / 2))
+        }
+      }
+    }
+  };
+}
+
+function normalizeTask1AuditResponse(response) {
+  return response?.data?.result?.logic_analysis ?? {};
+}
+
+function makeActionSuggestion(issue) {
+  const dimension = issue?.dimension_keys?.[0] ?? issue?.logical_node ?? "logic";
+
+  const suggestionMap = {
+    research_problem_closure: "建议把研究问题、方法假设和结论回扣放在同一条叙述链上，减少章节之间的断裂。",
+    claim_evidence_conclusion_strength: "建议把强结论改成更审慎的表述，或补充更直接的实验和证据引用。",
+    figure_table_text_consistency: "建议在图表第一次出现的位置补一条结论性解释句，并明确图表支撑的结论。",
+    method_experiment_alignment: "建议补充方法声明与实验设置的一一对应关系，避免评审觉得验证不足。",
+    scope_and_extrapolation_control: "建议限制外推表述的范围，并补充适用边界说明。"
+  };
+
+  return (
+    suggestionMap[dimension] ??
+    "建议把这条逻辑风险对应到更具体的章节位置，再补充直接证据或更谨慎的结论表述。"
+  );
+}
+
+function scoreFromTask1Issues(issues = []) {
+  const penaltyBySeverity = {
+    critical: 18,
+    major: 10,
+    medium: 6,
+    minor: 3
+  };
+
+  const score = issues.reduce(
+    (total, issue) => total - (penaltyBySeverity[issue.severity] ?? 4),
+    95
+  );
+
+  return Math.max(48, score);
+}
+
+export function mapTask1AuditToReviewSummary(logicAnalysis) {
+  const issues = logicAnalysis?.issues ?? [];
+  const dimensions = Object.entries(logicAnalysis?.logic_dimensions ?? {});
+  const score = scoreFromTask1Issues(issues);
+  const majorIssueCount = issues.filter((item) => item.severity === "major").length;
+  const criticalIssueCount = issues.filter((item) => item.severity === "critical").length;
+
+  return {
+    overallScore: score,
+    verdict:
+      criticalIssueCount > 0
+        ? "建议优先修复关键逻辑冲突"
+        : majorIssueCount > 1
+          ? "建议大修后再进入下一轮"
+          : "建议补充说明后继续推进",
+    summary:
+      logicAnalysis?.core_argument_consistency?.conflict_summary ??
+      logicAnalysis?.structure_rationality?.assessment ??
+      "已完成全局逻辑分析。",
+    strengths:
+      dimensions
+        .filter(([, value]) => value.status === "pass")
+        .slice(0, 3)
+        .map(([, value]) => value.summary) || [],
+    weaknesses:
+      issues.slice(0, 3).map((item) => item.analysis) ||
+      ["当前还没有识别到明确弱点。"],
+    nextActions:
+      issues.slice(0, 3).map((item) => makeActionSuggestion(item)) ||
+      ["建议结合规则分析结果继续做针对性修改。"],
+    dimensionScores: dimensions.slice(0, 4).map(([key, value]) => ({
+      label: key.replace(/_/g, " "),
+      score: value.status === "pass" ? 90 : value.status === "risk" ? 72 : 58
+    }))
+  };
+}
+
+function buildMockTask2Audit() {
+  return {
+    msg: "审计成功",
+    report: [
+      {
+        rule_id: "R-SYS-S002",
+        status: "violated",
+        location: "Figure 1",
+        evidence: "核心图表首次出现时缺少充分解释句。",
+        suggestion: "补充图表对应的结论性说明。"
+      },
+      {
+        rule_id: "R-SYS-E004",
+        status: "violated",
+        location: "Experiment",
+        evidence: "实验部分未完整交代边界场景与负面案例。",
+        suggestion: "增加边界样本或误判分析。"
+      },
+      {
+        rule_id: "R-AUTO-001",
+        status: "violated",
+        location: "Abstract",
+        evidence: "摘要提出效率主张，但缺少跨数据集的直接验证。",
+        suggestion: "补充大规模数据集上的效率对比。"
+      }
+    ]
+  };
+}
+
+function mapTask2RuleToLibraryItem(rule, index) {
+  return {
+    id: rule.rule_id ?? rule.rule_name ?? `task2-rule-${index + 1}`,
+    title: rule.rule_name ?? `规则 ${index + 1}`,
+    category: rule.dimension ?? "规则库",
+    summary:
+      rule.description ??
+      rule.prompt_fragment ??
+      "后端返回的规则说明暂缺，前端已保留结构。",
+    tags: rule.triggers ?? [rule.execution_type ?? "rule"],
+    questionCount: 0,
+    defaultSelected: rule.is_active ?? true,
+    status: rule.status ?? "approved",
+    executionType: rule.execution_type ?? "rule"
+  };
+}
+
 async function uploadViaLocalParser(paperFile) {
   const formData = new FormData();
   formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
@@ -397,24 +612,71 @@ export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
 
 export const submitDocumentIr = submitPaperMeta;
 
-export async function generateReviewComment({ submissionId, documentIr, paperMeta }) {
-  const meta = paperMeta ?? documentIr;
+export async function runGlobalLogicAudit({ paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr ?? {};
 
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.generateReview.path}`, {
+    const response = await fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.task1Audit.path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        submissionId,
-        paperMeta: meta
+        mode: "chunked_long",
+        paper_bundle: buildPaperBundle({
+          paperMarkdown,
+          paperMeta: meta
+        })
       })
     });
+
+    return normalizeTask1AuditResponse(response);
   }
 
-  await new Promise((resolve) => window.setTimeout(resolve, 300));
-  return buildMockSummary(meta);
+  await new Promise((resolve) => window.setTimeout(resolve, 260));
+  return normalizeTask1AuditResponse(buildMockTask1Audit(meta));
+}
+
+export async function generateReviewComment({ submissionId, paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr;
+
+  try {
+    const logicAnalysis = await runGlobalLogicAudit({
+      paperMarkdown,
+      paperMeta: meta
+    });
+
+    return mapTask1AuditToReviewSummary(logicAnalysis);
+  } catch (error) {
+    if (!USE_MOCK) {
+      throw error;
+    }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+    return buildMockSummary(meta);
+  }
+}
+
+export async function runRuleBasedAudit({ paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr ?? {};
+
+  if (!USE_MOCK) {
+    const response = await fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.task2Audit.path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        paper_text: paperMarkdown ?? "",
+        meta_data: meta
+      })
+    });
+
+    return response?.report ?? [];
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 240));
+  return buildMockTask2Audit().report;
 }
 
 export async function fetchRecommendations({ submissionId, documentIr, paperMeta }) {
@@ -453,9 +715,14 @@ export async function fetchRecommendationDetail(paperId) {
   return mockRecommendationDetails[paperId] ?? null;
 }
 
-export async function fetchSystemRuleLibrary() {
+export async function fetchSystemRuleLibrary({ status = "approved" } = {}) {
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.listSystemRules.path}`);
+    const search = new URLSearchParams({ status });
+    const response = await fetchJson(
+      `${API_BASE_URL}${APP_API_ENDPOINTS.task2GetRules.path}?${search.toString()}`
+    );
+
+    return (response?.data ?? []).map(mapTask2RuleToLibraryItem);
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 180));
@@ -466,20 +733,7 @@ export async function saveRuleSelection({
   selectedSystemRuleIds = [],
   customRulesText = ""
 }) {
-  if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.saveRuleSelection.path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        selectedSystemRuleIds,
-        customRulesText
-      })
-    });
-  }
-
-  await new Promise((resolve) => window.setTimeout(resolve, 180));
+  await new Promise((resolve) => window.setTimeout(resolve, 120));
 
   return {
     success: true,
@@ -501,31 +755,49 @@ export async function extractCustomRules({ file, text }) {
   }
 
   if (!USE_MOCK) {
-    if (file) {
-      const formData = new FormData();
-      formData.append(UPLOAD_FORM_FIELDS.customRuleFile, file);
-
-      if (text?.trim()) {
-        formData.append(UPLOAD_FORM_FIELDS.customRuleText, text.trim());
-      }
-
-      return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.extractCustomRules.path}`, {
-        method: "POST",
-        body: formData
-      });
-    }
-
-    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.extractCustomRules.path}`, {
+    const response = await fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.task2ExtractRules.path}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        [UPLOAD_FORM_FIELDS.customRuleText]: sourceText
+        review_text: sourceText
       })
     });
+
+    const rules = response?.rules ?? [];
+
+    return {
+      sourceText,
+      rules: rules.map((item) => item.rule_name ?? item.description ?? "").filter(Boolean),
+      extractedRulesText: rules
+        .map((item) => item.rule_name ?? item.description ?? "")
+        .filter(Boolean)
+        .join("\n"),
+      extractedAt: new Date().toISOString(),
+      raw: response
+    };
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 260));
   return buildMockExtractedRules(sourceText);
+}
+
+export async function toggleBackendRule(ruleId) {
+  if (!USE_MOCK) {
+    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.task2ToggleRule.path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        rule_id: ruleId
+      })
+    });
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 180));
+  return {
+    msg: `规则 ${ruleId} 状态已切换`
+  };
 }

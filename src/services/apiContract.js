@@ -14,6 +14,26 @@ export const APP_API_ENDPOINTS = Object.freeze({
     method: "POST",
     path: "/papers/parse"
   },
+  task1Audit: {
+    method: "POST",
+    path: "/api/task1/audit"
+  },
+  task2Audit: {
+    method: "POST",
+    path: "/api/task2/audit/"
+  },
+  task2ExtractRules: {
+    method: "POST",
+    path: "/api/task2/extract/"
+  },
+  task2GetRules: {
+    method: "GET",
+    path: "/api/task2/get_rules/"
+  },
+  task2ToggleRule: {
+    method: "POST",
+    path: "/api/task2/toggle_rule/"
+  },
   submitPaperMeta: {
     method: "POST",
     path: "/papers/paper-meta"
@@ -32,15 +52,15 @@ export const APP_API_ENDPOINTS = Object.freeze({
   },
   listSystemRules: {
     method: "GET",
-    path: "/rule-libraries/system"
+    path: "/api/task2/get_rules/"
   },
   saveRuleSelection: {
-    method: "POST",
-    path: "/rule-libraries/selection"
+    method: "LOCAL",
+    path: "sessionStorage:ruleLibrary"
   },
   extractCustomRules: {
     method: "POST",
-    path: "/rule-libraries/custom/extract"
+    path: "/api/task2/extract/"
   }
 });
 
@@ -190,6 +210,81 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
  * @property {string} extractedAt
  */
 
+/**
+ * @typedef {Object} Task1AuditIssue
+ * @property {string} issue_id
+ * @property {string} logical_node
+ * @property {"critical"|"major"|"medium"|"minor"} severity
+ * @property {string} analysis
+ * @property {string[]} evidence_links
+ * @property {string=} scope
+ * @property {string[]=} dimension_keys
+ * @property {number=} confidence
+ * @property {boolean=} needs_human_review
+ */
+
+/**
+ * @typedef {Object} Task1DimensionResult
+ * @property {"pass"|"risk"|"fail"} status
+ * @property {string} summary
+ * @property {string[]} issue_ids
+ * @property {string[]} evidence_links
+ */
+
+/**
+ * @typedef {Object} Task1LogicAnalysis
+ * @property {{is_consistent:boolean, conflict_summary:string}=} core_argument_consistency
+ * @property {Record<string, Task1DimensionResult>=} logic_dimensions
+ * @property {Task1AuditIssue[]=} issues
+ * @property {{assessment:string}=} reasoning_depth
+ * @property {{assessment:string}=} structure_rationality
+ * @property {number=} chunk_count
+ */
+
+/**
+ * @typedef {Object} Task1AuditResponse
+ * @property {number} code
+ * @property {string} message
+ * @property {{schema_version:string, mode:string, result:{logic_analysis:Task1LogicAnalysis}}=} data
+ */
+
+/**
+ * @typedef {Object} Task2AuditItem
+ * @property {string} rule_id
+ * @property {"violated"|"passed"|"warning"=} status
+ * @property {string=} location
+ * @property {string=} evidence
+ * @property {string=} suggestion
+ */
+
+/**
+ * @typedef {Object} Task2AuditResponse
+ * @property {string} msg
+ * @property {Task2AuditItem[]} report
+ */
+
+/**
+ * @typedef {Object} Task2ExtractedRule
+ * @property {string=} rule_id
+ * @property {string} rule_name
+ * @property {string} dimension
+ * @property {string} execution_type
+ * @property {string[]=} triggers
+ * @property {string=} description
+ * @property {string=} prompt_fragment
+ * @property {string=} severity
+ * @property {boolean=} is_active
+ * @property {string=} status
+ */
+
+/**
+ * @typedef {Object} Task2ExtractRulesResponse
+ * @property {string} msg
+ * @property {number} extracted_total
+ * @property {number} saved_to_pending
+ * @property {Task2ExtractedRule[]} rules
+ */
+
 export const API_CONTRACT = Object.freeze({
   localParser: {
     parsePaper: {
@@ -211,6 +306,36 @@ export const API_CONTRACT = Object.freeze({
         UPLOAD_FORM_FIELDS.imageBaseUrl
       ],
       responseShape: "ParsePaperResponse"
+    },
+    task1Audit: {
+      ...APP_API_ENDPOINTS.task1Audit,
+      contentType: "application/json",
+      requestShape: "{ mode: 'chunked_long', paper_bundle: { paper_md, paper_meta, assets } }",
+      responseShape: "Task1AuditResponse"
+    },
+    task2Audit: {
+      ...APP_API_ENDPOINTS.task2Audit,
+      contentType: "application/json",
+      requestShape: "{ paper_text, meta_data }",
+      responseShape: "Task2AuditResponse"
+    },
+    task2ExtractRules: {
+      ...APP_API_ENDPOINTS.task2ExtractRules,
+      contentType: "application/json",
+      requestShape: "{ review_text }",
+      responseShape: "Task2ExtractRulesResponse"
+    },
+    task2GetRules: {
+      ...APP_API_ENDPOINTS.task2GetRules,
+      contentType: "application/json",
+      requestShape: "query: { status }",
+      responseShape: "Task2ExtractedRule[]"
+    },
+    task2ToggleRule: {
+      ...APP_API_ENDPOINTS.task2ToggleRule,
+      contentType: "application/json",
+      requestShape: "{ rule_id }",
+      responseShape: "{ msg }"
     },
     submitPaperMeta: {
       ...APP_API_ENDPOINTS.submitPaperMeta,
@@ -236,20 +361,20 @@ export const API_CONTRACT = Object.freeze({
       responseShape: "RecommendationDetail"
     },
     listSystemRules: {
-      ...APP_API_ENDPOINTS.listSystemRules,
+      ...APP_API_ENDPOINTS.task2GetRules,
       contentType: "application/json",
       responseShape: "RuleLibraryItem[]"
     },
     saveRuleSelection: {
       ...APP_API_ENDPOINTS.saveRuleSelection,
-      contentType: "application/json",
+      contentType: "local-session",
       requestShape: "RuleSelectionPayload",
       responseShape: "RuleSelectionResponse"
     },
     extractCustomRules: {
-      ...APP_API_ENDPOINTS.extractCustomRules,
-      contentType: "multipart/form-data | application/json",
-      requestFields: [UPLOAD_FORM_FIELDS.customRuleFile, UPLOAD_FORM_FIELDS.customRuleText],
+      ...APP_API_ENDPOINTS.task2ExtractRules,
+      contentType: "application/json",
+      requestShape: "{ review_text }",
       responseShape: "CustomRuleExtractionResponse"
     }
   }
