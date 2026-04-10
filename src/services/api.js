@@ -715,6 +715,462 @@ export async function fetchRecommendationDetail(paperId) {
   return mockRecommendationDetails[paperId] ?? null;
 }
 
+function pickAnchorsByType(meta, type, limit = 2) {
+  return (meta?.anchors ?? []).filter((item) => item.type === type).slice(0, limit);
+}
+
+function formatAnchorEvidence(anchor, fallbackLabel) {
+  if (!anchor) {
+    return fallbackLabel;
+  }
+
+  const pageLabel =
+    typeof anchor.page_no === "number" ? `第 ${anchor.page_no} 页` : "定位页待补充";
+  const anchorLabel = anchor.anchor_id ?? `${anchor.type ?? "anchor"}-anchor`;
+  return `${pageLabel} · ${anchorLabel}`;
+}
+
+function toStageSeverityLabel(rawSeverity) {
+  const severityMap = {
+    critical: "严重",
+    major: "严重",
+    medium: "一般",
+    minor: "提示",
+    violated: "一般",
+    warning: "提示",
+    passed: "提示"
+  };
+
+  return severityMap[rawSeverity] ?? "一般";
+}
+
+function createStageReview({
+  stageId,
+  stageLabel,
+  severe,
+  headline,
+  overview,
+  issues,
+  followUpActions = []
+}) {
+  return {
+    stageId,
+    stageLabel,
+    severe,
+    headline,
+    overview,
+    issues,
+    followUpActions
+  };
+}
+
+function makeWorkflowSuggestion(issue) {
+  const dimension = issue?.dimension_keys?.[0] ?? issue?.logical_node ?? "logic";
+  const suggestionMap = {
+    research_problem_closure:
+      "把研究问题、方法假设和结论回扣放在一条连续叙事链上，减少章节之间的断裂感。",
+    claim_evidence_conclusion_strength:
+      "降低过强结论的措辞，或者补充更直接的实验和证据引用。",
+    figure_table_text_consistency:
+      "在图表首次出现的位置补一条结论性解释句，明确图表到底支撑什么。",
+    method_experiment_alignment:
+      "补充方法声明与实验设计的一一对应关系，避免评审觉得验证不充分。",
+    scope_and_extrapolation_control:
+      "收紧外推范围，并补充适用边界说明。"
+  };
+
+  return (
+    suggestionMap[dimension] ??
+    "把当前问题映射到更具体的章节位置，再补充直接证据或更谨慎的表述。"
+  );
+}
+
+function buildMockFormatReview(metaSource) {
+  const meta = getPaperMeta(metaSource);
+  const pageCount = getPageCount(meta);
+  const paragraphAnchors = pickAnchorsByType(meta, "paragraph", 2);
+  const figureAnchors = pickAnchorsByType(meta, "figure", 2);
+  const tableAnchors = pickAnchorsByType(meta, "table", 1);
+  const severe = pageCount > 0 && pageCount <= 4;
+
+  const issues = severe
+    ? [
+        {
+          id: "format-critical-1",
+          title: "基础版式信息不足，难以支撑后续审查",
+          severity: "严重",
+          location: "摘要与正文过渡区",
+          description:
+            "当前稿件在封面、摘要和正文起始区之间缺少稳定的版式提示，格式层证据不足会直接影响后续逻辑与方法审查的定位效率。",
+          evidence: [
+            formatAnchorEvidence(paragraphAnchors[0], "摘要锚点待补充"),
+            formatAnchorEvidence(paragraphAnchors[1], "正文起始锚点待补充")
+          ],
+          suggestion:
+            "优先补齐标题、摘要和正文之间的显式结构提示，再继续进入后续审查。"
+        },
+        {
+          id: "format-major-2",
+          title: "图表首现位置缺少格式化引导",
+          severity: "一般",
+          location: "首个图表引用段落",
+          description:
+            "图表首次出现时缺少统一的引导句与编号解释，读者很难在第一次阅读时建立稳定的版式映射。",
+          evidence: [
+            formatAnchorEvidence(figureAnchors[0], "首个图锚点待补充"),
+            formatAnchorEvidence(tableAnchors[0], "首个表锚点待补充")
+          ],
+          suggestion:
+            "在每个核心图表首次出现处补一条简短的引导句，明确图表作用和编号对应关系。"
+        }
+      ]
+    : [
+        {
+          id: "format-major-1",
+          title: "摘要到正文的结构提示还不够显式",
+          severity: "一般",
+          location: "摘要结尾",
+          description:
+            "当前版面已经具备可读性，但摘要收束后没有马上交代正文的组织方式，格式层的信息引导还可以更明确。",
+          evidence: [
+            formatAnchorEvidence(paragraphAnchors[0], "摘要尾部锚点待补充"),
+            formatAnchorEvidence(paragraphAnchors[1], "引言起始锚点待补充")
+          ],
+          suggestion:
+            "在摘要结尾补一条结构提示句，告诉读者后文将如何展开问题、方法和实验。"
+        },
+        {
+          id: "format-minor-2",
+          title: "关键图表的首次呈现缺少统一说明",
+          severity: "提示",
+          location: "图表首现区",
+          description:
+            "核心图表已经被解析出来，但首次出现时缺少统一格式的说明语句，审查时需要额外来回定位。",
+          evidence: [
+            formatAnchorEvidence(figureAnchors[0], "图锚点待补充"),
+            formatAnchorEvidence(tableAnchors[0], "表锚点待补充")
+          ],
+          suggestion:
+            "统一图表首现说明格式，减少读者在图表与正文之间反复切换的成本。"
+        }
+      ];
+
+  return createStageReview({
+    stageId: "format",
+    stageLabel: "格式审查",
+    severe,
+    headline: severe ? "格式层发现严重问题" : "格式层已完成首轮检查",
+    overview: severe
+      ? "格式层已经识别到会影响后续审查的高优先级问题，建议直接进入汇总并优先处理。"
+      : "当前稿件可以进入下一阶段，但仍建议先把版式引导和图表首现说明收紧。",
+    issues,
+    followUpActions: [
+      "统一摘要、引言和正文起始段的结构提示。",
+      "为核心图表补齐首次出现时的简短说明句。"
+    ]
+  });
+}
+
+function mapTask1IssueToStageIssue(issue, index) {
+  return {
+    id: issue.issue_id ?? `logic-issue-${index + 1}`,
+    title: issue.logical_node ? issue.logical_node.replace(/_/g, " ") : `逻辑问题 ${index + 1}`,
+    severity: toStageSeverityLabel(issue.severity),
+    location: issue.evidence_links?.[0] ?? `逻辑链路 ${index + 1}`,
+    description: issue.analysis ?? "后端尚未返回该问题的详细分析。",
+    evidence:
+      issue.evidence_links?.length
+        ? issue.evidence_links.map((item) => `证据锚点 · ${item}`)
+        : ["证据链待后端补充"],
+    suggestion: makeWorkflowSuggestion(issue)
+  };
+}
+
+function buildMockInnovationReview(metaSource) {
+  const meta = getPaperMeta(metaSource);
+  const paragraphAnchors = pickAnchorsByType(meta, "paragraph", 2);
+  const figureAnchors = pickAnchorsByType(meta, "figure", 1);
+  const tableAnchors = pickAnchorsByType(meta, "table", 1);
+
+  return createStageReview({
+    stageId: "innovation",
+    stageLabel: "方法与创新点审查",
+    severe: false,
+    headline: "方法与创新点审查已完成",
+    overview:
+      "当前稿件已经具备进入汇总环节的条件，但创新点归因和方法证明链还需要进一步压实。",
+    issues: [
+      {
+        id: "innovation-major-1",
+        title: "创新点陈述还不够聚焦",
+        severity: "一般",
+        location: "方法概述段",
+        description:
+          "创新点描述更像一组实现细节的堆叠，而不是清晰、可验证的学术主张，审稿人很难快速抓住贡献边界。",
+        evidence: [
+          formatAnchorEvidence(paragraphAnchors[0], "方法概述锚点待补充"),
+          formatAnchorEvidence(figureAnchors[0], "创新示意图锚点待补充")
+        ],
+        suggestion:
+          "把创新点拆成两到三个可验证主张，并分别对应后文中的实验或消融证据。"
+      },
+      {
+        id: "innovation-major-2",
+        title: "方法优势与实验收益的对应关系不够直接",
+        severity: "一般",
+        location: "实验对比段",
+        description:
+          "实验结果给出了整体提升，但没有把提升与具体方法设计逐一对应，导致创新点的说服力还不够集中。",
+        evidence: [
+          formatAnchorEvidence(tableAnchors[0], "实验表格锚点待补充"),
+          formatAnchorEvidence(paragraphAnchors[1], "实验分析锚点待补充")
+        ],
+        suggestion:
+          "为每个核心创新点补一条对应证据，把方法设计、消融结果和结论表达串成闭环。"
+      }
+    ],
+    followUpActions: [
+      "压缩创新点表述，让每条主张都能被后文直接验证。",
+      "在实验分析里显式说明每个设计带来的具体收益。"
+    ]
+  });
+}
+
+function mapRuleAuditItemToFormatIssue(item, index) {
+  return {
+    id: item.rule_id ?? `format-issue-${index + 1}`,
+    title: item.rule_id ?? `格式问题 ${index + 1}`,
+    severity: toStageSeverityLabel(item.status),
+    location: item.location ?? `格式定位 ${index + 1}`,
+    description: item.evidence ?? "后端尚未返回格式问题的详细说明。",
+    evidence: [
+      item.location ? `定位区域 · ${item.location}` : "定位区域待补充",
+      item.rule_id ? `规则来源 · ${item.rule_id}` : "规则来源待补充"
+    ],
+    suggestion: item.suggestion ?? "建议统一当前区域的版式与说明方式。"
+  };
+}
+
+function mapSummaryWeaknessToInnovationIssue(item, index, suggestion) {
+  return {
+    id: `innovation-summary-${index + 1}`,
+    title: `方法与创新点问题 ${index + 1}`,
+    severity: "一般",
+    location: `方法与创新点审查 ${index + 1}`,
+    description: item,
+    evidence: [`汇总证据 · ${item}`],
+    suggestion
+  };
+}
+
+export async function runFormatReview({ paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr ?? {};
+
+  if (!USE_MOCK) {
+    const report = await runRuleBasedAudit({
+      paperMarkdown,
+      paperMeta: meta
+    });
+    const issues = (report ?? []).slice(0, 4).map(mapRuleAuditItemToFormatIssue);
+    const severe = issues.filter((item) => item.severity === "严重").length >= 2;
+
+    return createStageReview({
+      stageId: "format",
+      stageLabel: "格式审查",
+      severe,
+      headline: severe ? "格式层发现严重问题" : "格式层已完成首轮检查",
+      overview: severe
+        ? "格式层问题已经达到阻断级别，建议直接进入汇总并优先处理。"
+        : "格式层问题已经汇总完成，可以继续进入下一阶段。",
+      issues,
+      followUpActions: issues.map((item) => item.suggestion)
+    });
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 220));
+  return buildMockFormatReview(meta);
+}
+
+export async function runLogicReview({ paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr ?? {};
+  const logicAnalysis = await runGlobalLogicAudit({
+    paperMarkdown,
+    paperMeta: meta
+  });
+
+  const issues = (logicAnalysis?.issues ?? []).map(mapTask1IssueToStageIssue);
+  const severe = issues.filter((item) => item.severity === "严重").length >= 2;
+
+  return createStageReview({
+    stageId: "logic",
+    stageLabel: "逻辑审查",
+    severe,
+    headline: severe ? "逻辑层发现高优先级风险" : "逻辑层可以继续推进",
+    overview:
+      logicAnalysis?.core_argument_consistency?.conflict_summary ??
+      (severe
+        ? "当前逻辑链路中存在多处高优先级冲突，建议先进入汇总并优先修复。"
+        : "当前逻辑链路已完成检查，可以进入方法与创新点审查。"),
+    issues,
+    followUpActions: issues.map((item) => item.suggestion)
+  });
+}
+
+export async function runInnovationReview({ paperMarkdown, documentIr, paperMeta }) {
+  const meta = paperMeta ?? documentIr ?? {};
+
+  if (!USE_MOCK) {
+    const reviewSummary = await generateReviewComment({
+      paperMarkdown,
+      paperMeta: meta
+    });
+
+    const issues = (reviewSummary?.weaknesses ?? [])
+      .slice(0, 3)
+      .map((item, index) =>
+        mapSummaryWeaknessToInnovationIssue(
+          item,
+          index,
+          reviewSummary?.nextActions?.[index] ?? "建议补强方法和创新点的直接证据。"
+        )
+      );
+
+    return createStageReview({
+      stageId: "innovation",
+      stageLabel: "方法与创新点审查",
+      severe: false,
+      headline: "方法与创新点审查已完成",
+      overview:
+        reviewSummary?.summary ??
+        "方法与创新点审查已完成，可以进入汇总环节。",
+      issues,
+      followUpActions: reviewSummary?.nextActions ?? []
+    });
+  }
+
+  await new Promise((resolve) => window.setTimeout(resolve, 240));
+  return buildMockInnovationReview(meta);
+}
+
+function flattenStageIssues(stageKey, stageLabel, review) {
+  return (review?.issues ?? []).map((issue, index) => ({
+    ...issue,
+    id: `${stageKey}-${issue.id ?? index + 1}`,
+    stageKey,
+    stageLabel
+  }));
+}
+
+export function buildReviewDigest({
+  formatReview,
+  logicReview,
+  innovationReview
+}) {
+  const stageEntries = [
+    {
+      key: "format",
+      label: "格式审查",
+      review: formatReview
+    },
+    {
+      key: "logic",
+      label: "逻辑审查",
+      review: logicReview
+    },
+    {
+      key: "innovation",
+      label: "方法与创新点审查",
+      review: innovationReview
+    }
+  ];
+
+  const issues = stageEntries.flatMap(({ key, label, review }) =>
+    flattenStageIssues(key, label, review)
+  );
+
+  const skippedStage = stageEntries.find(({ review }) => review?.severe);
+  const completedCount = stageEntries.filter(({ review }) => Boolean(review)).length;
+  const suggestionMap = new Map();
+
+  for (const { key, label, review } of stageEntries) {
+    for (const issue of review?.issues ?? []) {
+      const content = issue.suggestion?.trim();
+
+      if (!content || suggestionMap.has(content)) {
+        continue;
+      }
+
+      suggestionMap.set(content, {
+        id: `${key}-suggestion-${suggestionMap.size + 1}`,
+        title: issue.title,
+        content,
+        stageLabel: label
+      });
+    }
+
+    for (const action of review?.followUpActions ?? []) {
+      const content = String(action ?? "").trim();
+
+      if (!content || suggestionMap.has(content)) {
+        continue;
+      }
+
+      suggestionMap.set(content, {
+        id: `${key}-follow-up-${suggestionMap.size + 1}`,
+        title: `${label}后续动作`,
+        content,
+        stageLabel: label
+      });
+    }
+  }
+
+  if (!suggestionMap.size) {
+    suggestionMap.set("manual-check", {
+      id: "manual-check",
+      title: "人工复核",
+      content: "建议保留一次人工抽检，确认摘要、实验与创新点三处表述一致。",
+      stageLabel: "人工补充"
+    });
+  }
+
+  if (!issues.length) {
+    return {
+      verdict: "建议继续人工复核",
+      overview: "当前还没有足够的阶段结果可供汇总。",
+      skippedAfterStage: "",
+      skippedAfterStageLabel: "",
+      issues: [],
+      modificationSuggestions: Array.from(suggestionMap.values())
+    };
+  }
+
+  if (skippedStage) {
+    return {
+      verdict: "建议先修复严重问题，再恢复后续审查",
+      overview: `在${skippedStage.label}发现严重问题，流程已提前收束到汇总阶段。`,
+      skippedAfterStage: skippedStage.key,
+      skippedAfterStageLabel: skippedStage.review?.stageLabel ?? skippedStage.label,
+      issues,
+      modificationSuggestions: Array.from(suggestionMap.values())
+    };
+  }
+
+  return {
+    verdict:
+      completedCount === stageEntries.length
+        ? "建议进入论文修改与推荐论文对照"
+        : "建议按当前结果先处理已识别问题",
+    overview:
+      completedCount === stageEntries.length
+        ? "三阶段审查已完成，可以根据左侧问题和右侧修改建议安排修订。"
+        : `已完成 ${completedCount} 个阶段的汇总，可继续补充后续阶段结果。`,
+    skippedAfterStage: "",
+    skippedAfterStageLabel: "",
+    issues,
+    modificationSuggestions: Array.from(suggestionMap.values())
+  };
+}
+
 export async function fetchSystemRuleLibrary({ status = "approved" } = {}) {
   if (!USE_MOCK) {
     const search = new URLSearchParams({ status });

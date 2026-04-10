@@ -28,7 +28,7 @@ const router = createRouter({
       name: "workspace",
       component: ReviewWorkspaceView,
       meta: {
-        title: "论文评分工作台"
+        title: "分阶段审查工作区"
       }
     },
     {
@@ -45,8 +45,8 @@ const router = createRouter({
 router.afterEach((to) => {
   if (typeof document !== "undefined") {
     document.title = to.meta?.title
-      ? `${to.meta.title} | 论文评分系统`
-      : "论文评分系统";
+      ? `${to.meta.title} | 论文分阶段审查系统`
+      : "论文分阶段审查系统";
   }
 });
 

@@ -1,12 +1,32 @@
 import { reactive, watch } from "vue";
 
-const STORAGE_KEY = "paper-review-session-v1";
+const STORAGE_KEY = "paper-review-session-v2";
+
+export const REVIEW_STAGE_IDS = Object.freeze([
+  "format",
+  "logic",
+  "innovation",
+  "summary"
+]);
+
+const DEFAULT_STAGE = "format";
+
+function createWorkflowState() {
+  return {
+    currentStage: DEFAULT_STAGE,
+    reviews: {
+      format: null,
+      logic: null,
+      innovation: null
+    },
+    summary: null
+  };
+}
 
 function createInitialState() {
   return {
     currentSubmission: null,
     transmissionStatus: null,
-    reviewSummary: null,
     recommendations: [],
     recommendationDetails: {},
     preferences: {
@@ -19,7 +39,8 @@ function createInitialState() {
       customRulesText: "",
       customRuleFileName: "",
       savedAt: ""
-    }
+    },
+    workflow: createWorkflowState()
   };
 }
 
@@ -43,6 +64,14 @@ function readStoredState() {
       ruleLibrary: {
         ...createInitialState().ruleLibrary,
         ...parsed.ruleLibrary
+      },
+      workflow: {
+        ...createWorkflowState(),
+        ...parsed.workflow,
+        reviews: {
+          ...createWorkflowState().reviews,
+          ...parsed.workflow?.reviews
+        }
       }
     };
   } catch {
@@ -67,17 +96,13 @@ watch(
 export function setSubmission(submission) {
   reviewSession.currentSubmission = submission;
   reviewSession.transmissionStatus = null;
-  reviewSession.reviewSummary = null;
   reviewSession.recommendations = [];
   reviewSession.recommendationDetails = {};
+  reviewSession.workflow = createWorkflowState();
 }
 
 export function setTransmissionStatus(status) {
   reviewSession.transmissionStatus = status;
-}
-
-export function setReviewSummary(summary) {
-  reviewSession.reviewSummary = summary;
 }
 
 export function setRecommendations(items) {
@@ -135,6 +160,26 @@ export function setCustomRuleFileName(name) {
 
 export function markRuleLibrarySaved(savedAt) {
   reviewSession.ruleLibrary.savedAt = savedAt;
+}
+
+export function setCurrentStage(stage) {
+  if (!REVIEW_STAGE_IDS.includes(stage)) {
+    return;
+  }
+
+  reviewSession.workflow.currentStage = stage;
+}
+
+export function setStageReview(stage, payload) {
+  if (!(stage in reviewSession.workflow.reviews)) {
+    return;
+  }
+
+  reviewSession.workflow.reviews[stage] = payload;
+}
+
+export function setWorkflowSummary(summary) {
+  reviewSession.workflow.summary = summary;
 }
 
 export function clearSession() {

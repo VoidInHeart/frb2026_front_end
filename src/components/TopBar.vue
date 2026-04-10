@@ -9,12 +9,28 @@ import {
 } from "../stores/appearance";
 
 const route = useRoute();
+const appearanceMenuOpen = ref(false);
+const appearanceMenuRef = ref(null);
+
 const workspaceReady = computed(() => Boolean(reviewSession.currentSubmission));
 const ruleSelectionCount = computed(
   () => reviewSession.ruleLibrary.selectedSystemRuleIds.length
 );
-const appearanceMenuOpen = ref(false);
-const appearanceMenuRef = ref(null);
+
+const stageLabelMap = {
+  format: "格式审查",
+  logic: "逻辑审查",
+  innovation: "方法与创新点",
+  summary: "汇总"
+};
+
+const currentStageLabel = computed(() => {
+  if (!workspaceReady.value) {
+    return "等待上传";
+  }
+
+  return stageLabelMap[reviewSession.workflow.currentStage] ?? "等待开始";
+});
 
 function toggleAppearanceMenu() {
   appearanceMenuOpen.value = !appearanceMenuOpen.value;
@@ -46,40 +62,36 @@ onBeforeUnmount(() => {
 <template>
   <header class="topbar glass-card">
     <div class="topbar-brand">
-      <div class="topbar-kicker">Paper Review Frontend</div>
-      <RouterLink class="topbar-title" to="/">论文评分系统</RouterLink>
+      <div class="topbar-kicker">Structured Paper Review</div>
+      <RouterLink class="topbar-title" to="/">论文分阶段审查系统</RouterLink>
     </div>
+
     <nav class="topbar-nav">
       <RouterLink
         class="nav-link"
         :class="{ active: route.name === 'upload' }"
         to="/"
       >
-        上传
+        上传论文
       </RouterLink>
       <RouterLink
         class="nav-link"
         :class="{ active: route.name === 'rule-library-management' }"
         to="/rule-library"
       >
-        规则库管理
+        规则库
       </RouterLink>
       <RouterLink
         class="nav-link"
-        :class="{
-          active: route.name === 'workspace',
-          disabled: !workspaceReady
-        }"
+        :class="{ active: route.name === 'workspace', disabled: !workspaceReady }"
         :to="workspaceReady ? '/workspace' : '/'"
       >
-        工作台
+        审查工作区
       </RouterLink>
-      <span class="pill pill-primary">
-        {{ workspaceReady ? "已加载论文" : "等待上传" }}
-      </span>
-      <span class="pill pill-neutral">
-        {{ `已选规则 ${ruleSelectionCount}` }}
-      </span>
+
+      <span class="pill pill-primary">{{ currentStageLabel }}</span>
+      <span class="pill pill-neutral">已选规则 {{ ruleSelectionCount }}</span>
+
       <div ref="appearanceMenuRef" class="appearance-menu">
         <button
           class="ghost-button appearance-trigger"

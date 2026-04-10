@@ -2,15 +2,20 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { fetchRecommendationDetail } from "../services/api";
-import { reviewSession, setRecommendationDetail } from "../stores/reviewSession";
+import {
+  reviewSession,
+  setCurrentStage,
+  setRecommendationDetail
+} from "../stores/reviewSession";
 
 const route = useRoute();
 const router = useRouter();
+
 const loading = ref(false);
 const errorMessage = ref("");
 
 const paperId = computed(() => String(route.params.paperId ?? ""));
-const returnFlow = computed(() => String(route.query.fromFlow ?? "repair"));
+const returnStage = computed(() => String(route.query.fromStage ?? "summary"));
 const detail = computed(
   () => reviewSession.recommendationDetails[paperId.value] ?? null
 );
@@ -26,7 +31,7 @@ async function loadDetail() {
     const response = await fetchRecommendationDetail(paperId.value);
 
     if (!response) {
-      throw new Error("没有找到该推荐论文详情");
+      throw new Error("没有找到这篇推荐论文的详情。");
     }
 
     setRecommendationDetail(paperId.value, response);
@@ -38,12 +43,18 @@ async function loadDetail() {
 }
 
 function backToWorkspace() {
-  router.push({
-    name: "workspace",
-    query: {
-      flow: returnFlow.value
-    }
-  });
+  setCurrentStage(returnStage.value);
+  router.push({ name: "workspace" });
+}
+
+function openSourceLink() {
+  const sourceLink = detail.value?.link;
+
+  if (!sourceLink || sourceLink === "#") {
+    return;
+  }
+
+  window.open(sourceLink, "_blank", "noopener,noreferrer");
 }
 
 onMounted(async () => {
@@ -58,16 +69,17 @@ onMounted(async () => {
     <header class="detail-hero glass-card">
       <div class="hero-left">
         <button class="ghost-button back-button" type="button" @click="backToWorkspace()">
-          返回上一页
+          返回汇总页
         </button>
-        <p class="summary-kicker">第三界面</p>
+        <p class="summary-kicker">推荐论文详情</p>
         <h1 class="section-title detail-title">
           {{ detail?.title || summaryItem?.title || "推荐论文详情" }}
         </h1>
         <p class="section-subtitle">
-          展示推荐论文的摘要、相关性分析与可借鉴点，便于从工作台跳转后继续深入查看。
+          这里保留原有详情阅读能力，用来查看推荐论文的摘要、相关性分析和可借鉴点。
         </p>
       </div>
+
       <div class="hero-right">
         <span class="pill pill-primary">
           相关度 {{ detail?.relevanceScore || summaryItem?.relevanceScore || "--" }}
@@ -91,6 +103,7 @@ onMounted(async () => {
           <p class="info-label">作者</p>
           <strong>{{ detail?.authors || summaryItem?.authors || "暂无作者信息" }}</strong>
         </article>
+
         <article class="glass-card info-card">
           <p class="info-label">关键词</p>
           <div class="tag-row">
@@ -113,6 +126,7 @@ onMounted(async () => {
             {{ detail?.abstract || "当前接口暂未返回摘要内容。" }}
           </p>
         </article>
+
         <article class="glass-card content-card">
           <p class="summary-kicker">相关性分析</p>
           <h2 class="section-title">Why It Matters</h2>
@@ -127,11 +141,17 @@ onMounted(async () => {
       </section>
 
       <section class="glass-card content-card">
-        <p class="summary-kicker">借鉴点</p>
+        <p class="summary-kicker">可借鉴点</p>
         <h2 class="section-title">Key Takeaways</h2>
         <ul class="takeaway-list">
           <li v-for="item in detail?.keyTakeaways || []" :key="item">{{ item }}</li>
         </ul>
+
+        <div v-if="detail?.link && detail.link !== '#'" class="detail-actions">
+          <button class="secondary-button" type="button" @click="openSourceLink">
+            打开原文链接
+          </button>
+        </div>
       </section>
     </template>
   </section>
@@ -234,6 +254,11 @@ onMounted(async () => {
   padding-left: 18px;
   display: grid;
   gap: 10px;
+}
+
+.detail-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 840px) {
