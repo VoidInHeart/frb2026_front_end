@@ -2,15 +2,11 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MarkdownArticle from "../components/MarkdownArticle.vue";
-import RecommendationList from "../components/RecommendationList.vue";
 import ReviewStageTracker from "../components/ReviewStageTracker.vue";
 import StageFindingsPanel from "../components/StageFindingsPanel.vue";
-import SummaryIssueBoard from "../components/SummaryIssueBoard.vue";
-import SummarySuggestionPanel from "../components/SummarySuggestionPanel.vue";
 import {
   buildReviewDigest,
   countAnchorsByType,
-  fetchRecommendations,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
@@ -23,7 +19,6 @@ import {
   clearSession,
   reviewSession,
   setCurrentStage,
-  setRecommendations,
   setShowImages,
   setStageReview,
   setTransmissionStatus,
@@ -33,7 +28,6 @@ import {
 const router = useRouter();
 
 const loadingStage = ref("");
-const recommendationLoading = ref(false);
 const transmissionLoading = ref(false);
 const errorMessage = ref("");
 const pageMessage = ref("");
@@ -56,13 +50,6 @@ const stageMetaMap = {
 const submission = computed(() => reviewSession.currentSubmission);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
-const summary = computed(() => reviewSession.workflow.summary);
-const recommendations = computed(() => reviewSession.recommendations);
-
-const currentStage = computed({
-  get: () => reviewSession.workflow.currentStage,
-  set: (value) => setCurrentStage(value)
-});
 
 const showImages = computed({
   get: () => reviewSession.preferences.showImages,
@@ -74,25 +61,37 @@ const anchorCount = computed(() => getAnchorCount(paperMeta.value));
 const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
 const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
 
+const transmissionReady = computed(() => Boolean(reviewSession.transmissionStatus?.success));
+
+const lastCompletedStage = computed(() => {
+  if (stageReviews.value.innovation) {
+    return "innovation";
+  }
+
+  if (stageReviews.value.logic) {
+    return "logic";
+  }
+
+  return "format";
+});
+
+const visibleStage = computed(() =>
+  reviewSession.workflow.currentStage === "summary"
+    ? lastCompletedStage.value
+    : reviewSession.workflow.currentStage
+);
+
 const activeStageMeta = computed(
-  () => stageMetaMap[currentStage.value] ?? stageMetaMap.format
+  () => stageMetaMap[visibleStage.value] ?? stageMetaMap.format
 );
 
 const activeStageResult = computed(
-  () => stageReviews.value[currentStage.value] ?? null
-);
-
-const transmissionReady = computed(
-  () => Boolean(reviewSession.transmissionStatus?.success)
+  () => stageReviews.value[visibleStage.value] ?? null
 );
 
 const stageActionLabel = computed(() => {
-  if (currentStage.value === "innovation") {
-    return "进入汇总环节";
-  }
-
-  if (activeStageResult.value?.severe) {
-    return "进入汇总环节";
+  if (visibleStage.value === "innovation" || activeStageResult.value?.severe) {
+    return "进入汇总页面";
   }
 
   return "进入下一阶段";
@@ -187,70 +186,25 @@ async function ensureStageReady(stageKey) {
   return loadStage(stageKey);
 }
 
-async function loadRecommendationsIfNeeded() {
-  if (!submission.value || recommendations.value.length) {
-    return;
-  }
-
-  errorMessage.value = "";
-  recommendationLoading.value = true;
-
-  try {
-    const items = await fetchRecommendations({
-      submissionId: submission.value.submissionId,
-      paperMeta: paperMeta.value
-    });
-
-    setRecommendations(items);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "推荐论文获取失败";
-  } finally {
-    recommendationLoading.value = false;
-  }
-}
-
-async function ensureSummaryReady() {
-  refreshSummarySnapshot();
-  await loadRecommendationsIfNeeded();
-}
-
 async function goNext() {
-  if (currentStage.value === "summary") {
-    return;
-  }
-
-  const result =
-    activeStageResult.value ?? (await ensureStageReady(currentStage.value));
+  const stageKey = visibleStage.value;
+  const result = activeStageResult.value ?? (await ensureStageReady(stageKey));
 
   if (!result) {
     return;
   }
 
-  if (currentStage.value === "innovation" || result.severe) {
-    currentStage.value = "summary";
-    await ensureSummaryReady();
+  if (stageKey === "innovation" || result.severe) {
+    setCurrentStage("summary");
+    refreshSummarySnapshot();
+    router.push({ name: "summary" });
     return;
   }
 
-  const nextStage =
-    currentStage.value === "format" ? "logic" : "innovation";
+  const nextStage = stageKey === "format" ? "logic" : "innovation";
 
-  currentStage.value = nextStage;
+  setCurrentStage(nextStage);
   await ensureStageReady(nextStage);
-}
-
-function openRecommendation(paper) {
-  setCurrentStage("summary");
-  router.push({
-    name: "recommendation-detail",
-    params: {
-      paperId: paper.id
-    },
-    query: {
-      fromStage: "summary"
-    }
-  });
 }
 
 function restartReview() {
@@ -264,18 +218,8 @@ onMounted(async () => {
     return;
   }
 
-  if (!stageReviews.value.format && currentStage.value !== "format") {
-    currentStage.value = "format";
-  }
-
   await ensureTransmissionReady();
-
-  if (currentStage.value === "summary") {
-    await ensureSummaryReady();
-    return;
-  }
-
-  await ensureStageReady(currentStage.value);
+  await ensureStageReady(visibleStage.value);
 });
 </script>
 
@@ -287,7 +231,7 @@ onMounted(async () => {
           <p class="summary-kicker">分阶段审查工作区</p>
           <h1 class="section-title">上传后的审查流程已经重构为三阶段主线</h1>
           <p class="section-subtitle hero-subtitle">
-            左侧始终展示解析后的论文正文；右侧在不同阶段展示问题结果、汇总建议和推荐论文。
+            左侧始终展示解析后的论文正文；右侧展示当前阶段的问题结果，并在需要时进入独立汇总页面。
           </p>
         </div>
 
@@ -315,14 +259,14 @@ onMounted(async () => {
     </header>
 
     <ReviewStageTracker
-      :active-stage="currentStage"
+      :active-stage="visibleStage"
       :reviews="stageReviews"
     />
 
     <div v-if="pageMessage" class="success-banner">{{ pageMessage }}</div>
     <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
 
-    <section v-if="currentStage !== 'summary'" class="stage-layout">
+    <section class="stage-layout">
       <section class="paper-panel glass-card">
         <div class="column-head">
           <div>
@@ -341,7 +285,7 @@ onMounted(async () => {
             doc_id: {{ paperMeta?.doc_id || "unknown" }}
           </span>
           <span class="pill pill-neutral">
-            当前阶段：{{ activeStageMeta.title }}
+            当前查看：{{ activeStageMeta.title }}
           </span>
         </div>
 
@@ -358,31 +302,11 @@ onMounted(async () => {
         :kicker="activeStageMeta.kicker"
         :title="activeStageMeta.title"
         :result="activeStageResult"
-        :loading="loadingStage === currentStage"
+        :loading="loadingStage === visibleStage"
         :action-label="stageActionLabel"
-        :action-disabled="loadingStage === currentStage || transmissionLoading"
+        :action-disabled="loadingStage === visibleStage || transmissionLoading"
         @next="goNext"
       />
-    </section>
-
-    <section v-else class="summary-layout">
-      <SummaryIssueBoard :summary="summary" />
-
-      <div class="summary-sidebar">
-        <SummarySuggestionPanel
-          :summary="summary"
-          :transmission-status="reviewSession.transmissionStatus"
-          :loading="transmissionLoading"
-        />
-
-        <RecommendationList
-          :recommendations="recommendations"
-          :loading="recommendationLoading"
-          collapsible
-          :default-expanded="false"
-          @select="openRecommendation"
-        />
-      </div>
     </section>
   </section>
 </template>
@@ -503,22 +427,8 @@ onMounted(async () => {
   max-height: calc(100vh - 420px);
 }
 
-.summary-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.08fr) minmax(360px, 0.92fr);
-  gap: 18px;
-  align-items: start;
-}
-
-.summary-sidebar {
-  display: grid;
-  gap: 18px;
-  align-content: start;
-}
-
 @media (max-width: 1240px) {
-  .stage-layout,
-  .summary-layout {
+  .stage-layout {
     grid-template-columns: 1fr;
   }
 

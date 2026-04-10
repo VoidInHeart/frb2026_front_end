@@ -2,11 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { fetchRecommendationDetail } from "../services/api";
-import {
-  reviewSession,
-  setCurrentStage,
-  setRecommendationDetail
-} from "../stores/reviewSession";
+import { reviewSession, setRecommendationDetail } from "../stores/reviewSession";
 
 const route = useRoute();
 const router = useRouter();
@@ -15,7 +11,6 @@ const loading = ref(false);
 const errorMessage = ref("");
 
 const paperId = computed(() => String(route.params.paperId ?? ""));
-const returnStage = computed(() => String(route.query.fromStage ?? "summary"));
 const detail = computed(
   () => reviewSession.recommendationDetails[paperId.value] ?? null
 );
@@ -42,9 +37,8 @@ async function loadDetail() {
   }
 }
 
-function backToWorkspace() {
-  setCurrentStage(returnStage.value);
-  router.push({ name: "workspace" });
+function backToSummary() {
+  router.push({ name: "summary" });
 }
 
 function openSourceLink() {
@@ -68,7 +62,7 @@ onMounted(async () => {
   <section class="detail-layout">
     <header class="detail-hero glass-card">
       <div class="hero-left">
-        <button class="ghost-button back-button" type="button" @click="backToWorkspace()">
+        <button class="ghost-button back-button" type="button" @click="backToSummary">
           返回汇总页
         </button>
         <p class="summary-kicker">推荐论文详情</p>

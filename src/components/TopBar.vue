@@ -13,8 +13,11 @@ const appearanceMenuOpen = ref(false);
 const appearanceMenuRef = ref(null);
 
 const workspaceReady = computed(() => Boolean(reviewSession.currentSubmission));
-const ruleSelectionCount = computed(
-  () => reviewSession.ruleLibrary.selectedSystemRuleIds.length
+const summaryReady = computed(
+  () =>
+    Boolean(reviewSession.currentSubmission) &&
+    (Boolean(reviewSession.workflow.summary) ||
+      Object.values(reviewSession.workflow.reviews).some(Boolean))
 );
 
 const stageLabelMap = {
@@ -74,13 +77,7 @@ onBeforeUnmount(() => {
       >
         上传论文
       </RouterLink>
-      <RouterLink
-        class="nav-link"
-        :class="{ active: route.name === 'rule-library-management' }"
-        to="/rule-library"
-      >
-        规则库
-      </RouterLink>
+
       <RouterLink
         class="nav-link"
         :class="{ active: route.name === 'workspace', disabled: !workspaceReady }"
@@ -89,8 +86,15 @@ onBeforeUnmount(() => {
         审查工作区
       </RouterLink>
 
+      <RouterLink
+        class="nav-link"
+        :class="{ active: route.name === 'summary', disabled: !summaryReady }"
+        :to="summaryReady ? '/summary' : '/'"
+      >
+        汇总页面
+      </RouterLink>
+
       <span class="pill pill-primary">{{ currentStageLabel }}</span>
-      <span class="pill pill-neutral">已选规则 {{ ruleSelectionCount }}</span>
 
       <div ref="appearanceMenuRef" class="appearance-menu">
         <button

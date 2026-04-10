@@ -278,6 +278,65 @@ function buildMockTask1Audit(metaSource) {
   const paragraphAnchor = anchors.find((item) => item.type === "paragraph");
   const figureAnchor = anchors.find((item) => item.type === "figure");
   const tableAnchor = anchors.find((item) => item.type === "table");
+  const mockProfile = meta?.__mockProfile ?? "default";
+
+  if (mockProfile === "logic-pass") {
+    return {
+      code: 200,
+      message: "success",
+      data: {
+        schema_version: "task1-chunked-long-audit-v1",
+        mode: "llm_chunked_long",
+        result: {
+          logic_analysis: {
+            core_argument_consistency: {
+              is_consistent: true,
+              conflict_summary: "核心论证链路基本闭合，当前逻辑审查可以继续推进到方法与创新点阶段。"
+            },
+            logic_dimensions: {
+              research_problem_closure: {
+                status: "pass",
+                summary: "研究问题、方法目标与结论回扣关系较为清晰。",
+                issue_ids: [],
+                evidence_links: [paragraphAnchor?.anchor_id].filter(Boolean)
+              },
+              claim_evidence_conclusion_strength: {
+                status: "pass",
+                summary: "主要结论与实验结果之间的支撑关系较稳定。",
+                issue_ids: [],
+                evidence_links: [figureAnchor?.anchor_id, tableAnchor?.anchor_id].filter(Boolean)
+              },
+              figure_table_text_consistency: {
+                status: "risk",
+                summary: "个别图表仍可补一条更明确的解释句，但不影响进入下一阶段。",
+                issue_ids: ["issue-pass-1"],
+                evidence_links: [figureAnchor?.anchor_id].filter(Boolean)
+              }
+            },
+            issues: [
+              {
+                issue_id: "issue-pass-1",
+                logical_node: "figure_table_text_consistency",
+                severity: "medium",
+                analysis: "个别图表首现时的解释句还可以更直接一些，但整体不会阻断后续方法与创新点审查。",
+                evidence_links: [figureAnchor?.anchor_id].filter(Boolean),
+                scope: "local",
+                dimension_keys: ["figure_table_text_consistency"],
+                confidence: 0.7
+              }
+            ],
+            reasoning_depth: {
+              assessment: "推理链条整体连贯，当前更适合继续检查方法与创新点的表达质量。"
+            },
+            structure_rationality: {
+              assessment: "结构基本合理，可以继续进入下一阶段。"
+            },
+            chunk_count: Math.max(1, Math.ceil((meta?.total_pages ?? 1) / 2))
+          }
+        }
+      }
+    };
+  }
 
   return {
     code: 200,
@@ -505,8 +564,8 @@ async function uploadViaLocalParser(paperFile) {
     paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
     paperMarkdown: data.paperMarkdown ?? "",
     paperAssetBase: data.paperAssetBase ?? "",
-    paperMeta,
-    documentIr: paperMeta,
+    paperMeta: normalizedPaperMeta,
+    documentIr: normalizedPaperMeta,
     uploadedAt: new Date().toISOString(),
     sourceMode: "local-parser-api",
     artifacts: data.artifacts ?? null
@@ -517,7 +576,8 @@ export async function uploadPaper({
   paperFile,
   markdownFile,
   documentIrFile,
-  imageBaseUrl
+  imageBaseUrl,
+  mockProfile = "default"
 }) {
   const hasLocalArtifacts = markdownFile && documentIrFile;
 
@@ -570,14 +630,23 @@ export async function uploadPaper({
   const paperMeta = hasLocalArtifacts
     ? await readFileAsJson(documentIrFile)
     : await loadMockPaperMeta();
+  const normalizedPaperMeta =
+    !hasLocalArtifacts && mockProfile !== "default"
+      ? {
+          ...paperMeta,
+          __mockProfile: mockProfile
+        }
+      : paperMeta;
+  const mockPaperName =
+    mockProfile === "logic-pass" ? "逻辑审查通过样例" : "示例论文";
 
   return {
     submissionId: makeSubmissionId(),
-    paperName: paperFile?.name ?? paperMeta?.doc_id ?? "示例论文",
+    paperName: paperFile?.name ?? normalizedPaperMeta?.doc_id ?? mockPaperName,
     paperMarkdown,
     paperAssetBase: imageBaseUrl || "/mock",
-    paperMeta,
-    documentIr: paperMeta,
+    paperMeta: normalizedPaperMeta,
+    documentIr: normalizedPaperMeta,
     uploadedAt: new Date().toISOString(),
     sourceMode: hasLocalArtifacts ? "local-artifacts" : "mock"
   };

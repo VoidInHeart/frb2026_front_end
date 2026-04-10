@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import RecommendationDetailView from "../views/RecommendationDetailView.vue";
 import ReviewWorkspaceView from "../views/ReviewWorkspaceView.vue";
-import RuleLibraryManagementView from "../views/RuleLibraryManagementView.vue";
+import SummaryView from "../views/SummaryView.vue";
 import UploadView from "../views/UploadView.vue";
 
 const router = createRouter({
@@ -16,19 +16,19 @@ const router = createRouter({
       }
     },
     {
-      path: "/rule-library",
-      name: "rule-library-management",
-      component: RuleLibraryManagementView,
-      meta: {
-        title: "规则库管理"
-      }
-    },
-    {
       path: "/workspace",
       name: "workspace",
       component: ReviewWorkspaceView,
       meta: {
-        title: "分阶段审查工作区"
+        title: "审查工作区"
+      }
+    },
+    {
+      path: "/summary",
+      name: "summary",
+      component: SummaryView,
+      meta: {
+        title: "汇总页面"
       }
     },
     {

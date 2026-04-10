@@ -1,9 +1,8 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { submitPaperMeta, uploadPaper } from "../services/api";
 import {
-  reviewSession,
   setCurrentStage,
   setSubmission,
   setTransmissionStatus
@@ -27,14 +26,6 @@ const dragOverField = reactive({
 });
 
 const demoAvailable = import.meta.env.VITE_USE_MOCK !== "false";
-
-const selectedRuleCount = computed(
-  () => reviewSession.ruleLibrary.selectedSystemRuleIds.length
-);
-
-const hasCustomRules = computed(() =>
-  Boolean(reviewSession.ruleLibrary.customRulesText.trim())
-);
 
 function handleFileChange(event, field) {
   const [file] = event.target.files ?? [];
@@ -61,7 +52,7 @@ function handleDrop(event, field) {
 }
 
 async function startReview(options = {}) {
-  const { useDemo = false } = options;
+  const { useDemo = false, mockProfile = "default" } = options;
   const hasAdvancedArtifacts = form.markdownFile && form.documentIrFile;
 
   if (!useDemo && !form.paperFile && !hasAdvancedArtifacts) {
@@ -78,7 +69,8 @@ async function startReview(options = {}) {
       paperFile: useDemo ? null : form.paperFile,
       markdownFile: useDemo ? null : form.markdownFile,
       documentIrFile: useDemo ? null : form.documentIrFile,
-      imageBaseUrl: useDemo ? "/mock" : form.imageBaseUrl
+      imageBaseUrl: useDemo ? "/mock" : form.imageBaseUrl,
+      mockProfile
     });
 
     setSubmission(submission);
@@ -96,10 +88,6 @@ async function startReview(options = {}) {
   } finally {
     loading.value = false;
   }
-}
-
-function goToRuleLibrary() {
-  router.push({ name: "rule-library-management" });
 }
 </script>
 
@@ -123,27 +111,12 @@ function goToRuleLibrary() {
         </article>
         <article class="journey-card">
           <strong>03 方法与创新点审查</strong>
-          <p>审视方法陈述、创新点边界与实验支撑是否对应，完成后进入汇总页。</p>
+          <p>审视方法陈述、创新点边界与实验支撑是否对应，完成后进入独立汇总页。</p>
         </article>
         <article class="journey-card">
           <strong>04 汇总</strong>
-          <p>左侧汇总问题与证据链，右侧给出修改建议和推荐论文，并支持跳转详情。</p>
+          <p>汇总页左侧展示问题与证据链，右侧展示修改建议与推荐论文，并支持详情跳转。</p>
         </article>
-      </div>
-
-      <div class="rule-card">
-        <div class="rule-copy">
-          <span class="pill pill-primary">可选：规则库配置</span>
-          <h2>规则库页面仍然保留</h2>
-          <p>
-            当前已选系统规则 {{ selectedRuleCount }} 条，{{ hasCustomRules ? "已配置自定义规则" : "尚未配置自定义规则" }}。
-            如果你们需要继续维护规则资产，仍然可以进入原有规则库页面。
-          </p>
-        </div>
-
-        <button class="secondary-button" type="button" @click="goToRuleLibrary">
-          打开规则库
-        </button>
       </div>
     </section>
 
@@ -264,6 +237,16 @@ function goToRuleLibrary() {
         >
           使用示例论文
         </button>
+
+        <button
+          v-if="demoAvailable"
+          class="ghost-button"
+          type="button"
+          :disabled="loading"
+          @click="startReview({ useDemo: true, mockProfile: 'logic-pass' })"
+        >
+          使用逻辑通过样例
+        </button>
       </div>
     </section>
   </section>
@@ -305,15 +288,11 @@ function goToRuleLibrary() {
   gap: 14px;
 }
 
-.journey-card,
-.rule-card {
+.journey-card {
   padding: 18px;
   border-radius: 22px;
   background: rgba(255, 255, 255, 0.62);
   border: 1px solid rgba(19, 63, 103, 0.12);
-}
-
-.journey-card {
   display: grid;
   gap: 8px;
 }
@@ -324,28 +303,6 @@ function goToRuleLibrary() {
 
 .journey-card p {
   margin: 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.rule-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-}
-
-.rule-copy {
-  display: grid;
-  gap: 10px;
-}
-
-.rule-copy h2,
-.rule-copy p {
-  margin: 0;
-}
-
-.rule-copy p {
   color: var(--muted);
   line-height: 1.7;
 }
@@ -456,7 +413,6 @@ function goToRuleLibrary() {
 @media (max-width: 1080px) {
   .upload-layout,
   .journey-grid,
-  .rule-card,
   .advanced-grid {
     grid-template-columns: 1fr;
   }
