@@ -313,6 +313,7 @@ onMounted(async () => {
 
 <style scoped>
 .workspace-layout {
+  --workspace-panel-height: clamp(750px, calc((100vh - 380px) * 1.5), 1050px);
   display: grid;
   gap: 18px;
 }
@@ -395,7 +396,8 @@ onMounted(async () => {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
-  min-height: calc(100vh - 320px);
+  min-height: var(--workspace-panel-height);
+  max-height: var(--workspace-panel-height);
 }
 
 .column-head {
@@ -424,7 +426,8 @@ onMounted(async () => {
 }
 
 .article-scroll {
-  max-height: calc(100vh - 420px);
+  height: 100%;
+  max-height: none;
 }
 
 @media (max-width: 1240px) {

@@ -112,7 +112,8 @@ function getSeverityClass(severity) {
   display: grid;
   grid-template-rows: auto minmax(0, auto) minmax(0, 1fr) auto;
   gap: 18px;
-  min-height: calc(100vh - 320px);
+  min-height: var(--workspace-panel-height, 750px);
+  max-height: var(--workspace-panel-height, 1050px);
 }
 
 .panel-head {
@@ -239,6 +240,13 @@ function getSeverityClass(severity) {
 
 .footer-button {
   min-width: 220px;
+}
+
+@media (max-width: 1240px) {
+  .findings-panel {
+    min-height: auto;
+    max-height: none;
+  }
 }
 
 @media (max-width: 720px) {
