@@ -18,15 +18,25 @@ const phase = ref("queued");
 const statusDetail = ref("正在准备解析任务...");
 const errorMessage = ref("");
 const retrying = ref(false);
+const progress = ref(6);
 
 let disposed = false;
 let detailTimer = null;
+let progressTimer = null;
+let redirectTimer = null;
 
 const phaseOrder = Object.freeze({
   queued: 0,
   parsing: 1,
   syncing: 2,
   ready: 3
+});
+
+const phaseProgressMap = Object.freeze({
+  queued: { floor: 6, ceiling: 12 },
+  parsing: { floor: 16, ceiling: 78 },
+  syncing: { floor: 84, ceiling: 96 },
+  ready: { floor: 100, ceiling: 100 }
 });
 
 const paperLabel = computed(() => {
@@ -75,6 +85,36 @@ const statusTitle = computed(() => {
   return "正在准备上传任务";
 });
 
+const progressPercent = computed(() =>
+  Math.max(0, Math.min(100, Math.round(progress.value)))
+);
+
+const progressLabel = computed(() => `${progressPercent.value}%`);
+
+const progressStageLabel = computed(() => {
+  if (errorMessage.value) {
+    return "等待重试";
+  }
+
+  if (phase.value === "parsing") {
+    return "内容解析中";
+  }
+
+  if (phase.value === "syncing") {
+    return "结果同步中";
+  }
+
+  if (phase.value === "ready") {
+    return "即将进入审查";
+  }
+
+  return "任务排队中";
+});
+
+const waterStyle = computed(() => ({
+  height: `${progressPercent.value}%`
+}));
+
 const phaseItems = computed(() => [
   {
     key: "queued",
@@ -109,6 +149,20 @@ function stopDetailLoop() {
   }
 }
 
+function stopProgressLoop() {
+  if (progressTimer) {
+    window.clearInterval(progressTimer);
+    progressTimer = null;
+  }
+}
+
+function stopRedirectTimer() {
+  if (redirectTimer) {
+    window.clearTimeout(redirectTimer);
+    redirectTimer = null;
+  }
+}
+
 function playDetailLoop(messages) {
   stopDetailLoop();
   statusDetail.value = messages[0] ?? "";
@@ -124,13 +178,44 @@ function playDetailLoop(messages) {
   }, 1800);
 }
 
+function startProgressLoop(nextPhase) {
+  stopProgressLoop();
+
+  const range = phaseProgressMap[nextPhase] ?? phaseProgressMap.queued;
+  progress.value = Math.max(progress.value, range.floor);
+
+  if (range.floor === range.ceiling) {
+    progress.value = range.ceiling;
+    return;
+  }
+
+  progressTimer = window.setInterval(() => {
+    const remaining = range.ceiling - progress.value;
+
+    if (remaining <= 0.2) {
+      progress.value = range.ceiling;
+      stopProgressLoop();
+      return;
+    }
+
+    const increment =
+      remaining > 24 ? 1.3 : remaining > 10 ? 0.75 : remaining > 4 ? 0.34 : 0.16;
+
+    progress.value = Math.min(
+      range.ceiling,
+      Number((progress.value + increment).toFixed(2))
+    );
+  }, 120);
+}
+
 function updatePhase(nextPhase) {
   phase.value = nextPhase;
+  startProgressLoop(nextPhase);
 
   if (nextPhase === "parsing") {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
-      "这一步通常和论文体积、图表数量有关。",
+      "这一阶段通常和论文页数、图表数量有关。",
       "解析完成后会自动同步到审查工作区。"
     ]);
     return;
@@ -168,6 +253,7 @@ function getPhaseState(key) {
 }
 
 async function finalizeSubmission(submission) {
+  progress.value = Math.max(progress.value, phaseProgressMap.syncing.floor);
   updatePhase("syncing");
 
   const transmission = await submitPaperMeta({
@@ -186,7 +272,8 @@ async function finalizeSubmission(submission) {
 
   updatePhase("ready");
 
-  window.setTimeout(() => {
+  stopRedirectTimer();
+  redirectTimer = window.setTimeout(() => {
     if (!disposed) {
       router.replace({ name: "workspace" });
     }
@@ -211,6 +298,7 @@ async function runUploadFlow() {
     let submission = resolvedSubmission.value;
 
     if (!submission) {
+      progress.value = Math.min(progress.value, 18);
       updatePhase("parsing");
 
       submission = await uploadPaper({
@@ -235,6 +323,7 @@ async function runUploadFlow() {
     }
 
     stopDetailLoop();
+    stopProgressLoop();
     errorMessage.value =
       error instanceof Error ? error.message : "论文解析失败，请稍后重试。";
   } finally {
@@ -259,6 +348,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true;
   stopDetailLoop();
+  stopProgressLoop();
+  stopRedirectTimer();
 });
 </script>
 
@@ -269,9 +360,7 @@ onBeforeUnmount(() => {
         <span class="pill pill-accent">Parsing In Progress</span>
         <p class="summary-kicker">等待解析</p>
         <h1 class="section-title loading-title">{{ statusTitle }}</h1>
-        <p class="hero-text">
-          {{ statusDetail }}
-        </p>
+        <p class="hero-text">{{ statusDetail }}</p>
 
         <div class="meta-row">
           <span class="pill pill-primary">{{ sourceLabel }}</span>
@@ -280,10 +369,24 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="hero-visual" aria-hidden="true">
-        <div class="signal-core"></div>
-        <div class="signal-ring ring-one"></div>
-        <div class="signal-ring ring-two"></div>
-        <div class="signal-ring ring-three"></div>
+        <div
+          class="progress-vessel"
+          :class="{
+            'progress-vessel-error': Boolean(errorMessage),
+            'progress-vessel-ready': phase === 'ready'
+          }"
+        >
+          <div class="progress-grid"></div>
+          <div class="progress-gloss"></div>
+          <div class="progress-liquid" :style="waterStyle">
+            <div class="progress-wave wave-back"></div>
+            <div class="progress-wave wave-front"></div>
+          </div>
+          <div class="progress-readout">
+            <strong>{{ progressLabel }}</strong>
+            <span>{{ progressStageLabel }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -292,12 +395,12 @@ onBeforeUnmount(() => {
         <p class="summary-kicker">解析流程</p>
         <div class="phase-list">
           <article
-            v-for="item in phaseItems"
+            v-for="(item, index) in phaseItems"
             :key="item.key"
             class="phase-item"
             :class="`phase-${getPhaseState(item.key)}`"
           >
-            <div class="phase-badge">{{ phaseItems.findIndex((phase) => phase.key === item.key) + 1 }}</div>
+            <div class="phase-badge">{{ index + 1 }}</div>
             <div class="phase-copy">
               <strong>{{ item.title }}</strong>
               <p>{{ item.description }}</p>
@@ -327,7 +430,12 @@ onBeforeUnmount(() => {
           >
             {{ retrying ? "处理中..." : primaryActionLabel }}
           </button>
-          <button class="ghost-button" type="button" :disabled="retrying" @click="backToUpload">
+          <button
+            class="ghost-button"
+            type="button"
+            :disabled="retrying"
+            @click="backToUpload"
+          >
             返回上传页
           </button>
         </div>
@@ -387,49 +495,128 @@ onBeforeUnmount(() => {
 }
 
 .hero-visual {
-  position: relative;
   display: grid;
   place-items: center;
-  min-height: 320px;
+  min-height: 340px;
 }
 
-.signal-core {
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95), transparent 28%),
-    linear-gradient(135deg, rgba(19, 63, 103, 0.96), rgba(208, 122, 53, 0.82));
-  box-shadow:
-    0 0 0 18px rgba(255, 255, 255, 0.28),
-    0 24px 48px rgba(19, 63, 103, 0.18);
-}
-
-.signal-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px solid rgba(19, 63, 103, 0.16);
-  animation: orbit 10s linear infinite;
-}
-
-.ring-one {
-  width: 188px;
-  height: 188px;
-}
-
-.ring-two {
-  width: 256px;
-  height: 256px;
-  border-style: dashed;
-  animation-duration: 16s;
-  animation-direction: reverse;
-}
-
-.ring-three {
-  width: 320px;
+.progress-vessel {
+  position: relative;
+  width: min(100%, 280px);
   height: 320px;
-  border-color: rgba(208, 122, 53, 0.22);
-  animation-duration: 22s;
+  overflow: hidden;
+  border-radius: 36px;
+  border: 1px solid rgba(19, 63, 103, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.28)),
+    rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -14px 36px rgba(19, 63, 103, 0.08),
+    0 28px 48px rgba(19, 63, 103, 0.18);
+}
+
+.progress-vessel-ready {
+  border-color: rgba(47, 133, 90, 0.22);
+}
+
+.progress-vessel-error {
+  border-color: rgba(192, 86, 33, 0.22);
+}
+
+.progress-grid,
+.progress-gloss,
+.progress-liquid,
+.progress-readout {
+  position: absolute;
+  inset: 0;
+}
+
+.progress-grid {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(19, 63, 103, 0.04) 0%,
+      rgba(19, 63, 103, 0.01) 100%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 32px,
+      rgba(19, 63, 103, 0.06) 32px 33px
+    );
+  opacity: 0.75;
+}
+
+.progress-gloss {
+  inset: 14px auto 14px 14px;
+  width: 26%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.54), transparent 75%);
+  filter: blur(2px);
+}
+
+.progress-liquid {
+  top: auto;
+  height: 0;
+  background:
+    linear-gradient(180deg, rgba(138, 206, 244, 0.92), rgba(60, 140, 212, 0.94) 42%, rgba(18, 77, 136, 0.98));
+  box-shadow: inset 0 14px 24px rgba(255, 255, 255, 0.18);
+  transition: height 0.7s ease;
+}
+
+.progress-vessel-ready .progress-liquid {
+  background:
+    linear-gradient(180deg, rgba(137, 219, 181, 0.92), rgba(67, 180, 124, 0.96) 42%, rgba(34, 120, 76, 0.98));
+}
+
+.progress-vessel-error .progress-liquid {
+  background:
+    linear-gradient(180deg, rgba(246, 173, 85, 0.84), rgba(228, 115, 51, 0.9) 42%, rgba(192, 86, 33, 0.96));
+}
+
+.progress-wave {
+  position: absolute;
+  left: -12%;
+  width: 124%;
+  border-radius: 48% 52% 0 0 / 100% 100% 0 0;
+}
+
+.wave-back {
+  top: -20px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.28);
+  animation: drift 8s linear infinite;
+}
+
+.wave-front {
+  top: -14px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.58);
+  animation: drift 5.2s linear infinite reverse;
+}
+
+.progress-readout {
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.progress-readout strong {
+  font-size: clamp(44px, 8vw, 72px);
+  line-height: 1;
+  color: #163a61;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.progress-readout span {
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(22, 58, 97, 0.78);
+  font-weight: 700;
 }
 
 .phase-card {
@@ -520,17 +707,13 @@ onBeforeUnmount(() => {
   line-height: 1.7;
 }
 
-@keyframes orbit {
+@keyframes drift {
   from {
-    transform: rotate(0deg) scale(1);
-  }
-
-  50% {
-    transform: rotate(180deg) scale(1.03);
+    transform: translateX(0);
   }
 
   to {
-    transform: rotate(360deg) scale(1);
+    transform: translateX(-12%);
   }
 }
 
@@ -540,7 +723,7 @@ onBeforeUnmount(() => {
   }
 
   .hero-visual {
-    min-height: 240px;
+    min-height: 280px;
   }
 }
 
@@ -550,24 +733,14 @@ onBeforeUnmount(() => {
     padding: 22px;
   }
 
-  .signal-core {
-    width: 104px;
-    height: 104px;
+  .progress-vessel {
+    width: min(100%, 240px);
+    height: 280px;
+    border-radius: 30px;
   }
 
-  .ring-one {
-    width: 156px;
-    height: 156px;
-  }
-
-  .ring-two {
-    width: 210px;
-    height: 210px;
-  }
-
-  .ring-three {
-    width: 260px;
-    height: 260px;
+  .progress-readout strong {
+    font-size: 54px;
   }
 }
 </style>
