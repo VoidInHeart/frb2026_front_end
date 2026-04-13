@@ -165,7 +165,7 @@ async function loadStage(stageKey) {
     refreshSummarySnapshot();
 
     pageMessage.value = result.severe
-      ? `${result.stageLabel}发现严重问题，后续未执行阶段会在进度条中保持灰色。`
+      ? `${result.stageLabel}发现严重问题，后续阶段将被跳过。`
       : `${result.stageLabel}已完成。`;
 
     return result;

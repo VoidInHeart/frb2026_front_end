@@ -43,6 +43,16 @@ const completedCount = computed(
   () => stageItems.filter((item) => Boolean(props.reviews?.[item.id])).length
 );
 
+const severeStageLabel = computed(
+  () => stageItems.find((item) => props.reviews?.[item.id]?.severe)?.label ?? ""
+);
+
+const trackerCopy = computed(() =>
+  severeStageLabel.value
+    ? `${severeStageLabel.value}发现严重问题，后续阶段将被跳过。`
+    : "已执行或正在执行的阶段以绿色显示，未执行阶段保持灰色，严重问题会直接提前进入汇总环节。"
+);
+
 function isReached(itemId, index) {
   if (props.activeStage === "summary") {
     return Boolean(props.reviews?.[itemId]);
@@ -59,7 +69,7 @@ function isReached(itemId, index) {
         <p class="summary-kicker">审查主线</p>
         <h2 class="section-title">三阶段审查进度</h2>
         <p class="tracker-copy">
-          已执行或正在执行的阶段以绿色显示，未执行阶段保持灰色，严重问题会直接提前进入汇总环节。
+          {{ trackerCopy }}
         </p>
       </div>
       <div class="tracker-summary">

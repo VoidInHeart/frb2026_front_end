@@ -80,9 +80,8 @@ async function startReview(options = {}) {
 </script>
 
 <template>
-  <section class="upload-layout">
+    <section class="upload-layout">
     <section class="hero-panel glass-card">
-      <span class="pill pill-accent">重构后的主流程</span>
       <h1 class="section-title hero-title">上传论文，进入三阶段审查与汇总</h1>
       <p class="hero-text">
         当前业务入口收敛为 PDF 论文上传。解析模块保持不动，前端重点重构为“格式审查、逻辑审查、方法与创新点审查、汇总”四段式工作流。
