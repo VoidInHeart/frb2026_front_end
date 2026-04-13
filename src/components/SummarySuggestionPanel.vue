@@ -6,7 +6,11 @@ const props = defineProps({
     type: Object,
     default: null
   },
-  transmissionStatus: {
+  runRecord: {
+    type: Object,
+    default: null
+  },
+  runState: {
     type: Object,
     default: null
   },
@@ -26,26 +30,29 @@ const suggestions = computed(() => props.summary?.modificationSuggestions ?? [])
         <p class="summary-kicker">汇总右栏</p>
         <h2 class="section-title">修改建议</h2>
       </div>
-      <span
-        class="pill"
-        :class="transmissionStatus?.success ? 'pill-success' : 'pill-neutral'"
-      >
-        {{ transmissionStatus?.success ? "解析结果已同步" : "等待同步解析结果" }}
-      </span>
+      <div class="head-pills">
+        <span
+          class="pill"
+          :class="props.runRecord?.runId ? 'pill-success' : 'pill-neutral'"
+        >
+          {{ props.runRecord?.runId ? "run 已创建" : "run 未就绪" }}
+        </span>
+        <span v-if="props.runState?.status" class="pill pill-neutral">{{ props.runState.status }}</span>
+      </div>
     </div>
 
-    <div v-if="loading" class="empty-state">
+    <div v-if="props.loading" class="empty-state">
       正在整理汇总结果...
     </div>
 
-    <template v-else-if="summary">
+    <template v-else-if="props.summary">
       <div class="summary-banner">
-        <strong>{{ summary.verdict }}</strong>
-        <p>{{ summary.overview }}</p>
+        <strong>{{ props.summary.verdict }}</strong>
+        <p>{{ props.summary.overview }}</p>
       </div>
 
-      <div v-if="summary.skippedAfterStageLabel" class="summary-note">
-        后续流程已在“{{ summary.skippedAfterStageLabel }}”后提前收束，请优先处理该阶段的严重问题。
+      <div v-if="props.summary.skippedAfterStageLabel" class="summary-note">
+        后续流程在“{{ props.summary.skippedAfterStageLabel }}”后提前收束，请优先处理这一阶段的问题。
       </div>
 
       <div v-if="suggestions.length" class="suggestion-list">
@@ -68,7 +75,7 @@ const suggestions = computed(() => props.summary?.modificationSuggestions ?? [])
     </template>
 
     <div v-else class="empty-state">
-      进入汇总后会在这里展示修改建议。
+      进入汇总页后，这里会展示结构化修改建议。
     </div>
   </section>
 </template>
@@ -85,6 +92,13 @@ const suggestions = computed(() => props.summary?.modificationSuggestions ?? [])
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.head-pills {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .summary-kicker {

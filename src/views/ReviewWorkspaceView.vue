@@ -7,28 +7,27 @@ import StageFindingsPanel from "../components/StageFindingsPanel.vue";
 import {
   buildReviewDigest,
   countAnchorsByType,
+  fetchRunState,
+  fetchStageSnapshot,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
-  runFormatReview,
-  runInnovationReview,
-  runLogicReview,
-  submitPaperMeta
+  triggerStageExecution
 } from "../services/api";
 import {
   clearSession,
   reviewSession,
   setCurrentStage,
+  setRunState,
   setShowImages,
   setStageReview,
-  setTransmissionStatus,
   setWorkflowSummary
 } from "../stores/reviewSession";
 
 const router = useRouter();
 
 const loadingStage = ref("");
-const transmissionLoading = ref(false);
+const actionInFlight = ref("");
 const errorMessage = ref("");
 const pageMessage = ref("");
 
@@ -48,6 +47,8 @@ const stageMetaMap = {
 };
 
 const submission = computed(() => reviewSession.currentSubmission);
+const runRecord = computed(() => reviewSession.runRecord);
+const runState = computed(() => reviewSession.runState);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
 
@@ -60,8 +61,7 @@ const pageCount = computed(() => getPageCount(paperMeta.value));
 const anchorCount = computed(() => getAnchorCount(paperMeta.value));
 const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
 const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
-
-const transmissionReady = computed(() => Boolean(reviewSession.transmissionStatus?.success));
+const runReady = computed(() => Boolean(runRecord.value?.runId));
 
 const lastCompletedStage = computed(() => {
   if (stageReviews.value.innovation) {
@@ -89,12 +89,74 @@ const activeStageResult = computed(
   () => stageReviews.value[visibleStage.value] ?? null
 );
 
-const stageActionLabel = computed(() => {
-  if (visibleStage.value === "innovation" || activeStageResult.value?.severe) {
-    return "进入汇总页面";
+const visibleStageStatus = computed(
+  () =>
+    runState.value?.stageRuns?.find((item) => item.stageName === visibleStage.value)
+      ?.status ?? ""
+);
+
+const statusText = computed(() => {
+  if (!runState.value) {
+    return "";
   }
 
-  return "进入下一阶段";
+  if (runState.value.status === "waiting") {
+    return `waiting · ${runState.value.nextStage}`;
+  }
+
+  return visibleStageStatus.value || runState.value.status;
+});
+
+const controlActions = computed(() => {
+  if (loadingStage.value || actionInFlight.value || activeStageResult.value) {
+    return [];
+  }
+
+  if (!runState.value || runState.value.nextStage !== visibleStage.value) {
+    return [];
+  }
+
+  const allowedActions = runState.value.allowedActions?.length
+    ? runState.value.allowedActions
+    : ["continue"];
+
+  return allowedActions.map((action) => ({
+    key: action,
+    label:
+      action === "continue"
+        ? "开始本阶段"
+        : action === "skip"
+          ? "跳过阶段"
+          : "终止 run",
+    variant:
+      action === "continue"
+        ? "primary"
+        : action === "skip"
+          ? "secondary"
+          : "ghost",
+    disabled: false
+  }));
+});
+
+const footerAction = computed(() => {
+  if (!activeStageResult.value) {
+    return null;
+  }
+
+  if (["failed", "aborted"].includes(runState.value?.status ?? "")) {
+    return null;
+  }
+
+  const nextStage = runState.value?.nextStage;
+  const shouldGoSummary =
+    nextStage === "summary" ||
+    visibleStage.value === "innovation" ||
+    activeStageResult.value.severe;
+
+  return {
+    label: shouldGoSummary ? "进入汇总页面" : "进入下一阶段",
+    disabled: Boolean(loadingStage.value || actionInFlight.value)
+  };
 });
 
 function refreshSummarySnapshot() {
@@ -107,75 +169,58 @@ function refreshSummarySnapshot() {
   );
 }
 
-async function ensureTransmissionReady() {
-  if (!submission.value || transmissionReady.value) {
-    return;
-  }
-
-  errorMessage.value = "";
-  transmissionLoading.value = true;
-
-  try {
-    const transmission = await submitPaperMeta({
-      submissionId: submission.value.submissionId,
-      paperMeta: paperMeta.value
-    });
-
-    setTransmissionStatus(transmission);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "解析结果同步失败";
-  } finally {
-    transmissionLoading.value = false;
-  }
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function loadStage(stageKey) {
-  if (!submission.value) {
+async function syncRunState() {
+  if (!runRecord.value?.runId) {
     return null;
   }
 
-  errorMessage.value = "";
-  loadingStage.value = stageKey;
+  const nextState = await fetchRunState(runRecord.value.runId);
+  setRunState(nextState);
+  return nextState;
+}
 
-  try {
-    let result = null;
-    const payload = {
-      paperMarkdown: submission.value.paperMarkdown,
-      paperMeta: paperMeta.value
-    };
+async function loadStageSnapshot(stageKey) {
+  if (!runRecord.value?.runId) {
+    return null;
+  }
 
-    if (stageKey === "format") {
-      result = await runFormatReview(payload);
-    }
+  const result = await fetchStageSnapshot({
+    runId: runRecord.value.runId,
+    stageName: stageKey
+  });
 
-    if (stageKey === "logic") {
-      result = await runLogicReview(payload);
-    }
-
-    if (stageKey === "innovation") {
-      result = await runInnovationReview(payload);
-    }
-
-    if (!result) {
-      return null;
-    }
-
+  if (stageKey in stageReviews.value) {
     setStageReview(stageKey, result);
     refreshSummarySnapshot();
-
-    pageMessage.value = result.severe
-      ? `${result.stageLabel}发现严重问题，后续阶段将被跳过。`
-      : `${result.stageLabel}已完成。`;
-
-    return result;
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "阶段结果加载失败";
-    return null;
-  } finally {
-    loadingStage.value = "";
   }
+
+  return result;
+}
+
+async function pollStageUntilSettled(stageKey) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await wait(900);
+    const latestState = await syncRunState();
+    const stageStatus =
+      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+
+    if (["completed", "skipped"].includes(stageStatus)) {
+      return loadStageSnapshot(stageKey);
+    }
+
+    if (
+      ["failed", "aborted"].includes(stageStatus) ||
+      ["failed", "aborted"].includes(latestState?.status ?? "")
+    ) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 async function ensureStageReady(stageKey) {
@@ -183,28 +228,117 @@ async function ensureStageReady(stageKey) {
     return stageReviews.value[stageKey];
   }
 
-  return loadStage(stageKey);
+  const latestState = await syncRunState();
+  const stageStatus =
+    latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+
+  if (["completed", "skipped"].includes(stageStatus)) {
+    return loadStageSnapshot(stageKey);
+  }
+
+  if (stageStatus === "running") {
+    return pollStageUntilSettled(stageKey);
+  }
+
+  if (
+    latestState?.nextStage === stageKey &&
+    !["waiting", "failed", "aborted", "completed"].includes(latestState.status)
+  ) {
+    return handleStageAction("continue", stageKey);
+  }
+
+  return null;
 }
 
-async function goNext() {
-  const stageKey = visibleStage.value;
-  const result = activeStageResult.value ?? (await ensureStageReady(stageKey));
+async function handleStageAction(action, stageKey = visibleStage.value) {
+  if (!runRecord.value?.runId) {
+    return null;
+  }
+
+  errorMessage.value = "";
+  pageMessage.value = "";
+  actionInFlight.value = action;
+  loadingStage.value = stageKey;
+
+  try {
+    const immediateResult = await triggerStageExecution({
+      runId: runRecord.value.runId,
+      stageName: stageKey,
+      action
+    });
+    const latestState = await syncRunState();
+
+    if (action === "abort") {
+      pageMessage.value = "当前 run 已终止。";
+      return null;
+    }
+
+    let result = immediateResult;
+    const stageStatus =
+      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+
+    if (!result && ["completed", "skipped"].includes(stageStatus)) {
+      result = await loadStageSnapshot(stageKey);
+    }
+
+    if (!result && stageStatus === "running") {
+      result = await pollStageUntilSettled(stageKey);
+    }
+
+    if (result) {
+      setStageReview(stageKey, result);
+      refreshSummarySnapshot();
+      pageMessage.value =
+        result.stageStatus === "skipped"
+          ? `${result.stageLabel}已跳过。`
+          : `${result.stageLabel}已完成。`;
+    }
+
+    return result;
+  } catch (error) {
+    if (error?.code === "STAGE_NOT_READY") {
+      await syncRunState();
+      pageMessage.value = "当前阶段尚未就绪，已同步最新 run state。";
+      return null;
+    }
+
+    errorMessage.value =
+      error instanceof Error ? error.message : "阶段结果加载失败";
+    return null;
+  } finally {
+    loadingStage.value = "";
+    actionInFlight.value = "";
+  }
+}
+
+async function handleFooterAction() {
+  const result = activeStageResult.value ?? (await ensureStageReady(visibleStage.value));
 
   if (!result) {
     return;
   }
 
-  if (stageKey === "innovation" || result.severe) {
+  const nextStage = runState.value?.nextStage;
+  const shouldGoSummary =
+    nextStage === "summary" ||
+    visibleStage.value === "innovation" ||
+    result.severe;
+
+  if (shouldGoSummary) {
     setCurrentStage("summary");
     refreshSummarySnapshot();
     router.push({ name: "summary" });
     return;
   }
 
-  const nextStage = stageKey === "format" ? "logic" : "innovation";
+  const targetStage = nextStage === "logic" || nextStage === "innovation"
+    ? nextStage
+    : visibleStage.value === "format"
+      ? "logic"
+      : "innovation";
 
-  setCurrentStage(nextStage);
-  await ensureStageReady(nextStage);
+  setCurrentStage(targetStage);
+  await ensureStageReady(targetStage);
 }
 
 function restartReview() {
@@ -213,12 +347,18 @@ function restartReview() {
 }
 
 onMounted(async () => {
-  if (!submission.value) {
+  if (!submission.value || !runRecord.value?.runId) {
     router.replace({ name: "upload" });
     return;
   }
 
-  await ensureTransmissionReady();
+  const latestState = await syncRunState();
+  const nextStage = latestState?.nextStage ?? reviewSession.workflow.currentStage ?? "format";
+
+  if (reviewSession.workflow.currentStage !== "summary") {
+    setCurrentStage(nextStage);
+  }
+
   await ensureStageReady(visibleStage.value);
 });
 </script>
@@ -229,18 +369,15 @@ onMounted(async () => {
       <div class="hero-top">
         <div class="hero-copy">
           <p class="summary-kicker">分阶段审查工作区</p>
-          <h1 class="section-title">上传后的审查流程已经重构为三阶段主线</h1>
+          <h1 class="section-title">统一 run/state/stage 协议工作流</h1>
           <p class="section-subtitle hero-subtitle">
-            左侧始终展示解析后的论文正文；右侧展示当前阶段的问题结果，并在需要时进入独立汇总页面。
+            左侧保持论文正文，右侧跟随后端 run state 展示当前允许阶段的结果或操作。
           </p>
         </div>
 
         <div class="hero-actions">
-          <span
-            class="pill"
-            :class="transmissionReady ? 'pill-success' : 'pill-neutral'"
-          >
-            {{ transmissionReady ? "解析结果已同步" : "等待同步解析结果" }}
+          <span class="pill" :class="runReady ? 'pill-success' : 'pill-neutral'">
+            {{ runReady ? `run_id: ${runRecord.runId}` : "run 未就绪" }}
           </span>
           <button class="ghost-button" type="button" @click="restartReview">
             重新上传论文
@@ -259,8 +396,10 @@ onMounted(async () => {
     </header>
 
     <ReviewStageTracker
-      :active-stage="visibleStage"
+      :active-stage="reviewSession.workflow.currentStage"
       :reviews="stageReviews"
+      :run-state="runState"
+      :summary-ready="Boolean(reviewSession.workflow.summary)"
     />
 
     <div v-if="pageMessage" class="success-banner">{{ pageMessage }}</div>
@@ -287,6 +426,9 @@ onMounted(async () => {
           <span class="pill pill-neutral">
             当前查看：{{ activeStageMeta.title }}
           </span>
+          <span v-if="runState" class="pill pill-neutral">
+            next_stage: {{ runState.nextStage }}
+          </span>
         </div>
 
         <div class="panel-scroll article-scroll">
@@ -303,9 +445,11 @@ onMounted(async () => {
         :title="activeStageMeta.title"
         :result="activeStageResult"
         :loading="loadingStage === visibleStage"
-        :action-label="stageActionLabel"
-        :action-disabled="loadingStage === visibleStage || transmissionLoading"
-        @next="goNext"
+        :actions="controlActions"
+        :footer-action="footerAction"
+        :status-text="statusText"
+        @action="handleStageAction"
+        @footer="handleFooterAction"
       />
     </section>
   </section>

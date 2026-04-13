@@ -1,13 +1,14 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { submitPaperMeta, uploadPaper } from "../services/api";
+import { createReviewRun, fetchRunState, uploadPaper } from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
 import {
   reviewSession,
   setCurrentStage,
-  setSubmission,
-  setTransmissionStatus
+  setRunRecord,
+  setRunState,
+  setSubmission
 } from "../stores/reviewSession";
 
 const router = useRouter();
@@ -42,7 +43,7 @@ const phaseProgressMap = Object.freeze({
 const paperLabel = computed(() => {
   if (uploadRequest.value?.useDemo) {
     return uploadRequest.value?.mockProfile === "logic-pass"
-      ? "逻辑审查通过样例"
+      ? "逻辑通过示例"
       : "示例论文";
   }
 
@@ -67,7 +68,7 @@ const sourceLabel = computed(() => {
 
 const statusTitle = computed(() => {
   if (errorMessage.value) {
-    return "解析中断";
+    return "处理已中断";
   }
 
   if (phase.value === "parsing") {
@@ -75,14 +76,14 @@ const statusTitle = computed(() => {
   }
 
   if (phase.value === "syncing") {
-    return "正在同步结构化结果";
+    return "正在创建 review run";
   }
 
   if (phase.value === "ready") {
-    return "解析完成";
+    return "准备进入审查工作区";
   }
 
-  return "正在准备上传任务";
+  return "正在准备任务";
 });
 
 const progressPercent = computed(() =>
@@ -93,22 +94,22 @@ const progressLabel = computed(() => `${progressPercent.value}%`);
 
 const progressStageLabel = computed(() => {
   if (errorMessage.value) {
-    return "等待重试";
+    return "WAITING";
   }
 
   if (phase.value === "parsing") {
-    return "内容解析中";
+    return "PARSING";
   }
 
   if (phase.value === "syncing") {
-    return "结果同步中";
+    return "RUN SETUP";
   }
 
   if (phase.value === "ready") {
-    return "即将进入审查";
+    return "READY";
   }
 
-  return "任务排队中";
+  return "QUEUED";
 });
 
 const waterStyle = computed(() => ({
@@ -124,22 +125,22 @@ const phaseItems = computed(() => [
   {
     key: "parsing",
     title: "解析论文与资源",
-    description: "抽取 Markdown、图片引用和 paper_meta.json"
+    description: "生成 paper.md、paper_meta.json 与静态资源路径"
   },
   {
     key: "syncing",
-    title: "同步审查输入",
-    description: "把结构化结果送入后续审查流程"
+    title: "创建 review run",
+    description: "按新的 /runs 协议提交 paper bundle"
   },
   {
     key: "ready",
     title: "进入审查工作区",
-    description: "准备切换到格式审查页面"
+    description: "run_id 与初始 run state 已就绪"
   }
 ]);
 
 const primaryActionLabel = computed(() =>
-  resolvedSubmission.value ? "重试同步结果" : "重新开始解析"
+  resolvedSubmission.value ? "重试创建 run" : "重新开始解析"
 );
 
 function stopDetailLoop() {
@@ -215,22 +216,22 @@ function updatePhase(nextPhase) {
   if (nextPhase === "parsing") {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
-      "这一阶段通常和论文页数、图表数量有关。",
-      "解析完成后会自动同步到审查工作区。"
+      "这一阶段主要生成 paper.md 与 paper_meta.json。",
+      "解析完成后会自动创建新的 review run。"
     ]);
     return;
   }
 
   if (nextPhase === "syncing") {
     playDetailLoop([
-      "论文正文已经提取完成，正在整理结构化元数据。",
-      "马上就可以进入格式审查页面了。"
+      "paper bundle 已准备完成，正在提交到 /runs。",
+      "run 创建成功后会同步读取一次最新 state。"
     ]);
     return;
   }
 
   if (nextPhase === "ready") {
-    playDetailLoop(["解析结果已准备完成，正在进入审查工作区。"]);
+    playDetailLoop(["run_id 与初始 state 已就绪，正在进入审查工作区。"]);
     return;
   }
 
@@ -256,18 +257,21 @@ async function finalizeSubmission(submission) {
   progress.value = Math.max(progress.value, phaseProgressMap.syncing.floor);
   updatePhase("syncing");
 
-  const transmission = await submitPaperMeta({
-    submissionId: submission.submissionId,
+  const runRecord = await createReviewRun({
+    paperTitle: submission.paperName,
+    paperMarkdown: submission.paperMarkdown,
     paperMeta: submission.paperMeta
   });
+  const initialRunState = await fetchRunState(runRecord.runId);
 
   if (disposed) {
     return;
   }
 
   setSubmission(submission);
-  setCurrentStage("format");
-  setTransmissionStatus(transmission);
+  setRunRecord(runRecord);
+  setRunState(initialRunState);
+  setCurrentStage(initialRunState.nextStage ?? runRecord.currentStage ?? "format");
   clearPendingUpload();
 
   updatePhase("ready");
@@ -325,7 +329,7 @@ async function runUploadFlow() {
     stopDetailLoop();
     stopProgressLoop();
     errorMessage.value =
-      error instanceof Error ? error.message : "论文解析失败，请稍后重试。";
+      error instanceof Error ? error.message : "论文解析或 run 创建失败，请稍后重试。";
   } finally {
     retrying.value = false;
   }
@@ -357,8 +361,8 @@ onBeforeUnmount(() => {
   <section class="loading-layout">
     <section class="loading-hero glass-card">
       <div class="hero-copy">
-        <span class="pill pill-accent">Parsing In Progress</span>
-        <p class="summary-kicker">等待解析</p>
+        <span class="pill pill-accent">Run Bootstrap</span>
+        <p class="summary-kicker">处理中</p>
         <h1 class="section-title loading-title">{{ statusTitle }}</h1>
         <p class="hero-text">{{ statusDetail }}</p>
 
@@ -392,7 +396,7 @@ onBeforeUnmount(() => {
 
     <section class="grid-two">
       <article class="glass-card phase-card">
-        <p class="summary-kicker">解析流程</p>
+        <p class="summary-kicker">任务流程</p>
         <div class="phase-list">
           <article
             v-for="(item, index) in phaseItems"
@@ -417,7 +421,8 @@ onBeforeUnmount(() => {
         <div v-else class="status-panel">
           <p class="status-line">{{ statusTitle }}</p>
           <p class="status-note">
-            解析时间会受到论文页数、图片数量和本地解析服务状态影响。当前页面会自动继续，无需重复操作。
+            当前页面会先完成解析，再创建新的 run，并把 `run_id` 与初始 state
+            存到会话状态里。
           </p>
         </div>
 

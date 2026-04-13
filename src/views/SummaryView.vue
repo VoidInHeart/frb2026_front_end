@@ -6,75 +6,154 @@ import ReviewStageTracker from "../components/ReviewStageTracker.vue";
 import SummaryIssueBoard from "../components/SummaryIssueBoard.vue";
 import SummarySuggestionPanel from "../components/SummarySuggestionPanel.vue";
 import {
-  buildReviewDigest,
   countAnchorsByType,
   fetchRecommendations,
+  fetchRunState,
+  fetchRunSummary,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
-  submitPaperMeta
+  triggerStageExecution
 } from "../services/api";
 import {
   reviewSession,
   setCurrentStage,
   setRecommendations,
-  setTransmissionStatus,
+  setRunState,
   setWorkflowSummary
 } from "../stores/reviewSession";
 
 const router = useRouter();
 
 const recommendationLoading = ref(false);
-const transmissionLoading = ref(false);
+const summaryLoading = ref(false);
+const actionLoading = ref("");
 const errorMessage = ref("");
 
 const submission = computed(() => reviewSession.currentSubmission);
+const runRecord = computed(() => reviewSession.runRecord);
+const runState = computed(() => reviewSession.runState);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
 const summary = computed(() => reviewSession.workflow.summary);
 const recommendations = computed(() => reviewSession.recommendations);
-const transmissionReady = computed(() => Boolean(reviewSession.transmissionStatus?.success));
 
 const pageCount = computed(() => getPageCount(paperMeta.value));
 const anchorCount = computed(() => getAnchorCount(paperMeta.value));
 const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
 const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
 
-function refreshSummarySnapshot() {
-  setWorkflowSummary(
-    buildReviewDigest({
-      formatReview: stageReviews.value.format,
-      logicReview: stageReviews.value.logic,
-      innovationReview: stageReviews.value.innovation
-    })
-  );
+const summaryActions = computed(() => {
+  if (
+    !runState.value ||
+    runState.value.nextStage !== "summary" ||
+    summary.value ||
+    ["failed", "aborted"].includes(runState.value.status)
+  ) {
+    return [];
+  }
+
+  const allowedActions = runState.value.allowedActions?.length
+    ? runState.value.allowedActions
+    : ["continue"];
+
+  return allowedActions.map((action) => ({
+    key: action,
+    label:
+      action === "continue"
+        ? "生成汇总"
+        : action === "skip"
+          ? "跳过汇总阶段"
+          : "终止 run",
+    variant:
+      action === "continue"
+        ? "primary"
+        : action === "skip"
+          ? "secondary"
+          : "ghost",
+    disabled: Boolean(actionLoading.value)
+  }));
+});
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-async function ensureTransmissionReady() {
-  if (!submission.value || transmissionReady.value) {
+async function syncRunState() {
+  if (!runRecord.value?.runId) {
+    return null;
+  }
+
+  const nextState = await fetchRunState(runRecord.value.runId);
+  setRunState(nextState);
+  return nextState;
+}
+
+async function loadSummary() {
+  if (!runRecord.value?.runId) {
     return;
   }
 
   errorMessage.value = "";
-  transmissionLoading.value = true;
+  summaryLoading.value = true;
 
   try {
-    const transmission = await submitPaperMeta({
-      submissionId: submission.value.submissionId,
-      paperMeta: paperMeta.value
+    const digest = await fetchRunSummary({
+      runId: runRecord.value.runId,
+      formatReview: stageReviews.value.format,
+      logicReview: stageReviews.value.logic,
+      innovationReview: stageReviews.value.innovation
     });
 
-    setTransmissionStatus(transmission);
+    setWorkflowSummary(digest);
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "解析结果同步失败";
+      error instanceof Error ? error.message : "汇总结果加载失败";
   } finally {
-    transmissionLoading.value = false;
+    summaryLoading.value = false;
+  }
+}
+
+async function handleSummaryAction(action) {
+  if (!runRecord.value?.runId) {
+    return;
+  }
+
+  errorMessage.value = "";
+  actionLoading.value = action;
+
+  try {
+    await triggerStageExecution({
+      runId: runRecord.value.runId,
+      stageName: "summary",
+      action
+    });
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const latestState = await syncRunState();
+
+      if (latestState?.status === "completed") {
+        break;
+      }
+
+      if (["failed", "aborted"].includes(latestState?.status ?? "")) {
+        break;
+      }
+
+      await wait(700);
+    }
+
+    await loadSummary();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "汇总阶段执行失败";
+  } finally {
+    actionLoading.value = "";
   }
 }
 
 async function loadRecommendationsIfNeeded() {
-  if (!submission.value || recommendations.value.length) {
+  if (!submission.value || !runRecord.value?.runId || recommendations.value.length) {
     return;
   }
 
@@ -83,6 +162,7 @@ async function loadRecommendationsIfNeeded() {
 
   try {
     const items = await fetchRecommendations({
+      runId: runRecord.value.runId,
       submissionId: submission.value.submissionId,
       paperMeta: paperMeta.value
     });
@@ -113,14 +193,24 @@ function openRecommendation(paper) {
 }
 
 onMounted(async () => {
-  if (!submission.value) {
+  if (!submission.value || !runRecord.value?.runId) {
     router.replace({ name: "upload" });
     return;
   }
 
   setCurrentStage("summary");
-  refreshSummarySnapshot();
-  await ensureTransmissionReady();
+  const latestState = await syncRunState();
+
+  if (
+    latestState?.nextStage === "summary" &&
+    !summary.value &&
+    !["waiting", "failed", "aborted"].includes(latestState.status)
+  ) {
+    await handleSummaryAction("continue");
+  } else {
+    await loadSummary();
+  }
+
   await loadRecommendationsIfNeeded();
 });
 </script>
@@ -132,10 +222,10 @@ onMounted(async () => {
         <button class="ghost-button hero-button" type="button" @click="backToWorkspace">
           返回审查工作区
         </button>
-        <p class="summary-kicker">汇总页面</p>
+        <p class="summary-kicker">汇总页</p>
         <h1 class="section-title">汇总结果与推荐论文</h1>
         <p class="section-subtitle hero-subtitle">
-          左侧汇总各阶段问题与证据链，右侧展示修改建议和推荐论文列表。
+          summary 页面优先读取新的 `/runs/:runId/summary`，再补充 recommendations 占位接口。
         </p>
       </div>
 
@@ -145,13 +235,38 @@ onMounted(async () => {
         <span class="pill pill-neutral">锚点 {{ anchorCount }}</span>
         <span class="pill pill-neutral">图 {{ figureCount }}</span>
         <span class="pill pill-neutral">表 {{ tableCount }}</span>
+        <span v-if="runState" class="pill pill-neutral">run: {{ runState.status }}</span>
       </div>
     </header>
 
     <ReviewStageTracker
       active-stage="summary"
       :reviews="stageReviews"
+      :run-state="runState"
+      :summary-ready="Boolean(summary)"
     />
+
+    <div v-if="summaryActions.length" class="action-banner glass-card">
+      <strong>summary 阶段尚未执行完成</strong>
+      <div class="action-row">
+        <button
+          v-for="action in summaryActions"
+          :key="action.key"
+          :class="
+            action.variant === 'ghost'
+              ? 'ghost-button'
+              : action.variant === 'secondary'
+                ? 'secondary-button'
+                : 'primary-button'
+          "
+          type="button"
+          :disabled="action.disabled"
+          @click="handleSummaryAction(action.key)"
+        >
+          {{ action.label }}
+        </button>
+      </div>
+    </div>
 
     <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
 
@@ -161,8 +276,9 @@ onMounted(async () => {
       <div class="summary-sidebar">
         <SummarySuggestionPanel
           :summary="summary"
-          :transmission-status="reviewSession.transmissionStatus"
-          :loading="transmissionLoading"
+          :run-record="runRecord"
+          :run-state="runState"
+          :loading="summaryLoading || actionLoading !== ''"
         />
 
         <RecommendationList
@@ -210,10 +326,17 @@ onMounted(async () => {
   max-width: 760px;
 }
 
-.hero-pills {
+.hero-pills,
+.action-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.action-banner {
+  padding: 18px 20px;
+  display: grid;
+  gap: 14px;
 }
 
 .summary-layout {

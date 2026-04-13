@@ -1,6 +1,6 @@
 import { reactive, watch } from "vue";
 
-const STORAGE_KEY = "paper-review-session-v3";
+const STORAGE_KEY = "paper-review-session-v4";
 
 export const REVIEW_STAGE_IDS = Object.freeze([
   "format",
@@ -26,7 +26,8 @@ function createWorkflowState() {
 function createInitialState() {
   return {
     currentSubmission: null,
-    transmissionStatus: null,
+    runRecord: null,
+    runState: null,
     recommendations: [],
     recommendationDetails: {},
     preferences: {
@@ -83,14 +84,19 @@ watch(
 
 export function setSubmission(submission) {
   reviewSession.currentSubmission = submission;
-  reviewSession.transmissionStatus = null;
+  reviewSession.runRecord = null;
+  reviewSession.runState = null;
   reviewSession.recommendations = [];
   reviewSession.recommendationDetails = {};
   reviewSession.workflow = createWorkflowState();
 }
 
-export function setTransmissionStatus(status) {
-  reviewSession.transmissionStatus = status;
+export function setRunRecord(record) {
+  reviewSession.runRecord = record;
+}
+
+export function setRunState(state) {
+  reviewSession.runState = state;
 }
 
 export function setRecommendations(items) {

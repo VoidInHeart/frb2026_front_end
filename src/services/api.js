@@ -10,6 +10,55 @@ const PARSER_API_BASE_URL =
   import.meta.env.VITE_PARSER_API_BASE_URL || "http://127.0.0.1:8000";
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
 const USE_LOCAL_PARSER = import.meta.env.VITE_USE_LOCAL_PARSER !== "false";
+const MOCK_RUN_STORAGE_KEY = "paper-review-mock-runs-v1";
+
+const RUN_API_ENDPOINTS = Object.freeze({
+  createRun: {
+    method: "POST",
+    path: "/runs"
+  },
+  getRunState: {
+    method: "GET",
+    path: "/runs/:runId/state"
+  },
+  triggerStage: {
+    method: "POST",
+    path: "/runs/:runId/stages/:stageName"
+  },
+  getStage: {
+    method: "GET",
+    path: "/runs/:runId/stages/:stageName"
+  },
+  getSummary: {
+    method: "GET",
+    path: "/runs/:runId/summary"
+  },
+  getRecommendations: {
+    method: "GET",
+    path: "/runs/:runId/recommendations"
+  }
+});
+
+const REVIEW_STAGE_ORDER = Object.freeze([
+  "format",
+  "logic",
+  "innovation",
+  "summary"
+]);
+
+const REVIEW_STAGE_LABELS = Object.freeze({
+  format: "格式审查",
+  logic: "逻辑审查",
+  innovation: "方法与创新点审查",
+  summary: "汇总"
+});
+
+const FINAL_STAGE_STATUSES = new Set([
+  "completed",
+  "skipped",
+  "failed",
+  "aborted"
+]);
 
 const mockRecommendations = [
   {
@@ -151,6 +200,572 @@ async function fetchJson(url, options = {}) {
   }
 
   return response.json();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function ensureObject(value) {
+  return isPlainObject(value) ? value : {};
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function coerceStageName(stageName, fallback = "format") {
+  return REVIEW_STAGE_ORDER.includes(stageName) ? stageName : fallback;
+}
+
+function buildApiUrl(pathTemplate, params = {}) {
+  let path = pathTemplate;
+
+  for (const [key, value] of Object.entries(params)) {
+    path = path.replace(`:${key}`, encodeURIComponent(String(value ?? "")));
+  }
+
+  return `${API_BASE_URL}${path}`;
+}
+
+function createApiError({
+  message,
+  code = "REQUEST_FAILED",
+  status = 500,
+  data = null
+}) {
+  const error = new Error(message);
+  error.code = code;
+  error.status = status;
+  error.data = data;
+  return error;
+}
+
+async function fetchEnvelope(pathTemplate, options = {}, params = {}) {
+  const response = await fetch(buildApiUrl(pathTemplate, params), options);
+
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+
+  if (!response.ok || payload?.ok === false) {
+    throw createApiError({
+      message: payload?.message ?? `请求失败: ${response.status}`,
+      code: payload?.code ?? `HTTP_${response.status}`,
+      status: response.status,
+      data: payload?.data ?? null
+    });
+  }
+
+  return payload ?? {
+    ok: true,
+    code: "OK",
+    message: "success",
+    data: null
+  };
+}
+
+function readMockRunStore() {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    return JSON.parse(window.sessionStorage.getItem(MOCK_RUN_STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function writeMockRunStore(store) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.sessionStorage.setItem(MOCK_RUN_STORAGE_KEY, JSON.stringify(store));
+}
+
+function saveMockRun(run) {
+  const store = readMockRunStore();
+  store[run.runId] = run;
+  writeMockRunStore(store);
+}
+
+function getMockRun(runId) {
+  return readMockRunStore()[runId] ?? null;
+}
+
+function requireMockRun(runId) {
+  const run = getMockRun(runId);
+
+  if (!run) {
+    throw createApiError({
+      message: "mock run not found",
+      code: "RUN_NOT_FOUND",
+      status: 404
+    });
+  }
+
+  return run;
+}
+
+function createEmptyStageRuns() {
+  return REVIEW_STAGE_ORDER.map((stageName) => ({
+    stage_name: stageName,
+    status: "pending"
+  }));
+}
+
+function getNextStageName(stageName) {
+  const index = REVIEW_STAGE_ORDER.indexOf(stageName);
+
+  if (index === -1 || index === REVIEW_STAGE_ORDER.length - 1) {
+    return null;
+  }
+
+  return REVIEW_STAGE_ORDER[index + 1];
+}
+
+function normalizeRunRecord(payload) {
+  const data = ensureObject(payload?.data ?? payload);
+
+  return {
+    runId: data.run_id ?? data.runId ?? "",
+    status: data.status ?? "created",
+    currentStage: coerceStageName(
+      data.current_stage ?? data.currentStage ?? data.next_stage ?? data.nextStage,
+      "format"
+    ),
+    acceptedAt: data.accepted_at ?? data.acceptedAt ?? null,
+    raw: data
+  };
+}
+
+function normalizeStageRuns(stageRuns = []) {
+  const byStage = new Map();
+
+  for (const item of ensureArray(stageRuns)) {
+    const stageName = coerceStageName(item?.stage_name ?? item?.stageName, null);
+
+    if (!stageName) {
+      continue;
+    }
+
+    byStage.set(stageName, {
+      stageName,
+      status: item?.status ?? "pending"
+    });
+  }
+
+  return REVIEW_STAGE_ORDER.map((stageName) => ({
+    stageName,
+    status: byStage.get(stageName)?.status ?? "pending"
+  }));
+}
+
+function estimateRunProgress(stageRuns = []) {
+  const progressByStatus = {
+    completed: 25,
+    skipped: 25,
+    failed: 25,
+    aborted: 25,
+    running: 12,
+    waiting: 12,
+    pending: 0
+  };
+
+  const progress = normalizeStageRuns(stageRuns).reduce(
+    (total, item) => total + (progressByStatus[item.status] ?? 0),
+    0
+  );
+
+  return Math.max(0, Math.min(100, progress));
+}
+
+function normalizeRunState(payload) {
+  const data = ensureObject(payload?.data ?? payload);
+  const stageRuns = normalizeStageRuns(data.stage_runs ?? data.stageRuns);
+  const nextStage = coerceStageName(
+    data.next_stage ?? data.nextStage ?? data.current_stage ?? data.currentStage,
+    "format"
+  );
+
+  return {
+    runId: data.run_id ?? data.runId ?? "",
+    status: data.status ?? "created",
+    currentStage: coerceStageName(
+      data.current_stage ?? data.currentStage ?? nextStage,
+      nextStage
+    ),
+    nextStage,
+    allowedActions: ensureArray(data.allowed_actions ?? data.allowedActions).map(String),
+    progress:
+      typeof data.progress === "number"
+        ? data.progress
+        : estimateRunProgress(stageRuns),
+    stageRuns,
+    lastError: data.last_error ?? data.lastError ?? "",
+    blockReasonCode: data.block_reason_code ?? data.blockReasonCode ?? "",
+    blockReasonMessage:
+      data.block_reason_message ?? data.blockReasonMessage ?? "",
+    raw: data
+  };
+}
+
+function getStageRunStatus(runState, stageName) {
+  return (
+    normalizeStageRuns(runState?.stageRuns ?? runState?.stage_runs)
+      .find((item) => item.stageName === stageName)
+      ?.status ?? "pending"
+  );
+}
+
+function extractStagePayload(source) {
+  const data = ensureObject(source?.data ?? source);
+
+  return {
+    stageStatus: data.stage_status ?? data.stageStatus ?? "completed",
+    stageOutput: ensureObject(
+      data.stage_output ??
+        data.stageOutput ??
+        data.result ??
+        data.stage_result ??
+        data.stageResult
+    ),
+    raw: data
+  };
+}
+
+function looksLikeStageReview(value) {
+  return (
+    isPlainObject(value) &&
+    Array.isArray(value.issues) &&
+    (typeof value.headline === "string" ||
+      typeof value.overview === "string" ||
+      typeof value.stageLabel === "string")
+  );
+}
+
+function attachStageReviewMeta(review, stageName, stageStatus, rawData) {
+  return {
+    ...review,
+    stageId: review.stageId ?? stageName,
+    stageLabel: review.stageLabel ?? REVIEW_STAGE_LABELS[stageName],
+    stageStatus,
+    severe: Boolean(review.severe),
+    rawData: rawData ?? review.rawData ?? null
+  };
+}
+
+function normalizeEvidenceList(value, fallbackMessage = "未返回结构化证据") {
+  const normalized = ensureArray(value)
+    .map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      if (item == null) {
+        return "";
+      }
+
+      return String(item);
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+
+  return normalized.length ? normalized : [fallbackMessage];
+}
+
+function mapGenericIssue(item, index, stageName = "summary") {
+  const issue = ensureObject(item);
+
+  return {
+    id: issue.id ?? issue.issue_id ?? issue.issueId ?? `${stageName}-issue-${index + 1}`,
+    title:
+      issue.title ??
+      issue.issue_title ??
+      issue.issueTitle ??
+      issue.name ??
+      `${REVIEW_STAGE_LABELS[stageName] ?? "汇总"}问题 ${index + 1}`,
+    severity: toStageSeverityLabel(
+      issue.severity ?? issue.level ?? issue.status ?? issue.priority
+    ),
+    location:
+      issue.location ??
+      issue.anchor_id ??
+      issue.anchorId ??
+      issue.logical_node ??
+      issue.dimension ??
+      `${REVIEW_STAGE_LABELS[stageName] ?? "汇总"} ${index + 1}`,
+    description:
+      issue.description ??
+      issue.analysis ??
+      issue.summary ??
+      issue.message ??
+      issue.reason ??
+      "后端尚未返回该问题的详细说明。",
+    evidence: normalizeEvidenceList(
+      issue.evidence ??
+        issue.evidence_links ??
+        issue.evidenceLinks ??
+        issue.links ??
+        issue.references
+    ),
+    suggestion:
+      issue.suggestion ??
+      issue.recommendation ??
+      issue.next_action ??
+      issue.nextAction ??
+      ""
+  };
+}
+
+function buildSkippedStageReview(stageName, stageStatus, stageOutput) {
+  const stageLabel = REVIEW_STAGE_LABELS[stageName];
+  const reason =
+    stageOutput.reason_message ??
+    stageOutput.reasonMessage ??
+    stageOutput.reason_code ??
+    stageOutput.reasonCode ??
+    "STAGE_SKIPPED";
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel,
+      severe: false,
+      headline: `${stageLabel}已跳过`,
+      overview: `当前阶段未返回有效分析结果：${reason}`,
+      issues: [],
+      followUpActions: []
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
+function extractLogicAnalysis(source) {
+  return ensureObject(
+    source.logic_analysis ??
+      source.logicAnalysis ??
+      source.result?.logic_analysis ??
+      source.result?.logicAnalysis ??
+      source.data?.result?.logic_analysis ??
+      source.data?.result?.logicAnalysis
+  );
+}
+
+function extractReviewSummaryPayload(source) {
+  return ensureObject(
+    source.review_summary ??
+      source.reviewSummary ??
+      source.result_summary ??
+      source.resultSummary ??
+      source.summary ??
+      source
+  );
+}
+
+function normalizeFormatStageReview(stageName, stageStatus, stageOutput) {
+  if (looksLikeStageReview(stageOutput)) {
+    return attachStageReviewMeta(stageOutput, stageName, stageStatus, stageOutput);
+  }
+
+  const report = ensureArray(
+    stageOutput.report ??
+      stageOutput.audit_items ??
+      stageOutput.items ??
+      stageOutput.issues
+  );
+  const issues = report.length
+    ? report.map((item, index) =>
+        item?.rule_id || item?.status
+          ? mapRuleAuditItemToFormatIssue(item, index)
+          : mapGenericIssue(item, index, stageName)
+      )
+    : [];
+  const severe =
+    Boolean(stageOutput.severe) ||
+    issues.filter((item) => item.severity === "严重").length >= 2;
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe,
+      headline:
+        stageOutput.headline ??
+        (issues.length ? "格式审查已完成" : "格式审查暂无结构化结果"),
+      overview:
+        stageOutput.overview ??
+        stageOutput.summary ??
+        (issues.length
+          ? "本阶段已返回格式相关问题。"
+          : "后端尚未返回可展示的格式审查明细。"),
+      issues,
+      followUpActions: ensureArray(
+        stageOutput.follow_up_actions ??
+          stageOutput.followUpActions ??
+          stageOutput.next_actions ??
+          stageOutput.nextActions
+      )
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
+function normalizeLogicStageReview(stageName, stageStatus, stageOutput) {
+  if (looksLikeStageReview(stageOutput)) {
+    return attachStageReviewMeta(stageOutput, stageName, stageStatus, stageOutput);
+  }
+
+  const logicAnalysis = extractLogicAnalysis(stageOutput);
+  const issues = ensureArray(logicAnalysis.issues).map(mapTask1IssueToStageIssue);
+  const severe =
+    Boolean(stageOutput.severe) ||
+    issues.filter((item) => item.severity === "严重").length >= 2;
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe,
+      headline:
+        stageOutput.headline ??
+        (severe ? "逻辑审查发现高优先级问题" : "逻辑审查已完成"),
+      overview:
+        stageOutput.overview ??
+        logicAnalysis.core_argument_consistency?.conflict_summary ??
+        logicAnalysis.reasoning_depth?.assessment ??
+        "当前阶段已完成逻辑链路检查。",
+      issues,
+      followUpActions: issues.map((item) => item.suggestion).filter(Boolean)
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
+function normalizeInnovationStageReview(stageName, stageStatus, stageOutput) {
+  if (looksLikeStageReview(stageOutput)) {
+    return attachStageReviewMeta(stageOutput, stageName, stageStatus, stageOutput);
+  }
+
+  const reviewSummary = extractReviewSummaryPayload(stageOutput);
+  const weaknesses = ensureArray(reviewSummary.weaknesses ?? reviewSummary.issues);
+  const issues = weaknesses.map((item, index) =>
+    typeof item === "string"
+      ? mapSummaryWeaknessToInnovationIssue(
+          item,
+          index,
+          ensureArray(reviewSummary.nextActions ?? reviewSummary.next_actions)[index] ??
+            "建议补强方法与创新点的直接证据。"
+        )
+      : mapGenericIssue(item, index, stageName)
+  );
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe: Boolean(stageOutput.severe),
+      headline:
+        stageOutput.headline ??
+        reviewSummary.headline ??
+        "方法与创新点审查已完成",
+      overview:
+        stageOutput.overview ??
+        reviewSummary.summary ??
+        "当前阶段已完成方法与创新点检查。",
+      issues,
+      followUpActions: ensureArray(
+        reviewSummary.nextActions ??
+          reviewSummary.next_actions ??
+          stageOutput.followUpActions ??
+          stageOutput.follow_up_actions
+      )
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
+function normalizeStageReview(stageName, payload) {
+  const { stageStatus, stageOutput, raw } = extractStagePayload(payload);
+
+  if (stageStatus === "skipped" || stageOutput.available === false) {
+    return buildSkippedStageReview(stageName, stageStatus, stageOutput);
+  }
+
+  if (stageName === "format") {
+    return normalizeFormatStageReview(stageName, stageStatus, stageOutput);
+  }
+
+  if (stageName === "logic") {
+    return normalizeLogicStageReview(stageName, stageStatus, stageOutput);
+  }
+
+  if (stageName === "innovation") {
+    return normalizeInnovationStageReview(stageName, stageStatus, stageOutput);
+  }
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe: false,
+      headline: `${REVIEW_STAGE_LABELS[stageName]}已完成`,
+      overview: "当前阶段已完成。",
+      issues: ensureArray(stageOutput.issues).map((item, index) =>
+        mapGenericIssue(item, index, stageName)
+      ),
+      followUpActions: []
+    }),
+    stageName,
+    stageStatus,
+    raw
+  );
+}
+
+function mergeSuggestionCards(...groups) {
+  const suggestionMap = new Map();
+
+  for (const group of groups) {
+    for (const item of ensureArray(group)) {
+      const suggestion = typeof item === "string" ? { content: item } : ensureObject(item);
+      const content = String(
+        suggestion.content ?? suggestion.text ?? suggestion.message ?? ""
+      ).trim();
+
+      if (!content || suggestionMap.has(content)) {
+        continue;
+      }
+
+      suggestionMap.set(content, {
+        id:
+          suggestion.id ??
+          `summary-suggestion-${suggestionMap.size + 1}`,
+        title: suggestion.title ?? "汇总建议",
+        content,
+        stageLabel: suggestion.stageLabel ?? suggestion.stage_label ?? "汇总"
+      });
+    }
+  }
+
+  return Array.from(suggestionMap.values());
 }
 
 async function loadMockPaperMeta() {
@@ -652,6 +1267,429 @@ export async function uploadPaper({
   };
 }
 
+export async function createReviewRun({
+  paperTitle,
+  paperMarkdown,
+  documentIr,
+  paperMeta,
+  runtimeContext
+}) {
+  const meta = paperMeta ?? documentIr ?? {};
+  const payload = {
+    paper_title: paperTitle ?? meta?.doc_id ?? "Untitled Paper",
+    paper_bundle: buildPaperBundle({
+      paperMarkdown,
+      paperMeta: meta
+    }),
+    runtime_context:
+      runtimeContext ?? {
+        capability_config: {
+          recommendation: {
+            mode: "off"
+          }
+        }
+      }
+  };
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(RUN_API_ENDPOINTS.createRun.path, {
+      method: RUN_API_ENDPOINTS.createRun.method,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    return normalizeRunRecord(response);
+  }
+
+  await sleep(200);
+
+  const runId =
+    typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `run-${Date.now()}`;
+  const acceptedAt = new Date().toISOString();
+  const run = {
+    runId,
+    acceptedAt,
+    paperTitle: payload.paper_title,
+    paperMarkdown: paperMarkdown ?? "",
+    paperMeta: meta,
+    stageReviews: {
+      format: null,
+      logic: null,
+      innovation: null
+    },
+    summaryPayload: null,
+    state: {
+      run_id: runId,
+      status: "created",
+      current_stage: "format",
+      next_stage: "format",
+      progress: 0,
+      stage_runs: createEmptyStageRuns(),
+      allowed_actions: ["continue", "skip", "abort"],
+      last_error: ""
+    }
+  };
+
+  saveMockRun(run);
+
+  return normalizeRunRecord({
+    data: {
+      run_id: runId,
+      status: "created",
+      current_stage: "format",
+      accepted_at: acceptedAt
+    }
+  });
+}
+
+export async function fetchRunState(runId) {
+  if (!runId) {
+    throw createApiError({
+      message: "run id is required",
+      code: "RUN_NOT_FOUND",
+      status: 404
+    });
+  }
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getRunState.path,
+      {
+        method: RUN_API_ENDPOINTS.getRunState.method
+      },
+      { runId }
+    );
+
+    return normalizeRunState(response);
+  }
+
+  await sleep(120);
+  return normalizeRunState(requireMockRun(runId).state);
+}
+
+export async function fetchStageSnapshot({ runId, stageName }) {
+  const normalizedStageName = coerceStageName(stageName, null);
+
+  if (!runId || !normalizedStageName) {
+    throw createApiError({
+      message: "stage snapshot request is invalid",
+      code: "STAGE_INVALID",
+      status: 400
+    });
+  }
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getStage.path,
+      {
+        method: RUN_API_ENDPOINTS.getStage.method
+      },
+      {
+        runId,
+        stageName: normalizedStageName
+      }
+    );
+
+    return normalizeStageReview(normalizedStageName, response);
+  }
+
+  await sleep(100);
+
+  const run = requireMockRun(runId);
+
+  if (normalizedStageName === "summary" && run.summaryPayload) {
+    return normalizeStageReview(normalizedStageName, {
+      data: {
+        stage_name: normalizedStageName,
+        stage_status: "completed",
+        stage_output: run.summaryPayload.result_summary ?? {}
+      }
+    });
+  }
+
+  const review = run.stageReviews[normalizedStageName];
+
+  if (!review) {
+    throw createApiError({
+      message: "stage snapshot not found",
+      code: "RUN_NOT_FOUND",
+      status: 404
+    });
+  }
+
+  return review;
+}
+
+export async function triggerStageExecution({
+  runId,
+  stageName,
+  action = "continue",
+  operator = "frontend_user",
+  reason = ""
+}) {
+  const normalizedStageName = coerceStageName(stageName, null);
+
+  if (!runId || !normalizedStageName) {
+    throw createApiError({
+      message: "stage trigger request is invalid",
+      code: "STAGE_INVALID",
+      status: 400
+    });
+  }
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.triggerStage.path,
+      {
+        method: RUN_API_ENDPOINTS.triggerStage.method,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          action,
+          operator,
+          reason
+        })
+      },
+      {
+        runId,
+        stageName: normalizedStageName
+      }
+    );
+
+    const stageStatus =
+      response?.data?.stage_status ??
+      response?.data?.stageStatus ??
+      response?.data?.control_state?.status;
+    const hasStagePayload =
+      isPlainObject(response?.data?.result) ||
+      isPlainObject(response?.data?.stage_output) ||
+      stageStatus === "skipped";
+
+    if (stageStatus && FINAL_STAGE_STATUSES.has(stageStatus) && hasStagePayload) {
+      return normalizeStageReview(normalizedStageName, response);
+    }
+
+    return null;
+  }
+
+  await sleep(180);
+
+  const run = requireMockRun(runId);
+
+  if (
+    ["completed", "aborted", "failed"].includes(run.state.status) &&
+    normalizedStageName !== "summary"
+  ) {
+    throw createApiError({
+      message: "run state conflict",
+      code: "RUN_STATE_CONFLICT",
+      status: 409
+    });
+  }
+
+  if (run.state.next_stage !== normalizedStageName) {
+    throw createApiError({
+      message: "requested stage is not allowed now",
+      code: "STAGE_NOT_READY",
+      status: 409,
+      data: {
+        run_id: runId,
+        requested_stage: normalizedStageName,
+        next_stage: run.state.next_stage,
+        allowed_actions: run.state.allowed_actions
+      }
+    });
+  }
+
+  const stageRun = run.state.stage_runs.find(
+    (item) => item.stage_name === normalizedStageName
+  );
+
+  if (stageRun) {
+    stageRun.status = action === "abort" ? "aborted" : "running";
+  }
+
+  let review = null;
+  let stageStatus = "completed";
+
+  if (action === "abort") {
+    stageStatus = "aborted";
+    run.state.status = "aborted";
+    run.state.current_stage = normalizedStageName;
+    run.state.next_stage = normalizedStageName;
+    run.state.allowed_actions = [];
+    run.state.last_error = "run aborted by user";
+  } else if (action === "skip") {
+    stageStatus = "skipped";
+    review = buildSkippedStageReview(normalizedStageName, stageStatus, {
+      available: false,
+      reason_code: "STAGE_SKIPPED",
+      warnings: []
+    });
+  } else if (normalizedStageName === "format") {
+    review = await runFormatReview({
+      paperMarkdown: run.paperMarkdown,
+      paperMeta: run.paperMeta
+    });
+  } else if (normalizedStageName === "logic") {
+    review = await runLogicReview({
+      paperMarkdown: run.paperMarkdown,
+      paperMeta: run.paperMeta
+    });
+  } else if (normalizedStageName === "innovation") {
+    review = await runInnovationReview({
+      paperMarkdown: run.paperMarkdown,
+      paperMeta: run.paperMeta
+    });
+  } else if (normalizedStageName === "summary") {
+    const digest = buildReviewDigest({
+      formatReview: run.stageReviews.format,
+      logicReview: run.stageReviews.logic,
+      innovationReview: run.stageReviews.innovation
+    });
+
+    run.summaryPayload = {
+      run_id: runId,
+      result_summary: {
+        verdict: digest.verdict,
+        overview: digest.overview,
+        merged_issues: digest.issues.map((item) => ({
+          id: item.id,
+          title: item.title,
+          severity: item.severity,
+          stage_name: item.stageKey,
+          location: item.location,
+          description: item.description,
+          evidence: item.evidence,
+          suggestion: item.suggestion
+        })),
+        warnings: digest.skippedAfterStageLabel
+          ? [`流程在 ${digest.skippedAfterStageLabel} 后提前收束。`]
+          : [],
+        suggestions: digest.modificationSuggestions
+      }
+    };
+  }
+
+  if (review && normalizedStageName in run.stageReviews) {
+    run.stageReviews[normalizedStageName] = {
+      ...review,
+      stageStatus
+    };
+  }
+
+  const nextStage = getNextStageName(normalizedStageName);
+
+  if (stageRun) {
+    stageRun.status = stageStatus;
+  }
+
+  if (stageStatus === "aborted") {
+    run.state.progress = estimateRunProgress(run.state.stage_runs);
+    saveMockRun(run);
+    return null;
+  }
+
+  if (normalizedStageName === "summary" || !nextStage) {
+    run.state.status = "completed";
+    run.state.current_stage = "summary";
+    run.state.next_stage = "summary";
+    run.state.allowed_actions = [];
+  } else {
+    run.state.status = "running";
+    run.state.current_stage = normalizedStageName;
+    run.state.next_stage = nextStage;
+    run.state.allowed_actions = ["continue", "skip", "abort"];
+  }
+
+  run.state.progress = estimateRunProgress(run.state.stage_runs);
+  saveMockRun(run);
+
+  return review;
+}
+
+export async function fetchRunSummary({
+  runId,
+  formatReview,
+  logicReview,
+  innovationReview
+}) {
+  if (!runId) {
+    throw createApiError({
+      message: "run id is required",
+      code: "RUN_NOT_FOUND",
+      status: 404
+    });
+  }
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getSummary.path,
+      {
+        method: RUN_API_ENDPOINTS.getSummary.method
+      },
+      { runId }
+    );
+
+    return normalizeSummaryDigest(response, {
+      formatReview,
+      logicReview,
+      innovationReview
+    });
+  }
+
+  await sleep(140);
+
+  const run = requireMockRun(runId);
+
+  if (!run.summaryPayload) {
+    const digest = buildReviewDigest({
+      formatReview: formatReview ?? run.stageReviews.format,
+      logicReview: logicReview ?? run.stageReviews.logic,
+      innovationReview: innovationReview ?? run.stageReviews.innovation
+    });
+
+    run.summaryPayload = {
+      run_id: runId,
+      result_summary: {
+        verdict: digest.verdict,
+        overview: digest.overview,
+        merged_issues: digest.issues.map((item) => ({
+          id: item.id,
+          title: item.title,
+          severity: item.severity,
+          stage_name: item.stageKey,
+          location: item.location,
+          description: item.description,
+          evidence: item.evidence,
+          suggestion: item.suggestion
+        })),
+        warnings: digest.skippedAfterStageLabel
+          ? [`流程在 ${digest.skippedAfterStageLabel} 后提前收束。`]
+          : [],
+        suggestions: digest.modificationSuggestions
+      }
+    };
+    saveMockRun(run);
+  }
+
+  return normalizeSummaryDigest(
+    {
+      data: run.summaryPayload
+    },
+    {
+      formatReview: formatReview ?? run.stageReviews.format,
+      logicReview: logicReview ?? run.stageReviews.logic,
+      innovationReview: innovationReview ?? run.stageReviews.innovation
+    }
+  );
+}
+
 export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
   const meta = paperMeta ?? documentIr;
 
@@ -748,28 +1786,45 @@ export async function runRuleBasedAudit({ paperMarkdown, documentIr, paperMeta }
   return buildMockTask2Audit().report;
 }
 
-export async function fetchRecommendations({ submissionId, documentIr, paperMeta }) {
+export async function fetchRecommendations({
+  runId,
+  submissionId,
+  documentIr,
+  paperMeta
+}) {
   const meta = paperMeta ?? documentIr;
 
   if (!USE_MOCK) {
-    return fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.listRecommendations.path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
+    if (!runId) {
+      throw createApiError({
+        message: "run id is required",
+        code: "RUN_NOT_FOUND",
+        status: 404
+      });
+    }
+
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getRecommendations.path,
+      {
+        method: RUN_API_ENDPOINTS.getRecommendations.method
       },
-      body: JSON.stringify({
-        submissionId,
-        paperMeta: meta
-      })
-    });
+      { runId }
+    );
+    const data = ensureObject(response?.data);
+    const items = ensureArray(data.items);
+
+    return items.map((item, index) => ({
+      ...item,
+      rank: item.rank ?? index + 1
+    }));
   }
 
-  await new Promise((resolve) => window.setTimeout(resolve, 260));
+  await sleep(260);
 
   return mockRecommendations.map((item, index) => ({
     ...item,
     rank: index + 1,
-    docId: meta?.doc_id ?? submissionId
+    docId: meta?.doc_id ?? submissionId ?? runId
   }));
 }
 
@@ -1237,6 +2292,57 @@ export function buildReviewDigest({
     skippedAfterStageLabel: "",
     issues,
     modificationSuggestions: Array.from(suggestionMap.values())
+  };
+}
+
+export function normalizeSummaryDigest(
+  payload,
+  { formatReview, logicReview, innovationReview } = {}
+) {
+  const data = ensureObject(payload?.data ?? payload);
+  const resultSummary = ensureObject(
+    data.result_summary ?? data.resultSummary ?? data.summary ?? data
+  );
+  const baseDigest = buildReviewDigest({
+    formatReview,
+    logicReview,
+    innovationReview
+  });
+  const mergedIssues = ensureArray(
+    resultSummary.merged_issues ?? resultSummary.mergedIssues ?? resultSummary.issues
+  ).map((item, index) => {
+    const issue = mapGenericIssue(item, index, "summary");
+    const stageKey = coerceStageName(
+      item?.stage_name ?? item?.stageName ?? item?.stage ?? item?.source_stage,
+      "summary"
+    );
+
+    return {
+      ...issue,
+      stageKey,
+      stageLabel: REVIEW_STAGE_LABELS[stageKey] ?? "汇总"
+    };
+  });
+  const summarySuggestions = mergeSuggestionCards(
+    resultSummary.suggestions,
+    resultSummary.next_actions,
+    resultSummary.nextActions
+  );
+  const warnings = ensureArray(resultSummary.warnings).map(String).filter(Boolean);
+
+  return {
+    ...baseDigest,
+    verdict: resultSummary.verdict ?? baseDigest.verdict,
+    overview:
+      resultSummary.overview ??
+      resultSummary.summary ??
+      (warnings.length ? warnings.join(" ") : baseDigest.overview),
+    issues: mergedIssues.length ? mergedIssues : baseDigest.issues,
+    warnings,
+    modificationSuggestions: mergeSuggestionCards(
+      baseDigest.modificationSuggestions,
+      summarySuggestions
+    )
   };
 }
 
