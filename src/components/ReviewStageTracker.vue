@@ -86,7 +86,8 @@ function isReached(status) {
 const completedCount = computed(
   () =>
     stageItems.filter((item) =>
-      ["completed", "skipped"].includes(getStageStatus(item.id))
+      ["completed", "skipped"].includes(getStageStatus(item.id)) ||
+      (props.activeStage === "summary" && item.id === "summary")
     ).length
 );
 
@@ -134,7 +135,8 @@ const trackerCopy = computed(() => {
           class="tracker-node"
           :class="{
             reached: isReached(getStageStatus(item.id)),
-            active: activeStage === item.id
+            active: activeStage === item.id,
+            'summary-active': activeStage === 'summary' && item.id === 'summary'
           }"
         >
           <span class="tracker-dot"></span>
@@ -212,6 +214,10 @@ const trackerCopy = computed(() => {
   color: var(--primary);
 }
 
+.tracker-node.summary-active {
+  color: var(--success);
+}
+
 .tracker-dot {
   width: 18px;
   height: 18px;
@@ -228,6 +234,11 @@ const trackerCopy = computed(() => {
 .tracker-node.active .tracker-dot {
   border-color: rgba(19, 63, 103, 0.55);
   background: rgba(19, 63, 103, 0.14);
+}
+
+.tracker-node.summary-active .tracker-dot {
+  border-color: rgba(47, 133, 90, 0.7);
+  background: rgba(47, 133, 90, 0.18);
 }
 
 .tracker-text {

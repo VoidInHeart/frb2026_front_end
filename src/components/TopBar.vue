@@ -92,7 +92,11 @@ onBeforeUnmount(() => {
 
       <RouterLink
         class="nav-link"
-        :class="{ active: route.name === 'summary', disabled: !summaryReady }"
+        :class="{
+          active: route.name === 'summary',
+          'summary-active': route.name === 'summary',
+          disabled: !summaryReady
+        }"
         :to="summaryReady ? '/summary' : '/'"
       >
         汇总页面
@@ -177,6 +181,11 @@ onBeforeUnmount(() => {
   background: var(--primary-soft);
   color: var(--primary);
   font-weight: 700;
+}
+
+.nav-link.summary-active {
+  background: rgba(47, 133, 90, 0.12);
+  color: var(--success);
 }
 
 .nav-link.disabled {
