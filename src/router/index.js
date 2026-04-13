@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from "vue-router";
+import LoadingView from "../views/LoadingView.vue";
 import RecommendationDetailView from "../views/RecommendationDetailView.vue";
 import ReviewWorkspaceView from "../views/ReviewWorkspaceView.vue";
 import SummaryView from "../views/SummaryView.vue";
@@ -13,6 +14,14 @@ const router = createRouter({
       component: UploadView,
       meta: {
         title: "上传论文"
+      }
+    },
+    {
+      path: "/loading",
+      name: "loading",
+      component: LoadingView,
+      meta: {
+        title: "姝ｅ湪瑙ｆ瀽璁烘枃"
       }
     },
     {

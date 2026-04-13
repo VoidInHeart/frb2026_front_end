@@ -557,7 +557,7 @@ async function uploadViaLocalParser(paperFile) {
     );
   }
 
-  const paperMeta = data.paperMeta ?? data.documentIr ?? {};
+  const normalizedPaperMeta = data.paperMeta ?? data.documentIr ?? {};
 
   return {
     submissionId: data.submissionId ?? makeSubmissionId(),

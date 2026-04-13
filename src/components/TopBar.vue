@@ -28,6 +28,10 @@ const stageLabelMap = {
 };
 
 const currentStageLabel = computed(() => {
+  if (route.name === "loading") {
+    return "正在解析";
+  }
+
   if (!workspaceReady.value) {
     return "等待上传";
   }
@@ -72,7 +76,7 @@ onBeforeUnmount(() => {
     <nav class="topbar-nav">
       <RouterLink
         class="nav-link"
-        :class="{ active: route.name === 'upload' }"
+        :class="{ active: route.name === 'upload' || route.name === 'loading' }"
         to="/"
       >
         上传论文

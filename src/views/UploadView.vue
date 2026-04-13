@@ -1,12 +1,8 @@
 <script setup>
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { submitPaperMeta, uploadPaper } from "../services/api";
-import {
-  setCurrentStage,
-  setSubmission,
-  setTransmissionStatus
-} from "../stores/reviewSession";
+import { stagePendingUpload } from "../stores/pendingUpload";
+import { clearSession } from "../stores/reviewSession";
 
 const router = useRouter();
 
@@ -20,9 +16,9 @@ const form = reactive({
 const loading = ref(false);
 const errorMessage = ref("");
 const dragOverField = reactive({
-  paper: false,
-  markdown: false,
-  documentIr: false
+  paperFile: false,
+  markdownFile: false,
+  documentIrFile: false
 });
 
 const demoAvailable = import.meta.env.VITE_USE_MOCK !== "false";
@@ -65,24 +61,16 @@ async function startReview(options = {}) {
   loading.value = true;
 
   try {
-    const submission = await uploadPaper({
+    clearSession();
+    stagePendingUpload({
+      useDemo,
       paperFile: useDemo ? null : form.paperFile,
       markdownFile: useDemo ? null : form.markdownFile,
       documentIrFile: useDemo ? null : form.documentIrFile,
       imageBaseUrl: useDemo ? "/mock" : form.imageBaseUrl,
       mockProfile
     });
-
-    setSubmission(submission);
-    setCurrentStage("format");
-
-    const transmission = await submitPaperMeta({
-      submissionId: submission.submissionId,
-      paperMeta: submission.paperMeta
-    });
-
-    setTransmissionStatus(transmission);
-    router.push({ name: "workspace" });
+    await router.push({ name: "loading" });
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : "提交失败";
   } finally {
@@ -131,11 +119,11 @@ async function startReview(options = {}) {
 
       <div
         class="field-group drop-zone"
-        :class="{ 'drop-zone-active': dragOverField.paper }"
-        @dragover.prevent="handleDragOver($event, 'paper')"
-        @dragenter.prevent="handleDragOver($event, 'paper')"
-        @dragleave.prevent="handleDragLeave('paper')"
-        @drop.prevent="handleDrop($event, 'paper')"
+        :class="{ 'drop-zone-active': dragOverField.paperFile }"
+        @dragover.prevent="handleDragOver($event, 'paperFile')"
+        @dragenter.prevent="handleDragOver($event, 'paperFile')"
+        @dragleave.prevent="handleDragLeave('paperFile')"
+        @drop.prevent="handleDrop($event, 'paperFile')"
       >
         <label class="field-label" for="paper-file">PDF 论文文件</label>
         <input
@@ -147,7 +135,7 @@ async function startReview(options = {}) {
         />
         <div class="drop-zone-content">
           <p>{{ form.paperFile ? form.paperFile.name : "拖拽 PDF 到此，或点击上传" }}</p>
-          <p v-if="dragOverField.paper" class="drop-text">松手即可上传</p>
+          <p v-if="dragOverField.paperFile" class="drop-text">松手即可上传</p>
         </div>
         <span class="field-hint">上传 PDF 后会优先走本地解析接口；未接后端时可使用示例数据。</span>
       </div>
@@ -158,11 +146,11 @@ async function startReview(options = {}) {
         <div class="advanced-grid">
           <div
             class="field-group drop-zone compact-drop-zone"
-            :class="{ 'drop-zone-active': dragOverField.markdown }"
-            @dragover.prevent="handleDragOver($event, 'markdown')"
-            @dragenter.prevent="handleDragOver($event, 'markdown')"
-            @dragleave.prevent="handleDragLeave('markdown')"
-            @drop.prevent="handleDrop($event, 'markdown')"
+            :class="{ 'drop-zone-active': dragOverField.markdownFile }"
+            @dragover.prevent="handleDragOver($event, 'markdownFile')"
+            @dragenter.prevent="handleDragOver($event, 'markdownFile')"
+            @dragleave.prevent="handleDragLeave('markdownFile')"
+            @drop.prevent="handleDrop($event, 'markdownFile')"
           >
             <label class="field-label" for="markdown-file">`paper.md`</label>
             <input
@@ -179,11 +167,11 @@ async function startReview(options = {}) {
 
           <div
             class="field-group drop-zone compact-drop-zone"
-            :class="{ 'drop-zone-active': dragOverField.documentIr }"
-            @dragover.prevent="handleDragOver($event, 'documentIr')"
-            @dragenter.prevent="handleDragOver($event, 'documentIr')"
-            @dragleave.prevent="handleDragLeave('documentIr')"
-            @drop.prevent="handleDrop($event, 'documentIr')"
+            :class="{ 'drop-zone-active': dragOverField.documentIrFile }"
+            @dragover.prevent="handleDragOver($event, 'documentIrFile')"
+            @dragenter.prevent="handleDragOver($event, 'documentIrFile')"
+            @dragleave.prevent="handleDragLeave('documentIrFile')"
+            @drop.prevent="handleDrop($event, 'documentIrFile')"
           >
             <label class="field-label" for="document-ir-file">`paper_meta.json`</label>
             <input
