@@ -28,6 +28,7 @@ const router = useRouter();
 
 const loadingStage = ref("");
 const actionInFlight = ref("");
+const decisionInFlight = ref("");
 const errorMessage = ref("");
 const pageMessage = ref("");
 
@@ -107,56 +108,38 @@ const statusText = computed(() => {
   return visibleStageStatus.value || runState.value.status;
 });
 
-const controlActions = computed(() => {
-  if (loadingStage.value || actionInFlight.value || activeStageResult.value) {
+const decisionActions = computed(() => {
+  if (
+    !activeStageResult.value ||
+    loadingStage.value ||
+    actionInFlight.value ||
+    decisionInFlight.value ||
+    ["failed", "aborted"].includes(runState.value?.status ?? "") ||
+    reviewSession.workflow.currentStage === "summary"
+  ) {
     return [];
   }
 
-  if (!runState.value || runState.value.nextStage !== visibleStage.value) {
-    return [];
-  }
-
-  const allowedActions = runState.value.allowedActions?.length
-    ? runState.value.allowedActions
-    : ["continue"];
-
-  return allowedActions.map((action) => ({
-    key: action,
-    label:
-      action === "continue"
-        ? "开始本阶段"
-        : action === "skip"
-          ? "跳过阶段"
-          : "终止 run",
-    variant:
-      action === "continue"
-        ? "primary"
-        : action === "skip"
-          ? "secondary"
-          : "ghost",
-    disabled: false
-  }));
-});
-
-const footerAction = computed(() => {
-  if (!activeStageResult.value) {
-    return null;
-  }
-
-  if (["failed", "aborted"].includes(runState.value?.status ?? "")) {
-    return null;
-  }
-
-  const nextStage = runState.value?.nextStage;
-  const shouldGoSummary =
-    nextStage === "summary" ||
-    visibleStage.value === "innovation" ||
-    activeStageResult.value.severe;
-
-  return {
-    label: shouldGoSummary ? "进入汇总页面" : "进入下一阶段",
-    disabled: Boolean(loadingStage.value || actionInFlight.value)
-  };
+  return [
+    {
+      key: "abort",
+      label: "跳过后续阶段审查",
+      variant: "ghost",
+      disabled: false
+    },
+    {
+      key: "skip",
+      label: "跳过下一阶段审查",
+      variant: "secondary",
+      disabled: false
+    },
+    {
+      key: "continue",
+      label: "继续下一阶段审查",
+      variant: "primary",
+      disabled: false
+    }
+  ];
 });
 
 function refreshSummarySnapshot() {
@@ -171,6 +154,28 @@ function refreshSummarySnapshot() {
 
 function wait(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function getSequentialNextStage(stageKey) {
+  if (stageKey === "format") {
+    return "logic";
+  }
+
+  if (stageKey === "logic") {
+    return "innovation";
+  }
+
+  return "summary";
+}
+
+function resolveUpcomingStage(state = runState.value, fallbackStage = visibleStage.value) {
+  const nextStage = state?.nextStage;
+
+  if (nextStage && nextStage !== fallbackStage) {
+    return nextStage;
+  }
+
+  return getSequentialNextStage(fallbackStage);
 }
 
 async function syncRunState() {
@@ -203,7 +208,7 @@ async function loadStageSnapshot(stageKey) {
 
 async function pollStageUntilSettled(stageKey) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    await wait(900);
+    await wait(15000);
     const latestState = await syncRunState();
     const stageStatus =
       latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
@@ -236,13 +241,13 @@ async function ensureStageReady(stageKey) {
     return loadStageSnapshot(stageKey);
   }
 
-  if (stageStatus === "running") {
+  if (["running", "in_progress"].includes(stageStatus)) {
     return pollStageUntilSettled(stageKey);
   }
 
   if (
     latestState?.nextStage === stageKey &&
-    !["waiting", "failed", "aborted", "completed"].includes(latestState.status)
+    !["failed", "aborted", "completed"].includes(latestState.status)
   ) {
     return handleStageAction("continue", stageKey);
   }
@@ -281,7 +286,7 @@ async function handleStageAction(action, stageKey = visibleStage.value) {
       result = await loadStageSnapshot(stageKey);
     }
 
-    if (!result && stageStatus === "running") {
+    if (!result && ["running", "in_progress"].includes(stageStatus)) {
       result = await pollStageUntilSettled(stageKey);
     }
 
@@ -311,34 +316,83 @@ async function handleStageAction(action, stageKey = visibleStage.value) {
   }
 }
 
-async function handleFooterAction() {
-  const result = activeStageResult.value ?? (await ensureStageReady(visibleStage.value));
-
-  if (!result) {
-    return;
-  }
-
-  const nextStage = runState.value?.nextStage;
-  const shouldGoSummary =
-    nextStage === "summary" ||
-    visibleStage.value === "innovation" ||
-    result.severe;
-
-  if (shouldGoSummary) {
+async function openStage(stageKey) {
+  if (!stageKey || stageKey === "summary") {
     setCurrentStage("summary");
     refreshSummarySnapshot();
-    router.push({ name: "summary" });
+    await router.push({ name: "summary" });
     return;
   }
 
-  const targetStage = nextStage === "logic" || nextStage === "innovation"
-    ? nextStage
-    : visibleStage.value === "format"
-      ? "logic"
-      : "innovation";
+  setCurrentStage(stageKey);
+  await ensureStageReady(stageKey);
+}
 
-  setCurrentStage(targetStage);
-  await ensureStageReady(targetStage);
+async function handleDecisionAction(action) {
+  if (!activeStageResult.value || !runRecord.value?.runId) {
+    return;
+  }
+
+  errorMessage.value = "";
+  pageMessage.value = "";
+  decisionInFlight.value = action;
+
+  try {
+    let latestState = await syncRunState();
+    const upcomingStage = resolveUpcomingStage(latestState);
+
+    if (action === "abort") {
+      if (upcomingStage && upcomingStage !== "summary") {
+        await triggerStageExecution({
+          runId: runRecord.value.runId,
+          stageName: upcomingStage,
+          action: "abort"
+        });
+        latestState = await syncRunState();
+      }
+
+      pageMessage.value = "已跳过后续阶段审查，正在进入汇总。";
+      await openStage("summary");
+      return;
+    }
+
+    if (action === "skip") {
+      if (!upcomingStage || upcomingStage === "summary") {
+        pageMessage.value = "下一步已收束到汇总。";
+        await openStage("summary");
+        return;
+      }
+
+      await handleStageAction("skip", upcomingStage);
+      latestState = await syncRunState();
+
+      const targetStage = resolveUpcomingStage(latestState, upcomingStage);
+
+      if (!targetStage || targetStage === "summary") {
+        pageMessage.value = "已跳过下一阶段审查，正在进入汇总。";
+        await openStage("summary");
+        return;
+      }
+
+      pageMessage.value = `已跳过 ${stageMetaMap[upcomingStage]?.title ?? upcomingStage}，正在进入下一阶段。`;
+      await openStage(targetStage);
+      return;
+    }
+
+    if (!upcomingStage || upcomingStage === "summary") {
+      pageMessage.value = "正在进入汇总。";
+      await openStage("summary");
+      return;
+    }
+
+    pageMessage.value = `正在进入 ${stageMetaMap[upcomingStage]?.title ?? upcomingStage}。`;
+    await openStage(upcomingStage);
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "阶段决策执行失败";
+  } finally {
+    decisionInFlight.value = "";
+  }
 }
 
 function restartReview() {
@@ -445,11 +499,9 @@ onMounted(async () => {
         :title="activeStageMeta.title"
         :result="activeStageResult"
         :loading="loadingStage === visibleStage"
-        :actions="controlActions"
-        :footer-action="footerAction"
+        :actions="decisionActions"
         :status-text="statusText"
-        @action="handleStageAction"
-        @footer="handleFooterAction"
+        @action="handleDecisionAction"
       />
     </section>
   </section>

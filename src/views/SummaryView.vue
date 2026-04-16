@@ -129,7 +129,7 @@ async function handleSummaryAction(action) {
       action
     });
 
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
       const latestState = await syncRunState();
 
       if (latestState?.status === "completed") {
@@ -140,7 +140,7 @@ async function handleSummaryAction(action) {
         break;
       }
 
-      await wait(700);
+      await wait(15000);
     }
 
     await loadSummary();

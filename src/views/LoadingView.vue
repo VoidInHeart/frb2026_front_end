@@ -1,7 +1,11 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { createReviewRun, fetchRunState, uploadPaper } from "../services/api";
+import {
+  createReviewRun,
+  fetchRunState,
+  uploadPaper
+} from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
 import {
   reviewSession,

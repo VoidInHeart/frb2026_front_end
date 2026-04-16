@@ -273,6 +273,101 @@ async function fetchEnvelope(pathTemplate, options = {}, params = {}) {
   };
 }
 
+function formatUploadBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes < 0) {
+    return "unknown";
+  }
+
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function parseXhrJsonResponse(xhr) {
+  try {
+    return xhr.responseText ? JSON.parse(xhr.responseText) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function requestJsonWithUploadProgress(url, options = {}, requestLabel = "upload") {
+  if (typeof XMLHttpRequest === "undefined" || !options?.body) {
+    return fetchJson(url, options);
+  }
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let lastLoggedPercent = -5;
+    let lastLoggedLoaded = 0;
+
+    xhr.open(options.method ?? "POST", url, true);
+
+    for (const [header, value] of Object.entries(options.headers ?? {})) {
+      xhr.setRequestHeader(header, value);
+    }
+
+    console.info(`[upload] ${requestLabel} started`);
+
+    xhr.upload.addEventListener("progress", (event) => {
+      if (!event.lengthComputable) {
+        if (event.loaded - lastLoggedLoaded >= 1024 * 1024) {
+          lastLoggedLoaded = event.loaded;
+          console.info(
+            `[upload] ${requestLabel}: uploaded ${formatUploadBytes(event.loaded)}`
+          );
+        }
+        return;
+      }
+
+      const percent = Math.floor((event.loaded / event.total) * 100);
+
+      if (percent >= lastLoggedPercent + 5 || percent === 100) {
+        lastLoggedPercent = percent;
+        lastLoggedLoaded = event.loaded;
+        console.info(
+          `[upload] ${requestLabel}: ${percent}% (${formatUploadBytes(event.loaded)} / ${formatUploadBytes(event.total)})`
+        );
+      }
+    });
+
+    xhr.addEventListener("load", () => {
+      const payload = parseXhrJsonResponse(xhr);
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        console.info(`[upload] ${requestLabel} completed with HTTP ${xhr.status}`);
+        resolve(payload);
+        return;
+      }
+
+      reject(
+        createApiError({
+          message: payload?.message ?? `请求失败: ${xhr.status}`,
+          code: payload?.code ?? `HTTP_${xhr.status}`,
+          status: xhr.status,
+          data: payload?.data ?? null
+        })
+      );
+    });
+
+    xhr.addEventListener("error", () => {
+      reject(new Error("网络请求失败"));
+    });
+
+    xhr.addEventListener("abort", () => {
+      reject(new Error("请求已取消"));
+    });
+
+    xhr.send(options.body);
+  });
+}
+
 function readMockRunStore() {
   if (typeof window === "undefined") {
     return {};
@@ -1157,12 +1252,13 @@ async function uploadViaLocalParser(paperFile) {
   let data;
 
   try {
-    data = await fetchJson(
+    data = await requestJsonWithUploadProgress(
       `${PARSER_API_BASE_URL}${LOCAL_PARSER_ENDPOINTS.parsePaper.path}`,
       {
         method: "POST",
         body: formData
-      }
+      },
+      "local parser upload"
     );
   } catch (error) {
     const message =
@@ -1220,10 +1316,14 @@ export async function uploadPaper({
       formData.append(UPLOAD_FORM_FIELDS.imageBaseUrl, imageBaseUrl);
     }
 
-    const data = await fetchJson(`${API_BASE_URL}${APP_API_ENDPOINTS.parsePaper.path}`, {
-      method: "POST",
-      body: formData
-    });
+    const data = await requestJsonWithUploadProgress(
+      `${API_BASE_URL}${APP_API_ENDPOINTS.parsePaper.path}`,
+      {
+        method: "POST",
+        body: formData
+      },
+      "backend parse upload"
+    );
 
     const paperMeta = data.paperMeta ?? data.documentIr ?? {};
 
@@ -1292,13 +1392,26 @@ export async function createReviewRun({
   };
 
   if (!USE_MOCK) {
-    const response = await fetchEnvelope(RUN_API_ENDPOINTS.createRun.path, {
-      method: RUN_API_ENDPOINTS.createRun.method,
-      headers: {
-        "Content-Type": "application/json"
+    const response = await requestJsonWithUploadProgress(
+      buildApiUrl(RUN_API_ENDPOINTS.createRun.path),
+      {
+        method: RUN_API_ENDPOINTS.createRun.method,
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
       },
-      body: JSON.stringify(payload)
-    });
+      "create review run"
+    );
+
+    if (response?.ok === false) {
+      throw createApiError({
+        message: response?.message ?? "请求失败",
+        code: response?.code ?? "REQUEST_FAILED",
+        status: 500,
+        data: response?.data ?? null
+      });
+    }
 
     return normalizeRunRecord(response);
   }
