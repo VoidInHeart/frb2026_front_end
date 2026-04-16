@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import MarkdownArticle from "../components/MarkdownArticle.vue";
 import ReviewStageTracker from "../components/ReviewStageTracker.vue";
@@ -25,12 +25,17 @@ import {
 } from "../stores/reviewSession";
 
 const router = useRouter();
+const POLL_INTERVAL_MS = 15000;
 
 const loadingStage = ref("");
 const actionInFlight = ref("");
 const decisionInFlight = ref("");
 const errorMessage = ref("");
 const pageMessage = ref("");
+const pollingStage = ref("");
+const stagePollInFlight = ref(false);
+
+let stagePollTimer = 0;
 
 const stageMetaMap = {
   format: {
@@ -96,13 +101,18 @@ const visibleStageStatus = computed(
       ?.status ?? ""
 );
 
+const stagePanelLoading = computed(
+  () =>
+    loadingStage.value === visibleStage.value || pollingStage.value === visibleStage.value
+);
+
 const statusText = computed(() => {
   if (!runState.value) {
     return "";
   }
 
   if (runState.value.status === "waiting") {
-    return `waiting · ${runState.value.nextStage}`;
+    return `waiting -> ${runState.value.nextStage}`;
   }
 
   return visibleStageStatus.value || runState.value.status;
@@ -152,10 +162,6 @@ function refreshSummarySnapshot() {
   );
 }
 
-function wait(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 function getSequentialNextStage(stageKey) {
   if (stageKey === "format") {
     return "logic";
@@ -188,6 +194,20 @@ async function syncRunState() {
   return nextState;
 }
 
+function stopStagePolling() {
+  if (stagePollTimer) {
+    window.clearInterval(stagePollTimer);
+    stagePollTimer = 0;
+  }
+}
+
+function startStagePolling() {
+  stopStagePolling();
+  stagePollTimer = window.setInterval(() => {
+    void tickStagePolling();
+  }, POLL_INTERVAL_MS);
+}
+
 async function loadStageSnapshot(stageKey) {
   if (!runRecord.value?.runId) {
     return null;
@@ -206,26 +226,43 @@ async function loadStageSnapshot(stageKey) {
   return result;
 }
 
-async function pollStageUntilSettled(stageKey) {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    await wait(15000);
+async function tickStagePolling() {
+  const stageKey = pollingStage.value;
+
+  if (!stageKey || !runRecord.value?.runId || stagePollInFlight.value) {
+    return;
+  }
+
+  stagePollInFlight.value = true;
+
+  try {
     const latestState = await syncRunState();
     const stageStatus =
       latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
 
     if (["completed", "skipped"].includes(stageStatus)) {
-      return loadStageSnapshot(stageKey);
+      await loadStageSnapshot(stageKey);
+
+      if (pollingStage.value === stageKey) {
+        pollingStage.value = "";
+      }
+      return;
     }
 
     if (
       ["failed", "aborted"].includes(stageStatus) ||
       ["failed", "aborted"].includes(latestState?.status ?? "")
     ) {
-      return null;
+      if (pollingStage.value === stageKey) {
+        pollingStage.value = "";
+      }
     }
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "阶段结果轮询失败";
+  } finally {
+    stagePollInFlight.value = false;
   }
-
-  return null;
 }
 
 async function ensureStageReady(stageKey) {
@@ -242,20 +279,21 @@ async function ensureStageReady(stageKey) {
   }
 
   if (["running", "in_progress"].includes(stageStatus)) {
-    return pollStageUntilSettled(stageKey);
+    pollingStage.value = stageKey;
+    return null;
   }
 
   if (
     latestState?.nextStage === stageKey &&
     !["failed", "aborted", "completed"].includes(latestState.status)
   ) {
-    return handleStageAction("continue", stageKey);
+    return performStageAction("continue", stageKey);
   }
 
   return null;
 }
 
-async function handleStageAction(action, stageKey = visibleStage.value) {
+async function performStageAction(action, stageKey = visibleStage.value) {
   if (!runRecord.value?.runId) {
     return null;
   }
@@ -274,6 +312,9 @@ async function handleStageAction(action, stageKey = visibleStage.value) {
     const latestState = await syncRunState();
 
     if (action === "abort") {
+      if (pollingStage.value === stageKey) {
+        pollingStage.value = "";
+      }
       pageMessage.value = "当前 run 已终止。";
       return null;
     }
@@ -286,23 +327,32 @@ async function handleStageAction(action, stageKey = visibleStage.value) {
       result = await loadStageSnapshot(stageKey);
     }
 
-    if (!result && ["running", "in_progress"].includes(stageStatus)) {
-      result = await pollStageUntilSettled(stageKey);
-    }
-
     if (result) {
+      if (pollingStage.value === stageKey) {
+        pollingStage.value = "";
+      }
       setStageReview(stageKey, result);
       refreshSummarySnapshot();
       pageMessage.value =
         result.stageStatus === "skipped"
           ? `${result.stageLabel}已跳过。`
           : `${result.stageLabel}已完成。`;
+    } else if (["running", "in_progress"].includes(stageStatus)) {
+      pollingStage.value = stageKey;
+    } else if (pollingStage.value === stageKey) {
+      pollingStage.value = "";
     }
 
     return result;
   } catch (error) {
     if (error?.code === "STAGE_NOT_READY") {
-      await syncRunState();
+      const latestState = await syncRunState();
+      const stageStatus =
+        latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+
+      if (["running", "in_progress"].includes(stageStatus)) {
+        pollingStage.value = stageKey;
+      }
       pageMessage.value = "当前阶段尚未就绪，已同步最新 run state。";
       return null;
     }
@@ -363,7 +413,7 @@ async function handleDecisionAction(action) {
         return;
       }
 
-      await handleStageAction("skip", upcomingStage);
+      await performStageAction("skip", upcomingStage);
       latestState = await syncRunState();
 
       const targetStage = resolveUpcomingStage(latestState, upcomingStage);
@@ -374,7 +424,7 @@ async function handleDecisionAction(action) {
         return;
       }
 
-      pageMessage.value = `已跳过 ${stageMetaMap[upcomingStage]?.title ?? upcomingStage}，正在进入下一阶段。`;
+      pageMessage.value = `已跳过${stageMetaMap[upcomingStage]?.title ?? upcomingStage}，正在进入下一阶段。`;
       await openStage(targetStage);
       return;
     }
@@ -385,7 +435,7 @@ async function handleDecisionAction(action) {
       return;
     }
 
-    pageMessage.value = `正在进入 ${stageMetaMap[upcomingStage]?.title ?? upcomingStage}。`;
+    pageMessage.value = `正在进入${stageMetaMap[upcomingStage]?.title ?? upcomingStage}。`;
     await openStage(upcomingStage);
   } catch (error) {
     errorMessage.value =
@@ -413,7 +463,13 @@ onMounted(async () => {
     setCurrentStage(nextStage);
   }
 
+  startStagePolling();
   await ensureStageReady(visibleStage.value);
+  void tickStagePolling();
+});
+
+onBeforeUnmount(() => {
+  stopStagePolling();
 });
 </script>
 
@@ -425,7 +481,7 @@ onMounted(async () => {
           <p class="summary-kicker">分阶段审查工作区</p>
           <h1 class="section-title">统一 run/state/stage 协议工作流</h1>
           <p class="section-subtitle hero-subtitle">
-            左侧保持论文正文，右侧跟随后端 run state 展示当前允许阶段的结果或操作。
+            左侧保持论文正文，右侧跟随后端 run state 展示当前允许阶段的结果或可执行动作。
           </p>
         </div>
 
@@ -478,7 +534,7 @@ onMounted(async () => {
             doc_id: {{ paperMeta?.doc_id || "unknown" }}
           </span>
           <span class="pill pill-neutral">
-            当前查看：{{ activeStageMeta.title }}
+            当前查看: {{ activeStageMeta.title }}
           </span>
           <span v-if="runState" class="pill pill-neutral">
             next_stage: {{ runState.nextStage }}
@@ -498,7 +554,7 @@ onMounted(async () => {
         :kicker="activeStageMeta.kicker"
         :title="activeStageMeta.title"
         :result="activeStageResult"
-        :loading="loadingStage === visibleStage"
+        :loading="stagePanelLoading"
         :actions="decisionActions"
         :status-text="statusText"
         @action="handleDecisionAction"

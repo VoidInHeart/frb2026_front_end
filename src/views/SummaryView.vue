@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import RecommendationList from "../components/RecommendationList.vue";
 import ReviewStageTracker from "../components/ReviewStageTracker.vue";
@@ -24,11 +24,16 @@ import {
 } from "../stores/reviewSession";
 
 const router = useRouter();
+const POLL_INTERVAL_MS = 15000;
 
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
 const actionLoading = ref("");
 const errorMessage = ref("");
+const summaryPending = ref(false);
+const summaryPollInFlight = ref(false);
+
+let summaryPollTimer = 0;
 
 const submission = computed(() => reviewSession.currentSubmission);
 const runRecord = computed(() => reviewSession.runRecord);
@@ -48,6 +53,7 @@ const summaryActions = computed(() => {
     !runState.value ||
     runState.value.nextStage !== "summary" ||
     summary.value ||
+    summaryPending.value ||
     ["failed", "aborted"].includes(runState.value.status)
   ) {
     return [];
@@ -75,10 +81,6 @@ const summaryActions = computed(() => {
   }));
 });
 
-function wait(ms) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 async function syncRunState() {
   if (!runRecord.value?.runId) {
     return null;
@@ -87,6 +89,20 @@ async function syncRunState() {
   const nextState = await fetchRunState(runRecord.value.runId);
   setRunState(nextState);
   return nextState;
+}
+
+function stopSummaryPolling() {
+  if (summaryPollTimer) {
+    window.clearInterval(summaryPollTimer);
+    summaryPollTimer = 0;
+  }
+}
+
+function startSummaryPolling() {
+  stopSummaryPolling();
+  summaryPollTimer = window.setInterval(() => {
+    void tickSummaryPolling();
+  }, POLL_INTERVAL_MS);
 }
 
 async function loadSummary() {
@@ -114,6 +130,34 @@ async function loadSummary() {
   }
 }
 
+async function tickSummaryPolling() {
+  if (!summaryPending.value || !runRecord.value?.runId || summaryPollInFlight.value) {
+    return;
+  }
+
+  summaryPollInFlight.value = true;
+
+  try {
+    const latestState = await syncRunState();
+
+    if (latestState?.status === "completed") {
+      summaryPending.value = false;
+      await loadSummary();
+      await loadRecommendationsIfNeeded();
+      return;
+    }
+
+    if (["failed", "aborted"].includes(latestState?.status ?? "")) {
+      summaryPending.value = false;
+    }
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "summary 轮询失败";
+  } finally {
+    summaryPollInFlight.value = false;
+  }
+}
+
 async function handleSummaryAction(action) {
   if (!runRecord.value?.runId) {
     return;
@@ -129,22 +173,23 @@ async function handleSummaryAction(action) {
       action
     });
 
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const latestState = await syncRunState();
+    const latestState = await syncRunState();
 
-      if (latestState?.status === "completed") {
-        break;
-      }
-
-      if (["failed", "aborted"].includes(latestState?.status ?? "")) {
-        break;
-      }
-
-      await wait(15000);
+    if (latestState?.status === "completed") {
+      summaryPending.value = false;
+      await loadSummary();
+      await loadRecommendationsIfNeeded();
+      return;
     }
 
-    await loadSummary();
+    if (["failed", "aborted"].includes(latestState?.status ?? "")) {
+      summaryPending.value = false;
+      return;
+    }
+
+    summaryPending.value = true;
   } catch (error) {
+    summaryPending.value = false;
     errorMessage.value =
       error instanceof Error ? error.message : "汇总阶段执行失败";
   } finally {
@@ -199,7 +244,25 @@ onMounted(async () => {
   }
 
   setCurrentStage("summary");
+  startSummaryPolling();
+
   const latestState = await syncRunState();
+
+  if (latestState?.status === "completed") {
+    await loadSummary();
+    await loadRecommendationsIfNeeded();
+    return;
+  }
+
+  if (
+    latestState?.nextStage === "summary" &&
+    !summary.value &&
+    ["running", "in_progress"].includes(latestState.status)
+  ) {
+    summaryPending.value = true;
+    void tickSummaryPolling();
+    return;
+  }
 
   if (
     latestState?.nextStage === "summary" &&
@@ -207,11 +270,17 @@ onMounted(async () => {
     !["waiting", "failed", "aborted"].includes(latestState.status)
   ) {
     await handleSummaryAction("continue");
-  } else {
-    await loadSummary();
+    void tickSummaryPolling();
+    return;
   }
 
-  await loadRecommendationsIfNeeded();
+  if (summary.value) {
+    await loadSummary();
+  }
+});
+
+onBeforeUnmount(() => {
+  stopSummaryPolling();
 });
 </script>
 
@@ -225,7 +294,7 @@ onMounted(async () => {
         <p class="summary-kicker">汇总页</p>
         <h1 class="section-title">汇总结果与推荐论文</h1>
         <p class="section-subtitle hero-subtitle">
-          summary 页面优先读取新的 `/runs/:runId/summary`，再补充 recommendations 占位接口。
+          summary 页面优先读取新的 `/runs/:runId/summary`，再补充 recommendations。
         </p>
       </div>
 
@@ -278,7 +347,7 @@ onMounted(async () => {
           :summary="summary"
           :run-record="runRecord"
           :run-state="runState"
-          :loading="summaryLoading || actionLoading !== ''"
+          :loading="summaryLoading || actionLoading !== '' || summaryPending"
         />
 
         <RecommendationList
