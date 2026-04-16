@@ -5,7 +5,8 @@ import {
   UPLOAD_FORM_FIELDS
 } from "./apiContract";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const API_BASE_URL = resolveApiBaseUrl(RAW_API_BASE_URL);
 const PARSER_API_BASE_URL =
   import.meta.env.VITE_PARSER_API_BASE_URL || "http://127.0.0.1:8000";
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
@@ -192,8 +193,63 @@ const mockSystemRuleLibraries = [
   }
 ];
 
+function trimTrailingSlash(value) {
+  return value.endsWith("/") ? value.slice(0, -1) : value;
+}
+
+function resolveApiBaseUrl(baseUrl) {
+  if (!baseUrl) {
+    return "/api";
+  }
+
+  try {
+    const parsedUrl = new URL(baseUrl);
+
+    if (import.meta.env.DEV) {
+      return trimTrailingSlash(parsedUrl.pathname || "/api") || "/api";
+    }
+
+    return trimTrailingSlash(parsedUrl.toString());
+  } catch {
+    return trimTrailingSlash(baseUrl);
+  }
+}
+
+function formatRequestLabel(url, options = {}) {
+  const method = String(options.method || "GET").toUpperCase();
+
+  try {
+    const parsedUrl = new URL(
+      url,
+      typeof window !== "undefined" ? window.location.origin : "http://localhost"
+    );
+    return `${method} ${parsedUrl.pathname}`;
+  } catch {
+    return `${method} ${url}`;
+  }
+}
+
+function createNetworkError(url, options, cause) {
+  return createApiError({
+    message: `${formatRequestLabel(url, options)} 网络请求失败，请检查后端是否可达，或是否被 CORS/OPTIONS 预检拦截。`,
+    code: "NETWORK_ERROR",
+    status: 0,
+    data: {
+      cause: cause instanceof Error ? cause.message : String(cause ?? "")
+    }
+  });
+}
+
+async function request(url, options = {}) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throw createNetworkError(url, options, error);
+  }
+}
+
 async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await request(url, options);
 
   if (!response.ok) {
     throw new Error(`请求失败: ${response.status}`);
@@ -246,7 +302,8 @@ function createApiError({
 }
 
 async function fetchEnvelope(pathTemplate, options = {}, params = {}) {
-  const response = await fetch(buildApiUrl(pathTemplate, params), options);
+  const requestUrl = buildApiUrl(pathTemplate, params);
+  const response = await request(requestUrl, options);
 
   let payload = null;
 
