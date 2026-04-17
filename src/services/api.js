@@ -676,7 +676,8 @@ function normalizeFormatStageReview(stageName, stageStatus, stageOutput) {
   }
 
   const report = ensureArray(
-    stageOutput.report ??
+    stageOutput.violations ??
+      stageOutput.report ??
       stageOutput.audit_items ??
       stageOutput.items ??
       stageOutput.issues
@@ -726,7 +727,9 @@ function normalizeLogicStageReview(stageName, stageStatus, stageOutput) {
   }
 
   const logicAnalysis = extractLogicAnalysis(stageOutput);
-  const issues = ensureArray(logicAnalysis.issues).map(mapTask1IssueToStageIssue);
+  const issues = ensureArray(
+    logicAnalysis.issues ?? logicAnalysis.unresolved_issues
+  ).map(mapTask1IssueToStageIssue);
   const severe =
     Boolean(stageOutput.severe) ||
     issues.filter((item) => item.severity === "严重").length >= 2;
@@ -798,6 +801,64 @@ function normalizeInnovationStageReview(stageName, stageStatus, stageOutput) {
   );
 }
 
+function normalizeInnovationStageReviewV2(stageName, stageStatus, stageOutput) {
+  if (looksLikeStageReview(stageOutput)) {
+    return attachStageReviewMeta(stageOutput, stageName, stageStatus, stageOutput);
+  }
+
+  const reviewSummary = extractReviewSummaryPayload(
+    stageOutput.innovation_summary ?? stageOutput.innovationSummary ?? stageOutput
+  );
+  const violations = ensureArray(stageOutput.violations);
+  const weaknesses = ensureArray(reviewSummary.weaknesses ?? reviewSummary.issues);
+  const issues = (violations.length ? violations : weaknesses).map((item, index) =>
+    typeof item === "string"
+      ? mapSummaryWeaknessToInnovationIssue(
+          item,
+          index,
+          ensureArray(reviewSummary.nextActions ?? reviewSummary.next_actions)[index] ??
+            "Add direct evidence for the innovation claim."
+        )
+      : mapGenericIssue(item, index, stageName)
+  );
+  const overviewParts = [
+    reviewSummary.summary,
+    reviewSummary.claim_quality ? `claim_quality: ${reviewSummary.claim_quality}` : "",
+    reviewSummary.method_alignment
+      ? `method_alignment: ${reviewSummary.method_alignment}`
+      : "",
+    reviewSummary.reproducibility_risk
+      ? `reproducibility_risk: ${reviewSummary.reproducibility_risk}`
+      : ""
+  ].filter(Boolean);
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe: Boolean(stageOutput.severe),
+      headline:
+        stageOutput.headline ??
+        reviewSummary.headline ??
+        "Innovation review finished",
+      overview:
+        stageOutput.overview ??
+        (overviewParts.length ? overviewParts.join(" | ") : null) ??
+        "The innovation stage snapshot is available.",
+      issues,
+      followUpActions: ensureArray(
+        reviewSummary.nextActions ??
+          reviewSummary.next_actions ??
+          stageOutput.followUpActions ??
+          stageOutput.follow_up_actions
+      )
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
 function normalizeStageReview(stageName, payload) {
   const { stageStatus, stageOutput, raw } = extractStagePayload(payload);
 
@@ -814,7 +875,7 @@ function normalizeStageReview(stageName, payload) {
   }
 
   if (stageName === "innovation") {
-    return normalizeInnovationStageReview(stageName, stageStatus, stageOutput);
+    return normalizeInnovationStageReviewV2(stageName, stageStatus, stageOutput);
   }
 
   return attachStageReviewMeta(
@@ -1847,6 +1908,74 @@ export async function fetchRunSummary({
   );
 }
 
+export async function fetchRunSummaryRecord({
+  runId,
+  formatReview,
+  logicReview,
+  innovationReview
+}) {
+  if (!runId) {
+    throw createApiError({
+      message: "run id is required",
+      code: "RUN_NOT_FOUND",
+      status: 404
+    });
+  }
+
+  if (!USE_MOCK) {
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getSummary.path,
+      {
+        method: RUN_API_ENDPOINTS.getSummary.method
+      },
+      { runId }
+    );
+    const resultSummary = ensureObject(
+      response?.data?.result_summary ?? response?.data?.resultSummary
+    );
+    const isReady = Object.keys(resultSummary).length > 0;
+
+    return {
+      runId,
+      resultSummary,
+      isReady,
+      digest: isReady
+        ? normalizeSummaryDigest(response, {
+            formatReview,
+            logicReview,
+            innovationReview
+          })
+        : null,
+      raw: response?.data ?? null
+    };
+  }
+
+  await sleep(140);
+
+  const run = requireMockRun(runId);
+  const resultSummary = ensureObject(run.summaryPayload?.result_summary);
+  const isReady = Object.keys(resultSummary).length > 0;
+
+  return {
+    runId,
+    resultSummary,
+    isReady,
+    digest: isReady
+      ? normalizeSummaryDigest(
+          {
+            data: run.summaryPayload
+          },
+          {
+            formatReview: formatReview ?? run.stageReviews.format,
+            logicReview: logicReview ?? run.stageReviews.logic,
+            innovationReview: innovationReview ?? run.stageReviews.innovation
+          }
+        )
+      : null,
+    raw: run.summaryPayload ?? null
+  };
+}
+
 export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
   const meta = paperMeta ?? documentIr;
 
@@ -1983,6 +2112,28 @@ export async function fetchRecommendations({
     rank: index + 1,
     docId: meta?.doc_id ?? submissionId ?? runId
   }));
+}
+
+export async function fetchRecommendationsRecord({
+  runId,
+  submissionId,
+  documentIr,
+  paperMeta
+}) {
+  const items = await fetchRecommendations({
+    runId,
+    submissionId,
+    documentIr,
+    paperMeta
+  });
+
+  return {
+    runId,
+    items,
+    count: items.length,
+    implemented: true,
+    isReady: true
+  };
 }
 
 export async function fetchRecommendationDetail(paperId) {

@@ -7,10 +7,9 @@ import SummaryIssueBoard from "../components/SummaryIssueBoard.vue";
 import SummarySuggestionPanel from "../components/SummarySuggestionPanel.vue";
 import {
   countAnchorsByType,
-  fetchRecommendations,
+  fetchRecommendationsRecord,
   fetchRunState,
-  fetchRunSummary,
-  fetchStageRecord,
+  fetchRunSummaryRecord,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
@@ -25,18 +24,17 @@ import {
 } from "../stores/reviewSession";
 
 const router = useRouter();
+
 const POLL_INTERVAL_MS = 15000;
-const FINAL_STAGE_STATUSES = new Set(["completed", "skipped", "failed", "aborted"]);
 
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
-const actionLoading = ref("");
-const errorMessage = ref("");
 const summaryPending = ref(false);
-const summaryPollInFlight = ref(false);
-const summaryStageStatus = ref("");
+const summaryTriggering = ref(false);
+const pollInFlight = ref(false);
+const errorMessage = ref("");
 
-let summaryPollTimer = 0;
+let pollTimer = 0;
 
 const submission = computed(() => reviewSession.currentSubmission);
 const runRecord = computed(() => reviewSession.runRecord);
@@ -51,39 +49,6 @@ const anchorCount = computed(() => getAnchorCount(paperMeta.value));
 const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
 const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
 
-const summaryActions = computed(() => {
-  if (
-    !runState.value ||
-    runState.value.nextStage !== "summary" ||
-    summary.value ||
-    summaryPending.value ||
-    ["failed", "aborted"].includes(runState.value.status)
-  ) {
-    return [];
-  }
-
-  const allowedActions = runState.value.allowedActions?.length
-    ? runState.value.allowedActions
-    : ["continue"];
-
-  return allowedActions.map((action) => ({
-    key: action,
-    label:
-      action === "continue"
-        ? "生成汇总"
-        : action === "skip"
-          ? "跳过汇总阶段"
-          : "终止 run",
-    variant:
-      action === "continue"
-        ? "primary"
-        : action === "skip"
-          ? "secondary"
-          : "ghost",
-    disabled: Boolean(actionLoading.value)
-  }));
-});
-
 async function syncRunState() {
   if (!runRecord.value?.runId) {
     return null;
@@ -94,153 +59,116 @@ async function syncRunState() {
   return nextState;
 }
 
-function stopSummaryPolling() {
-  if (summaryPollTimer) {
-    window.clearInterval(summaryPollTimer);
-    summaryPollTimer = 0;
+function stopPolling() {
+  if (pollTimer) {
+    window.clearInterval(pollTimer);
+    pollTimer = 0;
   }
 }
 
-function startSummaryPolling() {
-  stopSummaryPolling();
-  summaryPollTimer = window.setInterval(() => {
-    void tickSummaryPolling();
+function startPolling() {
+  stopPolling();
+  pollTimer = window.setInterval(() => {
+    void tickPolling();
   }, POLL_INTERVAL_MS);
 }
 
-async function loadSummary() {
+async function tryLoadSummary() {
   if (!runRecord.value?.runId) {
-    return;
+    return false;
   }
 
-  errorMessage.value = "";
   summaryLoading.value = true;
 
   try {
-    const digest = await fetchRunSummary({
+    const record = await fetchRunSummaryRecord({
       runId: runRecord.value.runId,
       formatReview: stageReviews.value.format,
       logicReview: stageReviews.value.logic,
       innovationReview: stageReviews.value.innovation
     });
 
-    setWorkflowSummary(digest);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "汇总结果加载失败";
+    if (!record.isReady || !record.digest) {
+      return false;
+    }
+
+    setWorkflowSummary(record.digest);
+    return true;
   } finally {
     summaryLoading.value = false;
   }
 }
 
-async function loadSummaryStageRecord() {
+async function tryLoadRecommendations() {
   if (!runRecord.value?.runId) {
-    return null;
+    return false;
   }
 
-  const snapshot = await fetchStageRecord({
-    runId: runRecord.value.runId,
-    stageName: "summary"
-  });
+  recommendationLoading.value = true;
 
-  summaryStageStatus.value = snapshot.stageStatus;
-  return snapshot;
+  try {
+    const record = await fetchRecommendationsRecord({
+      runId: runRecord.value.runId,
+      submissionId: submission.value?.submissionId,
+      paperMeta: paperMeta.value
+    });
+
+    if (!record.isReady) {
+      return false;
+    }
+
+    setRecommendations(record.items);
+    return true;
+  } finally {
+    recommendationLoading.value = false;
+  }
 }
 
-async function tickSummaryPolling() {
-  if (!summaryPending.value || !runRecord.value?.runId || summaryPollInFlight.value) {
+async function tickPolling() {
+  if (!runRecord.value?.runId || pollInFlight.value) {
     return;
   }
 
-  summaryPollInFlight.value = true;
+  pollInFlight.value = true;
 
   try {
-    const snapshot = await loadSummaryStageRecord();
+    const summaryReady = await tryLoadSummary();
 
-    if (!snapshot || !FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
+    if (!summaryReady) {
       return;
     }
 
+    await tryLoadRecommendations();
+    await syncRunState();
     summaryPending.value = false;
-    const latestState = await syncRunState();
-
-    if (snapshot.stageStatus === "completed") {
-      await loadSummary();
-    }
-
-    if (latestState?.status === "completed") {
-      await loadRecommendationsIfNeeded();
-    }
+    stopPolling();
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "summary 阶段轮询失败";
+      error instanceof Error ? error.message : "汇总结果轮询失败";
   } finally {
-    summaryPollInFlight.value = false;
+    pollInFlight.value = false;
   }
 }
 
-async function handleSummaryAction(action) {
+async function triggerSummaryStage() {
   if (!runRecord.value?.runId) {
     return;
   }
 
-  errorMessage.value = "";
-  actionLoading.value = action;
+  summaryTriggering.value = true;
 
   try {
     await triggerStageExecution({
       runId: runRecord.value.runId,
       stageName: "summary",
-      action
+      action: "continue"
     });
-
-    const snapshot = await loadSummaryStageRecord();
-    const latestState = await syncRunState();
-
-    if (snapshot && FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
-      summaryPending.value = false;
-
-      if (snapshot.stageStatus === "completed") {
-        await loadSummary();
-      }
-
-      if (latestState?.status === "completed") {
-        await loadRecommendationsIfNeeded();
-      }
-      return;
+  } catch (error) {
+    if (!["RUN_STATE_CONFLICT", "STAGE_NOT_READY"].includes(error?.code ?? "")) {
+      throw error;
     }
-
-    summaryPending.value = true;
-  } catch (error) {
-    summaryPending.value = false;
-    errorMessage.value =
-      error instanceof Error ? error.message : "汇总阶段执行失败";
   } finally {
-    actionLoading.value = "";
-  }
-}
-
-async function loadRecommendationsIfNeeded() {
-  if (!submission.value || !runRecord.value?.runId || recommendations.value.length) {
-    return;
-  }
-
-  errorMessage.value = "";
-  recommendationLoading.value = true;
-
-  try {
-    const items = await fetchRecommendations({
-      runId: runRecord.value.runId,
-      submissionId: submission.value.submissionId,
-      paperMeta: paperMeta.value
-    });
-
-    setRecommendations(items);
-  } catch (error) {
-    errorMessage.value =
-      error instanceof Error ? error.message : "推荐论文获取失败";
-  } finally {
-    recommendationLoading.value = false;
+    summaryTriggering.value = false;
   }
 }
 
@@ -267,50 +195,30 @@ onMounted(async () => {
   }
 
   setCurrentStage("summary");
-  startSummaryPolling();
+  startPolling();
 
-  const latestState = await syncRunState();
-  const snapshot = await loadSummaryStageRecord();
+  try {
+    await syncRunState();
 
-  if (snapshot?.stageStatus === "completed") {
-    await loadSummary();
+    const summaryReady = await tryLoadSummary();
 
-    if (latestState?.status === "completed") {
-      await loadRecommendationsIfNeeded();
+    if (summaryReady) {
+      await tryLoadRecommendations();
+      stopPolling();
+      return;
     }
-    return;
-  }
 
-  if (
-    latestState?.nextStage === "summary" &&
-    !summary.value &&
-    !["waiting", "failed", "aborted"].includes(latestState.status) &&
-    !FINAL_STAGE_STATUSES.has(snapshot?.stageStatus ?? "")
-  ) {
-    await handleSummaryAction("continue");
-
-    if (summaryPending.value) {
-      void tickSummaryPolling();
-    }
-    return;
-  }
-
-  if (
-    latestState?.nextStage === "summary" &&
-    ["pending", "running", "in_progress", "waiting"].includes(snapshot?.stageStatus ?? "")
-  ) {
     summaryPending.value = true;
-    void tickSummaryPolling();
-    return;
-  }
-
-  if (latestState?.status === "completed") {
-    await loadRecommendationsIfNeeded();
+    await triggerSummaryStage();
+    void tickPolling();
+  } catch (error) {
+    errorMessage.value =
+      error instanceof Error ? error.message : "汇总阶段启动失败";
   }
 });
 
 onBeforeUnmount(() => {
-  stopSummaryPolling();
+  stopPolling();
 });
 </script>
 
@@ -324,7 +232,8 @@ onBeforeUnmount(() => {
         <p class="summary-kicker">汇总页</p>
         <h1 class="section-title">汇总结果与推荐论文</h1>
         <p class="section-subtitle hero-subtitle">
-          页面先轮询 `GET /runs/:runId/stages/summary`，确认 summary 阶段完成后，再读取 `/summary` 和 `/recommendations`。
+          进入页面后会自动触发 `POST /runs/{run_id}/stages/summary`，随后轮询
+          `GET /summary` 和 `GET /recommendations`。
         </p>
       </div>
 
@@ -335,9 +244,6 @@ onBeforeUnmount(() => {
         <span class="pill pill-neutral">图 {{ figureCount }}</span>
         <span class="pill pill-neutral">表 {{ tableCount }}</span>
         <span v-if="runState" class="pill pill-neutral">run: {{ runState.status }}</span>
-        <span v-if="summaryStageStatus" class="pill pill-neutral">
-          summary_stage: {{ summaryStageStatus }}
-        </span>
       </div>
     </header>
 
@@ -348,26 +254,14 @@ onBeforeUnmount(() => {
       :summary-ready="Boolean(summary)"
     />
 
-    <div v-if="summaryActions.length" class="action-banner glass-card">
-      <strong>summary 阶段尚未执行完成</strong>
-      <div class="action-row">
-        <button
-          v-for="action in summaryActions"
-          :key="action.key"
-          :class="
-            action.variant === 'ghost'
-              ? 'ghost-button'
-              : action.variant === 'secondary'
-                ? 'secondary-button'
-                : 'primary-button'
-          "
-          type="button"
-          :disabled="action.disabled"
-          @click="handleSummaryAction(action.key)"
-        >
-          {{ action.label }}
-        </button>
-      </div>
+    <div
+      v-if="summaryPending || summaryTriggering"
+      class="action-banner glass-card"
+    >
+      <strong>正在生成汇总与推荐结果</strong>
+      <span class="summary-note">
+        后端较慢时会持续轮询，直到 `/summary` 返回非空结果为止。
+      </span>
     </div>
 
     <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
@@ -380,12 +274,12 @@ onBeforeUnmount(() => {
           :summary="summary"
           :run-record="runRecord"
           :run-state="runState"
-          :loading="summaryLoading || actionLoading !== '' || summaryPending"
+          :loading="summaryLoading || summaryPending || summaryTriggering"
         />
 
         <RecommendationList
           :recommendations="recommendations"
-          :loading="recommendationLoading"
+          :loading="recommendationLoading || summaryPending || summaryTriggering"
           collapsible
           :default-expanded="false"
           @select="openRecommendation"
@@ -428,8 +322,7 @@ onBeforeUnmount(() => {
   max-width: 760px;
 }
 
-.hero-pills,
-.action-row {
+.hero-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
@@ -438,7 +331,12 @@ onBeforeUnmount(() => {
 .action-banner {
   padding: 18px 20px;
   display: grid;
-  gap: 14px;
+  gap: 10px;
+}
+
+.summary-note {
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .summary-layout {

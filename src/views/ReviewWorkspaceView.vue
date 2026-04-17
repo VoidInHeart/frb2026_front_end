@@ -25,8 +25,16 @@ import {
 } from "../stores/reviewSession";
 
 const router = useRouter();
+
 const POLL_INTERVAL_MS = 15000;
-const FINAL_STAGE_STATUSES = new Set(["completed", "skipped", "failed", "aborted"]);
+const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
+const FINAL_STAGE_STATUSES = new Set([
+  "complete",
+  "completed",
+  "skipped",
+  "failed",
+  "aborted"
+]);
 
 const loadingStage = ref("");
 const actionInFlight = ref("");
@@ -55,7 +63,7 @@ const stageMetaMap = {
   },
   innovation: {
     kicker: "阶段三",
-    title: "方法与创新点审查"
+    title: "创新性审查"
   }
 };
 
@@ -65,8 +73,7 @@ const runState = computed(() => reviewSession.runState);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
 const currentStageDisplayed = computed(
-  () =>
-    reviewSession.workflow.currentStageDisplayed ?? reviewSession.workflow.currentStage
+  () => reviewSession.workflow.currentStageDisplayed ?? reviewSession.workflow.currentStage
 );
 
 const showImages = computed({
@@ -119,6 +126,10 @@ const stagePanelLoading = computed(
     loadingStage.value === visibleStage.value || pollingStage.value === visibleStage.value
 );
 
+const stateCompleted = computed(() =>
+  ["complete", "completed"].includes(runState.value?.status ?? "")
+);
+
 const statusText = computed(() => {
   if (visibleStageStatus.value) {
     return visibleStageStatus.value;
@@ -128,17 +139,13 @@ const statusText = computed(() => {
     return "";
   }
 
-  if (runState.value.status === "waiting") {
-    return `waiting -> ${runState.value.nextStage}`;
-  }
-
   return runState.value.status;
 });
 
 const decisionActions = computed(() => {
   if (
     !activeStageResult.value ||
-    loadingStage.value ||
+    stagePanelLoading.value ||
     actionInFlight.value ||
     decisionInFlight.value ||
     ["failed", "aborted"].includes(runState.value?.status ?? "") ||
@@ -149,8 +156,8 @@ const decisionActions = computed(() => {
 
   return [
     {
-      key: "abort",
-      label: "跳过后续阶段审查",
+      key: "jump_summary",
+      label: "跳过后续审查阶段",
       variant: "ghost",
       disabled: false
     },
@@ -158,13 +165,13 @@ const decisionActions = computed(() => {
       key: "skip",
       label: "跳过下一阶段审查",
       variant: "secondary",
-      disabled: false
+      disabled: stateCompleted.value
     },
     {
       key: "continue",
       label: "继续下一阶段审查",
       variant: "primary",
-      disabled: false
+      disabled: stateCompleted.value
     }
   ];
 });
@@ -179,6 +186,48 @@ function refreshSummarySnapshot() {
   );
 }
 
+function isFinalStageStatus(status) {
+  return FINAL_STAGE_STATUSES.has(status ?? "");
+}
+
+function hasObjectContent(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+    ? Object.keys(value).length > 0
+    : false;
+}
+
+function hasReadyStageSnapshot(snapshot) {
+  if (!snapshot) {
+    return false;
+  }
+
+  if (snapshot.review) {
+    return true;
+  }
+
+  if (snapshot.stageStatus === "skipped") {
+    return true;
+  }
+
+  return hasObjectContent(snapshot.stageOutput);
+}
+
+function getStateStageStatus(state, stageKey) {
+  return (
+    state?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? ""
+  );
+}
+
+function getNextReviewStage(stageKey) {
+  const index = REVIEW_STAGE_ORDER.indexOf(stageKey);
+
+  if (index === -1 || index === REVIEW_STAGE_ORDER.length - 1) {
+    return "summary";
+  }
+
+  return REVIEW_STAGE_ORDER[index + 1];
+}
+
 function setDisplayedStageStatus(stageKey, status = "") {
   if (!stageKey) {
     return;
@@ -188,28 +237,6 @@ function setDisplayedStageStatus(stageKey, status = "") {
     ...displayedStageStatuses.value,
     [stageKey]: status
   };
-}
-
-function getSequentialNextStage(stageKey) {
-  if (stageKey === "format") {
-    return "logic";
-  }
-
-  if (stageKey === "logic") {
-    return "innovation";
-  }
-
-  return "summary";
-}
-
-function resolveUpcomingStage(state = runState.value, fallbackStage = visibleStage.value) {
-  const nextStage = state?.nextStage;
-
-  if (nextStage && nextStage !== fallbackStage) {
-    return nextStage;
-  }
-
-  return getSequentialNextStage(fallbackStage);
 }
 
 async function syncRunState() {
@@ -236,24 +263,40 @@ function startStagePolling() {
   }, POLL_INTERVAL_MS);
 }
 
-async function loadStageSnapshot(stageKey) {
-  if (!runRecord.value?.runId) {
-    return null;
-  }
-
-  const snapshot = await fetchStageRecord({
-    runId: runRecord.value.runId,
-    stageName: stageKey
-  });
-
+function applyStageSnapshot(stageKey, snapshot) {
   setDisplayedStageStatus(stageKey, snapshot.stageStatus);
 
   if (snapshot.review && stageKey in stageReviews.value) {
     setStageReview(stageKey, snapshot.review);
     refreshSummarySnapshot();
   }
+}
 
-  return snapshot;
+async function tryFetchStageSnapshot(stageKey) {
+  try {
+    const snapshot = await fetchStageRecord({
+      runId: runRecord.value.runId,
+      stageName: stageKey
+    });
+
+    applyStageSnapshot(stageKey, snapshot);
+
+    return {
+      snapshot,
+      stageNotReady: false,
+      ready: hasReadyStageSnapshot(snapshot)
+    };
+  } catch (error) {
+    if (error?.code === "STAGE_NOT_READY") {
+      return {
+        snapshot: null,
+        stageNotReady: true,
+        ready: false
+      };
+    }
+
+    throw error;
+  }
 }
 
 async function tickStagePolling() {
@@ -266,20 +309,21 @@ async function tickStagePolling() {
   stagePollInFlight.value = true;
 
   try {
-    const snapshot = await loadStageSnapshot(stageKey);
+    const result = await tryFetchStageSnapshot(stageKey);
 
-    if (!snapshot) {
+    if (result.stageNotReady) {
       return;
     }
 
-    if (FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
-      if (pollingStage.value === stageKey) {
-        pollingStage.value = "";
-      }
+    if (result.ready) {
+      pollingStage.value = "";
+      await syncRunState();
+      return;
+    }
 
-      if (["failed", "aborted"].includes(snapshot.stageStatus)) {
-        await syncRunState();
-      }
+    if (result.snapshot && isFinalStageStatus(result.snapshot.stageStatus)) {
+      pollingStage.value = "";
+      await syncRunState();
     }
   } catch (error) {
     errorMessage.value =
@@ -289,44 +333,9 @@ async function tickStagePolling() {
   }
 }
 
-async function ensureStageReady(stageKey) {
-  if (stageReviews.value[stageKey]) {
-    setDisplayedStageStatus(
-      stageKey,
-      stageReviews.value[stageKey]?.stageStatus ?? "completed"
-    );
-    return stageReviews.value[stageKey];
-  }
-
-  const latestState = await syncRunState();
-  const stageStatus =
-    latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
-
-  setDisplayedStageStatus(stageKey, stageStatus);
-
-  if (["completed", "skipped"].includes(stageStatus)) {
-    const snapshot = await loadStageSnapshot(stageKey);
-    return snapshot?.review ?? null;
-  }
-
-  if (["running", "in_progress", "waiting"].includes(stageStatus)) {
-    pollingStage.value = stageKey;
-    return null;
-  }
-
-  if (
-    latestState?.nextStage === stageKey &&
-    !["failed", "aborted", "completed"].includes(latestState.status)
-  ) {
-    return performStageAction("continue", stageKey);
-  }
-
-  return null;
-}
-
-async function performStageAction(action, stageKey = visibleStage.value) {
+async function triggerStage(stageKey, action = "continue") {
   if (!runRecord.value?.runId) {
-    return null;
+    return;
   }
 
   errorMessage.value = "";
@@ -335,85 +344,93 @@ async function performStageAction(action, stageKey = visibleStage.value) {
   loadingStage.value = stageKey;
 
   try {
-    const immediateResult = await triggerStageExecution({
+    await triggerStageExecution({
       runId: runRecord.value.runId,
       stageName: stageKey,
       action
     });
-    const latestState = await syncRunState();
-    const stageStatus =
-      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
 
-    setDisplayedStageStatus(
-      stageKey,
-      immediateResult?.stageStatus ?? stageStatus
-    );
-
-    if (action === "abort") {
-      if (pollingStage.value === stageKey) {
-        pollingStage.value = "";
-      }
-      pageMessage.value = "当前 run 已终止。";
-      return null;
-    }
-
-    let result = immediateResult;
-
-    if (!result && FINAL_STAGE_STATUSES.has(stageStatus)) {
-      const snapshot = await loadStageSnapshot(stageKey);
-      result = snapshot?.review ?? null;
-    }
-
-    if (result) {
-      if (pollingStage.value === stageKey) {
-        pollingStage.value = "";
-      }
-      setStageReview(stageKey, result);
-      refreshSummarySnapshot();
-      pageMessage.value =
-        result.stageStatus === "skipped"
-          ? `${result.stageLabel}已跳过。`
-          : `${result.stageLabel}已完成。`;
-    } else if (["pending", "running", "in_progress", "waiting"].includes(stageStatus)) {
-      pollingStage.value = stageKey;
-    } else if (pollingStage.value === stageKey) {
-      pollingStage.value = "";
-    }
-
-    return result;
+    setDisplayedStageStatus(stageKey, "running");
+    pollingStage.value = stageKey;
+    void tickStagePolling();
   } catch (error) {
     if (error?.code === "STAGE_NOT_READY") {
       const latestState = await syncRunState();
-      const stageStatus =
-        latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+      const stageStatus = getStateStageStatus(latestState, stageKey);
 
       setDisplayedStageStatus(stageKey, stageStatus);
-      if (["running", "in_progress", "waiting"].includes(stageStatus)) {
-        pollingStage.value = stageKey;
-      }
-      pageMessage.value = "当前阶段尚未就绪，已同步最新 workflow state。";
-      return null;
+      pollingStage.value = stageKey;
+      pageMessage.value = "当前阶段尚未就绪，继续等待阶段快照。";
+      void tickStagePolling();
+      return;
     }
 
     errorMessage.value =
-      error instanceof Error ? error.message : "阶段结果加载失败";
-    return null;
+      error instanceof Error ? error.message : "阶段触发失败";
   } finally {
     loadingStage.value = "";
     actionInFlight.value = "";
   }
 }
 
-async function openStage(stageKey) {
+async function ensureDisplayedStage(stageKey, { autoStart = false, action = "continue" } = {}) {
+  if (!runRecord.value?.runId || !stageKey || stageKey === "summary") {
+    return;
+  }
+
+  if (stageReviews.value[stageKey]) {
+    setDisplayedStageStatus(
+      stageKey,
+      stageReviews.value[stageKey]?.stageStatus ?? "completed"
+    );
+    await syncRunState();
+    return;
+  }
+
+  const latestState = await syncRunState();
+  const stateStageStatus = getStateStageStatus(latestState, stageKey);
+
+  if (stateStageStatus) {
+    setDisplayedStageStatus(stageKey, stateStageStatus);
+  }
+
+  const snapshotResult = await tryFetchStageSnapshot(stageKey);
+
+  if (snapshotResult.ready) {
+    await syncRunState();
+    return;
+  }
+
+  if (
+    snapshotResult.stageNotReady ||
+    ["running", "in_progress", "waiting"].includes(stateStageStatus)
+  ) {
+    pollingStage.value = stageKey;
+    void tickStagePolling();
+    return;
+  }
+
+  if (
+    autoStart &&
+    (latestState?.nextStage === stageKey ||
+      ["pending", "created", ""].includes(stateStageStatus))
+  ) {
+    await triggerStage(stageKey, action);
+  }
+}
+
+async function openStage(stageKey, action = "continue") {
   if (!stageKey || stageKey === "summary") {
     setCurrentStage("summary");
-    refreshSummarySnapshot();
     await router.push({ name: "summary" });
     return;
   }
 
   setCurrentStage(stageKey);
-  await ensureStageReady(stageKey);
+  await ensureDisplayedStage(stageKey, {
+    autoStart: true,
+    action
+  });
 }
 
 async function handleDecisionAction(action) {
@@ -426,58 +443,31 @@ async function handleDecisionAction(action) {
   decisionInFlight.value = action;
 
   try {
-    let latestState = await syncRunState();
-    const upcomingStage = resolveUpcomingStage(latestState);
+    if (action === "jump_summary") {
+      pageMessage.value = "正在进入汇总阶段。";
+      await openStage("summary");
+      return;
+    }
 
-    if (action === "abort") {
-      if (upcomingStage && upcomingStage !== "summary") {
-        await triggerStageExecution({
-          runId: runRecord.value.runId,
-          stageName: upcomingStage,
-          action: "abort"
-        });
-        latestState = await syncRunState();
-      }
+    const nextStage = getNextReviewStage(currentStageDisplayed.value);
 
-      pageMessage.value = "已跳过后续阶段审查，正在进入汇总。";
+    if (!nextStage || nextStage === "summary") {
+      pageMessage.value = "正在进入汇总阶段。";
       await openStage("summary");
       return;
     }
 
     if (action === "skip") {
-      if (!upcomingStage || upcomingStage === "summary") {
-        pageMessage.value = "下一步已收束到汇总。";
-        await openStage("summary");
-        return;
-      }
-
-      await performStageAction("skip", upcomingStage);
-      latestState = await syncRunState();
-
-      const targetStage = resolveUpcomingStage(latestState, upcomingStage);
-
-      if (!targetStage || targetStage === "summary") {
-        pageMessage.value = "已跳过下一阶段审查，正在进入汇总。";
-        await openStage("summary");
-        return;
-      }
-
-      pageMessage.value = `已跳过${stageMetaMap[upcomingStage]?.title ?? upcomingStage}，正在进入下一阶段。`;
-      await openStage(targetStage);
+      pageMessage.value = `正在跳过${stageMetaMap[nextStage]?.title ?? nextStage}。`;
+      await openStage(nextStage, "skip");
       return;
     }
 
-    if (!upcomingStage || upcomingStage === "summary") {
-      pageMessage.value = "正在进入汇总。";
-      await openStage("summary");
-      return;
-    }
-
-    pageMessage.value = `正在进入${stageMetaMap[upcomingStage]?.title ?? upcomingStage}。`;
-    await openStage(upcomingStage);
+    pageMessage.value = `正在进入${stageMetaMap[nextStage]?.title ?? nextStage}。`;
+    await openStage(nextStage, "continue");
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "阶段决策执行失败";
+      error instanceof Error ? error.message : "阶段切换失败";
   } finally {
     decisionInFlight.value = "";
   }
@@ -494,20 +484,17 @@ onMounted(async () => {
     return;
   }
 
-  const latestState = await syncRunState();
-  const nextStage =
-    latestState?.nextStage ?? currentStageDisplayed.value ?? reviewSession.workflow.currentStage ?? "format";
+  const initialStage =
+    currentStageDisplayed.value && currentStageDisplayed.value !== "summary"
+      ? currentStageDisplayed.value
+      : "format";
 
-  if (currentStageDisplayed.value !== "summary") {
-    setCurrentStage(nextStage);
-  }
-
+  setCurrentStage(initialStage);
   startStagePolling();
-  await ensureStageReady(visibleStage.value);
-
-  if (pollingStage.value) {
-    void tickStagePolling();
-  }
+  await ensureDisplayedStage(initialStage, {
+    autoStart: true,
+    action: "continue"
+  });
 });
 
 onBeforeUnmount(() => {
@@ -521,9 +508,10 @@ onBeforeUnmount(() => {
       <div class="hero-top">
         <div class="hero-copy">
           <p class="summary-kicker">分阶段审查工作区</p>
-          <h1 class="section-title">统一 run/state/stage 协议工作流</h1>
+          <h1 class="section-title">按阶段快照驱动的审查流程</h1>
           <p class="section-subtitle hero-subtitle">
-            `state` 只负责描述 workflow 指针和允许动作；当前页面真正展示的阶段结果，统一从阶段快照接口读取。
+            当前页面展示哪个阶段，就只请求哪个 `GET /runs/{run_id}/stages/{stage_name}`。
+            `GET /state` 只在拿到阶段结果后用来更新整体 workflow 状态和按钮可用性。
           </p>
         </div>
 
