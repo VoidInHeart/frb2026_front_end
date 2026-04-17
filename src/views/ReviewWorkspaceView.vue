@@ -8,7 +8,7 @@ import {
   buildReviewDigest,
   countAnchorsByType,
   fetchRunState,
-  fetchStageSnapshot,
+  fetchStageRecord,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
@@ -26,6 +26,7 @@ import {
 
 const router = useRouter();
 const POLL_INTERVAL_MS = 15000;
+const FINAL_STAGE_STATUSES = new Set(["completed", "skipped", "failed", "aborted"]);
 
 const loadingStage = ref("");
 const actionInFlight = ref("");
@@ -34,6 +35,12 @@ const errorMessage = ref("");
 const pageMessage = ref("");
 const pollingStage = ref("");
 const stagePollInFlight = ref(false);
+const displayedStageStatuses = ref({
+  format: "",
+  logic: "",
+  innovation: "",
+  summary: ""
+});
 
 let stagePollTimer = 0;
 
@@ -57,6 +64,10 @@ const runRecord = computed(() => reviewSession.runRecord);
 const runState = computed(() => reviewSession.runState);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
+const currentStageDisplayed = computed(
+  () =>
+    reviewSession.workflow.currentStageDisplayed ?? reviewSession.workflow.currentStage
+);
 
 const showImages = computed({
   get: () => reviewSession.preferences.showImages,
@@ -82,9 +93,9 @@ const lastCompletedStage = computed(() => {
 });
 
 const visibleStage = computed(() =>
-  reviewSession.workflow.currentStage === "summary"
+  currentStageDisplayed.value === "summary"
     ? lastCompletedStage.value
-    : reviewSession.workflow.currentStage
+    : currentStageDisplayed.value
 );
 
 const activeStageMeta = computed(
@@ -97,8 +108,10 @@ const activeStageResult = computed(
 
 const visibleStageStatus = computed(
   () =>
+    displayedStageStatuses.value[visibleStage.value] ||
     runState.value?.stageRuns?.find((item) => item.stageName === visibleStage.value)
-      ?.status ?? ""
+      ?.status ||
+    ""
 );
 
 const stagePanelLoading = computed(
@@ -107,6 +120,10 @@ const stagePanelLoading = computed(
 );
 
 const statusText = computed(() => {
+  if (visibleStageStatus.value) {
+    return visibleStageStatus.value;
+  }
+
   if (!runState.value) {
     return "";
   }
@@ -115,7 +132,7 @@ const statusText = computed(() => {
     return `waiting -> ${runState.value.nextStage}`;
   }
 
-  return visibleStageStatus.value || runState.value.status;
+  return runState.value.status;
 });
 
 const decisionActions = computed(() => {
@@ -125,7 +142,7 @@ const decisionActions = computed(() => {
     actionInFlight.value ||
     decisionInFlight.value ||
     ["failed", "aborted"].includes(runState.value?.status ?? "") ||
-    reviewSession.workflow.currentStage === "summary"
+    currentStageDisplayed.value === "summary"
   ) {
     return [];
   }
@@ -160,6 +177,17 @@ function refreshSummarySnapshot() {
       innovationReview: stageReviews.value.innovation
     })
   );
+}
+
+function setDisplayedStageStatus(stageKey, status = "") {
+  if (!stageKey) {
+    return;
+  }
+
+  displayedStageStatuses.value = {
+    ...displayedStageStatuses.value,
+    [stageKey]: status
+  };
 }
 
 function getSequentialNextStage(stageKey) {
@@ -213,17 +241,19 @@ async function loadStageSnapshot(stageKey) {
     return null;
   }
 
-  const result = await fetchStageSnapshot({
+  const snapshot = await fetchStageRecord({
     runId: runRecord.value.runId,
     stageName: stageKey
   });
 
-  if (stageKey in stageReviews.value) {
-    setStageReview(stageKey, result);
+  setDisplayedStageStatus(stageKey, snapshot.stageStatus);
+
+  if (snapshot.review && stageKey in stageReviews.value) {
+    setStageReview(stageKey, snapshot.review);
     refreshSummarySnapshot();
   }
 
-  return result;
+  return snapshot;
 }
 
 async function tickStagePolling() {
@@ -236,25 +266,19 @@ async function tickStagePolling() {
   stagePollInFlight.value = true;
 
   try {
-    const latestState = await syncRunState();
-    const stageStatus =
-      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+    const snapshot = await loadStageSnapshot(stageKey);
 
-    if (["completed", "skipped"].includes(stageStatus)) {
-      await loadStageSnapshot(stageKey);
-
-      if (pollingStage.value === stageKey) {
-        pollingStage.value = "";
-      }
+    if (!snapshot) {
       return;
     }
 
-    if (
-      ["failed", "aborted"].includes(stageStatus) ||
-      ["failed", "aborted"].includes(latestState?.status ?? "")
-    ) {
+    if (FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
       if (pollingStage.value === stageKey) {
         pollingStage.value = "";
+      }
+
+      if (["failed", "aborted"].includes(snapshot.stageStatus)) {
+        await syncRunState();
       }
     }
   } catch (error) {
@@ -267,6 +291,10 @@ async function tickStagePolling() {
 
 async function ensureStageReady(stageKey) {
   if (stageReviews.value[stageKey]) {
+    setDisplayedStageStatus(
+      stageKey,
+      stageReviews.value[stageKey]?.stageStatus ?? "completed"
+    );
     return stageReviews.value[stageKey];
   }
 
@@ -274,11 +302,14 @@ async function ensureStageReady(stageKey) {
   const stageStatus =
     latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
 
+  setDisplayedStageStatus(stageKey, stageStatus);
+
   if (["completed", "skipped"].includes(stageStatus)) {
-    return loadStageSnapshot(stageKey);
+    const snapshot = await loadStageSnapshot(stageKey);
+    return snapshot?.review ?? null;
   }
 
-  if (["running", "in_progress"].includes(stageStatus)) {
+  if (["running", "in_progress", "waiting"].includes(stageStatus)) {
     pollingStage.value = stageKey;
     return null;
   }
@@ -310,6 +341,13 @@ async function performStageAction(action, stageKey = visibleStage.value) {
       action
     });
     const latestState = await syncRunState();
+    const stageStatus =
+      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
+
+    setDisplayedStageStatus(
+      stageKey,
+      immediateResult?.stageStatus ?? stageStatus
+    );
 
     if (action === "abort") {
       if (pollingStage.value === stageKey) {
@@ -320,11 +358,10 @@ async function performStageAction(action, stageKey = visibleStage.value) {
     }
 
     let result = immediateResult;
-    const stageStatus =
-      latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
 
-    if (!result && ["completed", "skipped"].includes(stageStatus)) {
-      result = await loadStageSnapshot(stageKey);
+    if (!result && FINAL_STAGE_STATUSES.has(stageStatus)) {
+      const snapshot = await loadStageSnapshot(stageKey);
+      result = snapshot?.review ?? null;
     }
 
     if (result) {
@@ -337,7 +374,7 @@ async function performStageAction(action, stageKey = visibleStage.value) {
         result.stageStatus === "skipped"
           ? `${result.stageLabel}已跳过。`
           : `${result.stageLabel}已完成。`;
-    } else if (["running", "in_progress"].includes(stageStatus)) {
+    } else if (["pending", "running", "in_progress", "waiting"].includes(stageStatus)) {
       pollingStage.value = stageKey;
     } else if (pollingStage.value === stageKey) {
       pollingStage.value = "";
@@ -350,10 +387,11 @@ async function performStageAction(action, stageKey = visibleStage.value) {
       const stageStatus =
         latestState?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? "";
 
-      if (["running", "in_progress"].includes(stageStatus)) {
+      setDisplayedStageStatus(stageKey, stageStatus);
+      if (["running", "in_progress", "waiting"].includes(stageStatus)) {
         pollingStage.value = stageKey;
       }
-      pageMessage.value = "当前阶段尚未就绪，已同步最新 run state。";
+      pageMessage.value = "当前阶段尚未就绪，已同步最新 workflow state。";
       return null;
     }
 
@@ -457,15 +495,19 @@ onMounted(async () => {
   }
 
   const latestState = await syncRunState();
-  const nextStage = latestState?.nextStage ?? reviewSession.workflow.currentStage ?? "format";
+  const nextStage =
+    latestState?.nextStage ?? currentStageDisplayed.value ?? reviewSession.workflow.currentStage ?? "format";
 
-  if (reviewSession.workflow.currentStage !== "summary") {
+  if (currentStageDisplayed.value !== "summary") {
     setCurrentStage(nextStage);
   }
 
   startStagePolling();
   await ensureStageReady(visibleStage.value);
-  void tickStagePolling();
+
+  if (pollingStage.value) {
+    void tickStagePolling();
+  }
 });
 
 onBeforeUnmount(() => {
@@ -481,7 +523,7 @@ onBeforeUnmount(() => {
           <p class="summary-kicker">分阶段审查工作区</p>
           <h1 class="section-title">统一 run/state/stage 协议工作流</h1>
           <p class="section-subtitle hero-subtitle">
-            左侧保持论文正文，右侧跟随后端 run state 展示当前允许阶段的结果或可执行动作。
+            `state` 只负责描述 workflow 指针和允许动作；当前页面真正展示的阶段结果，统一从阶段快照接口读取。
           </p>
         </div>
 
@@ -506,7 +548,7 @@ onBeforeUnmount(() => {
     </header>
 
     <ReviewStageTracker
-      :active-stage="reviewSession.workflow.currentStage"
+      :active-stage="currentStageDisplayed"
       :reviews="stageReviews"
       :run-state="runState"
       :summary-ready="Boolean(reviewSession.workflow.summary)"

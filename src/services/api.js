@@ -835,6 +835,23 @@ function normalizeStageReview(stageName, payload) {
   );
 }
 
+function normalizeStageSnapshotRecord(stageName, payload) {
+  const { stageStatus, stageOutput, raw } = extractStagePayload(payload);
+
+  return {
+    stageName,
+    stageStatus,
+    stageOutput,
+    review:
+      stageName !== "summary" &&
+      (["completed", "skipped"].includes(stageStatus) ||
+        stageOutput.available === false)
+        ? normalizeStageReview(stageName, payload)
+        : null,
+    raw
+  };
+}
+
 function mergeSuggestionCards(...groups) {
   const suggestionMap = new Map();
 
@@ -1495,6 +1512,25 @@ export async function fetchStageSnapshot({ runId, stageName }) {
     });
   }
 
+  const snapshot = await fetchStageRecord({
+    runId,
+    stageName: normalizedStageName
+  });
+
+  return snapshot.review;
+}
+
+export async function fetchStageRecord({ runId, stageName }) {
+  const normalizedStageName = coerceStageName(stageName, null);
+
+  if (!runId || !normalizedStageName) {
+    throw createApiError({
+      message: "stage snapshot request is invalid",
+      code: "STAGE_INVALID",
+      status: 400
+    });
+  }
+
   if (!USE_MOCK) {
     const response = await fetchEnvelope(
       RUN_API_ENDPOINTS.getStage.path,
@@ -1507,7 +1543,7 @@ export async function fetchStageSnapshot({ runId, stageName }) {
       }
     );
 
-    return normalizeStageReview(normalizedStageName, response);
+    return normalizeStageSnapshotRecord(normalizedStageName, response);
   }
 
   await sleep(100);
@@ -1515,7 +1551,7 @@ export async function fetchStageSnapshot({ runId, stageName }) {
   const run = requireMockRun(runId);
 
   if (normalizedStageName === "summary" && run.summaryPayload) {
-    return normalizeStageReview(normalizedStageName, {
+    return normalizeStageSnapshotRecord(normalizedStageName, {
       data: {
         stage_name: normalizedStageName,
         stage_status: "completed",
@@ -1526,15 +1562,23 @@ export async function fetchStageSnapshot({ runId, stageName }) {
 
   const review = run.stageReviews[normalizedStageName];
 
-  if (!review) {
-    throw createApiError({
-      message: "stage snapshot not found",
-      code: "RUN_NOT_FOUND",
-      status: 404
-    });
+  if (review) {
+    return {
+      stageName: normalizedStageName,
+      stageStatus: review.stageStatus ?? "completed",
+      stageOutput: review.rawData ?? {},
+      review,
+      raw: review.rawData ?? null
+    };
   }
 
-  return review;
+  return {
+    stageName: normalizedStageName,
+    stageStatus: getStageRunStatus(run.state, normalizedStageName),
+    stageOutput: {},
+    review: null,
+    raw: null
+  };
 }
 
 export async function triggerStageExecution({

@@ -14,6 +14,7 @@ const DEFAULT_STAGE = "format";
 function createWorkflowState() {
   return {
     currentStage: DEFAULT_STAGE,
+    currentStageDisplayed: DEFAULT_STAGE,
     reviews: {
       format: null,
       logic: null,
@@ -120,6 +121,7 @@ export function setCurrentStage(stage) {
   }
 
   reviewSession.workflow.currentStage = stage;
+  reviewSession.workflow.currentStageDisplayed = stage;
 }
 
 export function setStageReview(stage, payload) {

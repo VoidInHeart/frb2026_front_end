@@ -10,6 +10,7 @@ import {
   fetchRecommendations,
   fetchRunState,
   fetchRunSummary,
+  fetchStageRecord,
   getAnchorCount,
   getPageCount,
   getPaperMeta,
@@ -25,6 +26,7 @@ import {
 
 const router = useRouter();
 const POLL_INTERVAL_MS = 15000;
+const FINAL_STAGE_STATUSES = new Set(["completed", "skipped", "failed", "aborted"]);
 
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
@@ -32,6 +34,7 @@ const actionLoading = ref("");
 const errorMessage = ref("");
 const summaryPending = ref(false);
 const summaryPollInFlight = ref(false);
+const summaryStageStatus = ref("");
 
 let summaryPollTimer = 0;
 
@@ -130,6 +133,20 @@ async function loadSummary() {
   }
 }
 
+async function loadSummaryStageRecord() {
+  if (!runRecord.value?.runId) {
+    return null;
+  }
+
+  const snapshot = await fetchStageRecord({
+    runId: runRecord.value.runId,
+    stageName: "summary"
+  });
+
+  summaryStageStatus.value = snapshot.stageStatus;
+  return snapshot;
+}
+
 async function tickSummaryPolling() {
   if (!summaryPending.value || !runRecord.value?.runId || summaryPollInFlight.value) {
     return;
@@ -138,21 +155,25 @@ async function tickSummaryPolling() {
   summaryPollInFlight.value = true;
 
   try {
-    const latestState = await syncRunState();
+    const snapshot = await loadSummaryStageRecord();
 
-    if (latestState?.status === "completed") {
-      summaryPending.value = false;
-      await loadSummary();
-      await loadRecommendationsIfNeeded();
+    if (!snapshot || !FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
       return;
     }
 
-    if (["failed", "aborted"].includes(latestState?.status ?? "")) {
-      summaryPending.value = false;
+    summaryPending.value = false;
+    const latestState = await syncRunState();
+
+    if (snapshot.stageStatus === "completed") {
+      await loadSummary();
+    }
+
+    if (latestState?.status === "completed") {
+      await loadRecommendationsIfNeeded();
     }
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "summary 轮询失败";
+      error instanceof Error ? error.message : "summary 阶段轮询失败";
   } finally {
     summaryPollInFlight.value = false;
   }
@@ -173,17 +194,19 @@ async function handleSummaryAction(action) {
       action
     });
 
+    const snapshot = await loadSummaryStageRecord();
     const latestState = await syncRunState();
 
-    if (latestState?.status === "completed") {
+    if (snapshot && FINAL_STAGE_STATUSES.has(snapshot.stageStatus)) {
       summaryPending.value = false;
-      await loadSummary();
-      await loadRecommendationsIfNeeded();
-      return;
-    }
 
-    if (["failed", "aborted"].includes(latestState?.status ?? "")) {
-      summaryPending.value = false;
+      if (snapshot.stageStatus === "completed") {
+        await loadSummary();
+      }
+
+      if (latestState?.status === "completed") {
+        await loadRecommendationsIfNeeded();
+      }
       return;
     }
 
@@ -247,35 +270,42 @@ onMounted(async () => {
   startSummaryPolling();
 
   const latestState = await syncRunState();
+  const snapshot = await loadSummaryStageRecord();
 
-  if (latestState?.status === "completed") {
+  if (snapshot?.stageStatus === "completed") {
     await loadSummary();
-    await loadRecommendationsIfNeeded();
+
+    if (latestState?.status === "completed") {
+      await loadRecommendationsIfNeeded();
+    }
     return;
   }
 
   if (
     latestState?.nextStage === "summary" &&
     !summary.value &&
-    ["running", "in_progress"].includes(latestState.status)
+    !["waiting", "failed", "aborted"].includes(latestState.status) &&
+    !FINAL_STAGE_STATUSES.has(snapshot?.stageStatus ?? "")
+  ) {
+    await handleSummaryAction("continue");
+
+    if (summaryPending.value) {
+      void tickSummaryPolling();
+    }
+    return;
+  }
+
+  if (
+    latestState?.nextStage === "summary" &&
+    ["pending", "running", "in_progress", "waiting"].includes(snapshot?.stageStatus ?? "")
   ) {
     summaryPending.value = true;
     void tickSummaryPolling();
     return;
   }
 
-  if (
-    latestState?.nextStage === "summary" &&
-    !summary.value &&
-    !["waiting", "failed", "aborted"].includes(latestState.status)
-  ) {
-    await handleSummaryAction("continue");
-    void tickSummaryPolling();
-    return;
-  }
-
-  if (summary.value) {
-    await loadSummary();
+  if (latestState?.status === "completed") {
+    await loadRecommendationsIfNeeded();
   }
 });
 
@@ -294,7 +324,7 @@ onBeforeUnmount(() => {
         <p class="summary-kicker">汇总页</p>
         <h1 class="section-title">汇总结果与推荐论文</h1>
         <p class="section-subtitle hero-subtitle">
-          summary 页面优先读取新的 `/runs/:runId/summary`，再补充 recommendations。
+          页面先轮询 `GET /runs/:runId/stages/summary`，确认 summary 阶段完成后，再读取 `/summary` 和 `/recommendations`。
         </p>
       </div>
 
@@ -305,6 +335,9 @@ onBeforeUnmount(() => {
         <span class="pill pill-neutral">图 {{ figureCount }}</span>
         <span class="pill pill-neutral">表 {{ tableCount }}</span>
         <span v-if="runState" class="pill pill-neutral">run: {{ runState.status }}</span>
+        <span v-if="summaryStageStatus" class="pill pill-neutral">
+          summary_stage: {{ summaryStageStatus }}
+        </span>
       </div>
     </header>
 
