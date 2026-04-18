@@ -26,7 +26,10 @@ async function loadDetail() {
     const response = await fetchRecommendationDetail(paperId.value);
 
     if (!response) {
-      throw new Error("没有找到这篇推荐论文的详情。");
+      if (!summaryItem.value) {
+        throw new Error("当前未找到这篇推荐论文的详情。");
+      }
+      return;
     }
 
     setRecommendationDetail(paperId.value, response);
@@ -42,7 +45,7 @@ function backToSummary() {
 }
 
 function openSourceLink() {
-  const sourceLink = detail.value?.link;
+  const sourceLink = detail.value?.link || summaryItem.value?.link || summaryItem.value?.url;
 
   if (!sourceLink || sourceLink === "#") {
     return;
@@ -70,7 +73,7 @@ onMounted(async () => {
           {{ detail?.title || summaryItem?.title || "推荐论文详情" }}
         </h1>
         <p class="section-subtitle">
-          这里保留原有详情阅读能力，用来查看推荐论文的摘要、相关性分析和可借鉴点。
+          这里保留推荐论文的摘要、相关性说明和可借鉴点，方便你快速判断是否值得纳入相关工作。
         </p>
       </div>
 
@@ -117,7 +120,7 @@ onMounted(async () => {
           <p class="summary-kicker">摘要</p>
           <h2 class="section-title">Abstract</h2>
           <p class="content-text">
-            {{ detail?.abstract || "当前接口暂未返回摘要内容。" }}
+            {{ detail?.abstract || summaryItem?.abstract || "当前接口暂未返回摘要内容。" }}
           </p>
         </article>
 
@@ -127,6 +130,7 @@ onMounted(async () => {
           <p class="content-text">
             {{
               detail?.relevanceAnalysis ||
+              summaryItem?.relevanceAnalysis ||
               summaryItem?.reason ||
               "当前接口暂未返回相关性说明。"
             }}
@@ -138,10 +142,18 @@ onMounted(async () => {
         <p class="summary-kicker">可借鉴点</p>
         <h2 class="section-title">Key Takeaways</h2>
         <ul class="takeaway-list">
-          <li v-for="item in detail?.keyTakeaways || []" :key="item">{{ item }}</li>
+          <li
+            v-for="item in detail?.keyTakeaways || summaryItem?.keyTakeaways || []"
+            :key="item"
+          >
+            {{ item }}
+          </li>
         </ul>
 
-        <div v-if="detail?.link && detail.link !== '#'" class="detail-actions">
+        <div
+          v-if="(detail?.link || summaryItem?.link || summaryItem?.url) && (detail?.link || summaryItem?.link || summaryItem?.url) !== '#'"
+          class="detail-actions"
+        >
           <button class="secondary-button" type="button" @click="openSourceLink">
             打开原文链接
           </button>

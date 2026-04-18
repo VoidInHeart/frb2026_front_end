@@ -12,8 +12,7 @@ import {
   fetchRunSummaryRecord,
   getAnchorCount,
   getPageCount,
-  getPaperMeta,
-  triggerStageExecution
+  getPaperMeta
 } from "../services/api";
 import {
   reviewSession,
@@ -30,7 +29,7 @@ const POLL_INTERVAL_MS = 15000;
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
 const summaryPending = ref(false);
-const summaryTriggering = ref(false);
+const recommendationPending = ref(false);
 const pollInFlight = ref(false);
 const errorMessage = ref("");
 
@@ -48,6 +47,16 @@ const pageCount = computed(() => getPageCount(paperMeta.value));
 const anchorCount = computed(() => getAnchorCount(paperMeta.value));
 const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
 const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
+
+const bannerTitle = computed(() =>
+  summaryPending.value ? "正在生成汇总结果" : "正在生成推荐论文"
+);
+
+const bannerNote = computed(() =>
+  summaryPending.value
+    ? "主任务尚未产出最终汇总，页面会持续轮询 /summary。"
+    : "主任务已经完成，推荐论文正在后台异步生成，页面会持续轮询 /recommendations。"
+);
 
 async function syncRunState() {
   if (!runRecord.value?.runId) {
@@ -133,42 +142,26 @@ async function tickPolling() {
 
   try {
     const summaryReady = await tryLoadSummary();
+    await syncRunState();
 
     if (!summaryReady) {
+      summaryPending.value = true;
+      recommendationPending.value = false;
       return;
     }
 
-    await tryLoadRecommendations();
-    await syncRunState();
     summaryPending.value = false;
-    stopPolling();
+    const recommendationsReady = await tryLoadRecommendations();
+    recommendationPending.value = !recommendationsReady;
+
+    if (recommendationsReady) {
+      stopPolling();
+    }
   } catch (error) {
     errorMessage.value =
       error instanceof Error ? error.message : "汇总结果轮询失败";
   } finally {
     pollInFlight.value = false;
-  }
-}
-
-async function triggerSummaryStage() {
-  if (!runRecord.value?.runId) {
-    return;
-  }
-
-  summaryTriggering.value = true;
-
-  try {
-    await triggerStageExecution({
-      runId: runRecord.value.runId,
-      stageName: "summary",
-      action: "continue"
-    });
-  } catch (error) {
-    if (!["RUN_STATE_CONFLICT", "STAGE_NOT_READY"].includes(error?.code ?? "")) {
-      throw error;
-    }
-  } finally {
-    summaryTriggering.value = false;
   }
 }
 
@@ -201,19 +194,22 @@ onMounted(async () => {
     await syncRunState();
 
     const summaryReady = await tryLoadSummary();
-
     if (summaryReady) {
-      await tryLoadRecommendations();
-      stopPolling();
+      summaryPending.value = false;
+      const recommendationsReady = await tryLoadRecommendations();
+      recommendationPending.value = !recommendationsReady;
+      if (recommendationsReady) {
+        stopPolling();
+      }
       return;
     }
 
     summaryPending.value = true;
-    await triggerSummaryStage();
+    recommendationPending.value = false;
     void tickPolling();
   } catch (error) {
     errorMessage.value =
-      error instanceof Error ? error.message : "汇总阶段启动失败";
+      error instanceof Error ? error.message : "汇总阶段初始化失败";
   }
 });
 
@@ -230,10 +226,10 @@ onBeforeUnmount(() => {
           返回审查工作区
         </button>
         <p class="summary-kicker">汇总页</p>
-        <h1 class="section-title">汇总结果与推荐论文</h1>
+        <h1 class="section-title">汇总结论与推荐论文</h1>
         <p class="section-subtitle hero-subtitle">
-          进入页面后会自动触发 `POST /runs/{run_id}/stages/summary`，随后轮询
-          `GET /summary` 和 `GET /recommendations`。
+          页面会自动轮询 `GET /summary` 和 `GET /recommendations`。
+          当前后端会先完成主任务，再在后台异步生成推荐论文。
         </p>
       </div>
 
@@ -255,13 +251,11 @@ onBeforeUnmount(() => {
     />
 
     <div
-      v-if="summaryPending || summaryTriggering"
+      v-if="summaryPending || recommendationPending"
       class="action-banner glass-card"
     >
-      <strong>正在生成汇总与推荐结果</strong>
-      <span class="summary-note">
-        后端较慢时会持续轮询，直到 `/summary` 返回非空结果为止。
-      </span>
+      <strong>{{ bannerTitle }}</strong>
+      <span class="summary-note">{{ bannerNote }}</span>
     </div>
 
     <div v-if="errorMessage" class="error-banner">{{ errorMessage }}</div>
@@ -274,12 +268,12 @@ onBeforeUnmount(() => {
           :summary="summary"
           :run-record="runRecord"
           :run-state="runState"
-          :loading="summaryLoading || summaryPending || summaryTriggering"
+          :loading="summaryLoading || summaryPending"
         />
 
         <RecommendationList
           :recommendations="recommendations"
-          :loading="recommendationLoading || summaryPending || summaryTriggering"
+          :loading="recommendationLoading || summaryPending || recommendationPending"
           collapsible
           :default-expanded="false"
           @select="openRecommendation"

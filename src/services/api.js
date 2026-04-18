@@ -2072,6 +2072,125 @@ export async function runRuleBasedAudit({ paperMarkdown, documentIr, paperMeta }
   return buildMockTask2Audit().report;
 }
 
+function slugifyRecommendationId(value, fallback = "recommended-paper") {
+  const seed = String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return seed || fallback;
+}
+
+function normalizeRecommendationKeywords(rawKeywords, query = "") {
+  const keywords = [];
+  const pushKeyword = (value) => {
+    const text = String(value ?? "").trim();
+
+    if (!text || keywords.includes(text)) {
+      return;
+    }
+
+    keywords.push(text);
+  };
+
+  if (Array.isArray(rawKeywords)) {
+    rawKeywords.forEach(pushKeyword);
+  } else if (typeof rawKeywords === "string") {
+    rawKeywords
+      .split(/[,;，；]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach(pushKeyword);
+  }
+
+  String(query ?? "")
+    .split(/[\s,;，；:/()]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 3)
+    .slice(0, 5)
+    .forEach(pushKeyword);
+
+  return keywords.slice(0, 5);
+}
+
+function buildRecommendationReason(item) {
+  const reason =
+    item.reason ??
+    item.relevance_analysis ??
+    item.relevanceAnalysis ??
+    "";
+  const reasonText = String(reason ?? "").trim();
+
+  if (reasonText) {
+    return reasonText;
+  }
+
+  const snippet = String(item.snippet ?? item.abstract ?? "").trim();
+  const query = String(item.query ?? "").trim();
+  const source = String(item.source ?? "").trim() || "外部检索";
+
+  if (snippet) {
+    return snippet;
+  }
+
+  if (query) {
+    return `基于检索词“${query}”从 ${source} 命中，建议作为相关工作参考。`;
+  }
+
+  return `该推荐项来自 ${source}，当前未返回更详细的推荐理由。`;
+}
+
+function normalizeRecommendationItem(item, index) {
+  const data = ensureObject(item);
+  const title = data.title ?? `推荐论文 ${index + 1}`;
+  const url = data.url ?? data.link ?? "";
+  const authors = Array.isArray(data.authors)
+    ? data.authors.map((one) => String(one ?? "").trim()).filter(Boolean).join(", ")
+    : String(data.authors_text ?? data.authors ?? "").trim();
+  const venue = String(data.venue ?? data.source ?? "").trim();
+  const relevanceScoreRaw =
+    data.relevanceScore ?? data.relevance_score ?? data.score ?? null;
+  const citationCount = Number(
+    data.citationCount ?? data.citation_count ?? 0
+  );
+  const abstractText = String(data.abstract ?? data.snippet ?? "").trim();
+  const queryText = String(data.query ?? "").trim();
+  const reason = buildRecommendationReason(data);
+  const keywords = normalizeRecommendationKeywords(data.keywords, queryText);
+  const keyTakeaways = ensureArray(data.key_takeaways ?? data.keyTakeaways);
+  const normalizedRelevanceScore = Number(relevanceScoreRaw);
+
+  return {
+    ...data,
+    id:
+      data.id ??
+      slugifyRecommendationId(url || title, `recommended-paper-${index + 1}`),
+    title,
+    authors,
+    year: data.year ?? "",
+    venue: venue || "外部检索",
+    relevanceScore: Number.isFinite(normalizedRelevanceScore)
+      ? normalizedRelevanceScore
+      : null,
+    citationCount: Number.isFinite(citationCount) ? citationCount : 0,
+    reason,
+    keywords,
+    abstract: abstractText,
+    relevanceAnalysis:
+      String(data.relevanceAnalysis ?? data.relevance_analysis ?? "").trim() ||
+      reason,
+    keyTakeaways:
+      keyTakeaways.length > 0
+        ? keyTakeaways
+        : [queryText ? `命中查询：${queryText}` : "该推荐项来自外部论文检索结果。"],
+    link: String(data.link ?? url ?? "").trim(),
+    url: String(url ?? "").trim(),
+    rank: data.rank ?? index + 1
+  };
+}
+
 export async function fetchRecommendations({
   runId,
   submissionId,
@@ -2099,10 +2218,7 @@ export async function fetchRecommendations({
     const data = ensureObject(response?.data);
     const items = ensureArray(data.items);
 
-    return items.map((item, index) => ({
-      ...item,
-      rank: item.rank ?? index + 1
-    }));
+    return items.map((item, index) => normalizeRecommendationItem(item, index));
   }
 
   await sleep(260);
@@ -2120,6 +2236,47 @@ export async function fetchRecommendationsRecord({
   documentIr,
   paperMeta
 }) {
+  if (!USE_MOCK) {
+    if (!runId) {
+      throw createApiError({
+        message: "run id is required",
+        code: "RUN_NOT_FOUND",
+        status: 404
+      });
+    }
+
+    const response = await fetchEnvelope(
+      RUN_API_ENDPOINTS.getRecommendations.path,
+      {
+        method: RUN_API_ENDPOINTS.getRecommendations.method
+      },
+      { runId }
+    );
+    const data = ensureObject(response?.data);
+    const items = ensureArray(data.items).map((item, index) =>
+      normalizeRecommendationItem(item, index)
+    );
+    const stageStatus = String(
+      data.stage_status ?? data.stageStatus ?? "pending"
+    ).trim() || "pending";
+    const readyFlag = data.ready ?? data.is_ready ?? data.isReady;
+    const isReady =
+      typeof readyFlag === "boolean"
+        ? readyFlag
+        : ["completed", "failed", "skipped"].includes(stageStatus);
+
+    return {
+      runId,
+      items,
+      count: Number(data.count ?? items.length) || items.length,
+      implemented: data.implemented !== false,
+      isReady,
+      stageStatus,
+      runStatus: String(data.run_status ?? data.runStatus ?? "").trim(),
+      raw: data
+    };
+  }
+
   const items = await fetchRecommendations({
     runId,
     submissionId,
@@ -2132,15 +2289,31 @@ export async function fetchRecommendationsRecord({
     items,
     count: items.length,
     implemented: true,
-    isReady: true
+    isReady: true,
+    stageStatus: "completed",
+    runStatus: "",
+    raw: null
   };
 }
 
 export async function fetchRecommendationDetail(paperId) {
   if (!USE_MOCK) {
-    return fetchJson(
-      `${API_BASE_URL}${APP_API_ENDPOINTS.getRecommendationDetail.path.replace(":paperId", paperId)}`
-    );
+    try {
+      const response = await fetchJson(
+        `${API_BASE_URL}${APP_API_ENDPOINTS.getRecommendationDetail.path.replace(":paperId", paperId)}`
+      );
+
+      return response ? normalizeRecommendationItem(response, 0) : null;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /404|not found/i.test(String(error.message ?? ""))
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   await new Promise((resolve) => window.setTimeout(resolve, 220));

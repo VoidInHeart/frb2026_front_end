@@ -52,6 +52,18 @@ function toggleExpanded() {
 function openRecommendation(paper) {
   emit("select", paper);
 }
+
+function getMetaBadge(paper) {
+  if (paper?.relevanceScore != null) {
+    return `相关度 ${paper.relevanceScore}`;
+  }
+
+  if (paper?.citationCount) {
+    return `引用 ${paper.citationCount}`;
+  }
+
+  return "外部检索";
+}
 </script>
 
 <template>
@@ -61,7 +73,7 @@ function openRecommendation(paper) {
         <p class="summary-kicker">推荐论文</p>
         <h2 class="section-title">相关论文列表</h2>
         <p v-if="collapsible && !expanded" class="collapsed-copy">
-          推荐模块默认折叠，按需展开后再进入详情页。
+          推荐模块默认折叠，展开后可查看推荐理由并进入详情页。
         </p>
       </div>
 
@@ -87,7 +99,7 @@ function openRecommendation(paper) {
     <div v-else-if="recommendations.length" class="recommendation-list">
       <article
         v-for="paper in recommendations"
-        :key="paper.id"
+        :key="paper.id || paper.url || paper.title"
         class="recommendation-card"
       >
         <div class="recommendation-rank">
@@ -96,16 +108,21 @@ function openRecommendation(paper) {
 
         <div class="recommendation-body">
           <div class="recommendation-meta">
-            <span class="pill pill-primary">{{ paper.venue }} {{ paper.year }}</span>
-            <span class="pill pill-neutral">相关度 {{ paper.relevanceScore }}</span>
+            <span class="pill pill-primary">
+              {{ paper.venue || paper.source || "外部检索" }}
+              {{ paper.year || "" }}
+            </span>
+            <span class="pill pill-neutral">{{ getMetaBadge(paper) }}</span>
           </div>
 
           <h3>{{ paper.title }}</h3>
-          <p class="recommendation-authors">{{ paper.authors }}</p>
-          <p class="recommendation-reason">{{ paper.reason }}</p>
+          <p class="recommendation-authors">{{ paper.authors || "作者信息暂缺" }}</p>
+          <p class="recommendation-reason">
+            {{ paper.reason || paper.abstract || "当前推荐项暂未返回详细推荐理由。" }}
+          </p>
 
           <div class="recommendation-tags">
-            <span v-for="keyword in paper.keywords" :key="keyword" class="tag">
+            <span v-for="keyword in paper.keywords || []" :key="keyword" class="tag">
               {{ keyword }}
             </span>
           </div>
@@ -123,9 +140,7 @@ function openRecommendation(paper) {
       </article>
     </div>
 
-    <div v-else class="empty-state">
-      当前还没有推荐论文结果。
-    </div>
+    <div v-else class="empty-state">当前还没有推荐论文结果。</div>
   </section>
 </template>
 
