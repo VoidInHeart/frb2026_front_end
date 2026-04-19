@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "dev:parser": "cd paper-review-system && python -m paper_review_system.web_api",
+    "dev:docling:parser": "cd docling-parser-service && python -m docling_parser_service.app",
     "dev:all": "python scripts/dev_orchestrator.py",
+    "dev:all:docling": "python scripts/dev_orchestrator.py --parser docling",
     "build": "vite build",
     "preview": "vite preview"
   },
