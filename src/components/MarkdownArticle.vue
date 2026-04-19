@@ -185,6 +185,42 @@ const renderedHtml = computed(() =>
   margin-top: 8px;
 }
 
+.markdown-preview :deep(.math-block) {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 39, 64, 0.12);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(247, 250, 253, 0.96), rgba(240, 245, 250, 0.92));
+}
+
+.markdown-preview :deep(.math-block-label) {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b6886;
+}
+
+.markdown-preview :deep(.math-block-body) {
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: transparent;
+  border: 0;
+}
+
+.markdown-preview :deep(.math-block-body code) {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  font-size: 0.96em;
+  line-height: 1.7;
+}
+
 .article-frame-dark {
   color: #d7e3f1;
 }
@@ -205,5 +241,14 @@ const renderedHtml = computed(() =>
 .article-frame-dark :deep(blockquote) {
   color: #b2c0d0;
   border-left-color: rgba(124, 195, 255, 0.35);
+}
+
+.article-frame-dark :deep(.math-block) {
+  border-color: rgba(124, 195, 255, 0.18);
+  background: linear-gradient(180deg, rgba(19, 32, 46, 0.94), rgba(13, 24, 36, 0.92));
+}
+
+.article-frame-dark :deep(.math-block-label) {
+  color: #8cccfb;
 }
 </style>
