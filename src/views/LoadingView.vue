@@ -84,7 +84,7 @@ const statusTitle = computed(() => {
   }
 
   if (phase.value === "ready") {
-    return "准备进入审查工作区";
+    return "准备进入解析预览工作区";
   }
 
   return "正在准备任务";
@@ -138,7 +138,7 @@ const phaseItems = computed(() => [
   },
   {
     key: "ready",
-    title: "进入审查工作区",
+    title: "进入解析预览工作区",
     description: "run_id 与初始 run state 已就绪"
   }
 ]);
@@ -221,7 +221,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
       "这一阶段主要生成 paper.md 与 paper_meta.json。",
-      "解析完成后会自动创建新的 review run。"
+      "解析完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
     ]);
     return;
   }
@@ -235,7 +235,7 @@ function updatePhase(nextPhase) {
   }
 
   if (nextPhase === "ready") {
-    playDetailLoop(["run_id 与初始 state 已就绪，正在进入审查工作区。"]);
+    playDetailLoop(["run_id 与初始 state 已就绪，正在进入解析预览工作区。"]);
     return;
   }
 

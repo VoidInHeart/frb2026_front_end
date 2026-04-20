@@ -176,6 +176,40 @@ const decisionActions = computed(() => {
   ];
 });
 
+const footerAction = computed(() => {
+  if (
+    !runReady.value ||
+    currentStageDisplayed.value === "summary" ||
+    activeStageResult.value ||
+    stagePanelLoading.value ||
+    actionInFlight.value ||
+    decisionInFlight.value ||
+    ["failed", "aborted"].includes(runState.value?.status ?? "")
+  ) {
+    return null;
+  }
+
+  const visibleStatus = visibleStageStatus.value || "";
+  const nextStage = runState.value?.nextStage ?? "";
+  const allowedStatuses = ["", "pending", "created"];
+
+  if (!allowedStatuses.includes(visibleStatus)) {
+    return null;
+  }
+
+  if (nextStage && nextStage !== visibleStage.value) {
+    return null;
+  }
+
+  return {
+    label:
+      visibleStage.value === "format"
+        ? "开始第一阶段审查"
+        : `开始${activeStageMeta.value.title}`,
+    disabled: false
+  };
+});
+
 function refreshSummarySnapshot() {
   setWorkflowSummary(
     buildReviewDigest({
@@ -473,6 +507,16 @@ async function handleDecisionAction(action) {
   }
 }
 
+async function handleFooterAction() {
+  if (!visibleStage.value || visibleStage.value === "summary") {
+    return;
+  }
+
+  errorMessage.value = "";
+  pageMessage.value = `正在启动${activeStageMeta.value.title}。`;
+  await triggerStage(visibleStage.value, "continue");
+}
+
 function restartReview() {
   clearSession();
   router.push({ name: "upload" });
@@ -492,7 +536,7 @@ onMounted(async () => {
   setCurrentStage(initialStage);
   startStagePolling();
   await ensureDisplayedStage(initialStage, {
-    autoStart: true,
+    autoStart: false,
     action: "continue"
   });
 });
@@ -586,8 +630,10 @@ onBeforeUnmount(() => {
         :result="activeStageResult"
         :loading="stagePanelLoading"
         :actions="decisionActions"
+        :footer-action="footerAction"
         :status-text="statusText"
         @action="handleDecisionAction"
+        @footer="handleFooterAction"
       />
     </section>
   </section>

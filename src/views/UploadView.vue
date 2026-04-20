@@ -212,7 +212,7 @@ async function startReview(options = {}) {
           :disabled="loading"
           @click="startReview()"
         >
-          {{ loading ? "正在提交..." : "提交并进入格式审查" }}
+          {{ loading ? "正在提交..." : "提交并进入解析预览" }}
         </button>
 
         <button

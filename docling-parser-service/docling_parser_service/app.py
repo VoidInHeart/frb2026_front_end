@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import shutil
@@ -8,6 +9,7 @@ from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -19,6 +21,7 @@ RUNS_ROOT = PROJECT_ROOT / "outputs" / "api_runs"
 
 HOST = os.getenv("DOCLING_PARSER_HOST", "127.0.0.1").strip() or "127.0.0.1"
 PORT = int(os.getenv("DOCLING_PARSER_PORT", "8010") or "8010")
+CONVERSION_SEMAPHORE = asyncio.Semaphore(1)
 
 app = FastAPI(title="Docling Parser Service", version="0.1.0")
 app.add_middleware(
@@ -91,7 +94,8 @@ async def parse_paper(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     try:
-        result = converter.convert_pdf(uploaded_pdf_path, output_root)
+        async with CONVERSION_SEMAPHORE:
+            result = await run_in_threadpool(converter.convert_pdf, uploaded_pdf_path, output_root)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Docling conversion failed: {exc}") from exc
 

@@ -45,6 +45,12 @@ function getSeverityClass(severity) {
             <div class="issue-tag-row">
               <span class="issue-stage-tag">{{ issue.stageLabel }}</span>
               <span class="issue-location">{{ issue.location }}</span>
+              <span v-if="issue.ruleLabel || issue.ruleId" class="issue-rule-tag">
+                {{ issue.ruleLabel || issue.ruleId }}
+              </span>
+              <span v-if="issue.ruleLabel && issue.ruleId" class="issue-rule-id">
+                {{ issue.ruleId }}
+              </span>
             </div>
             <h3>{{ issue.title }}</h3>
           </div>
@@ -138,7 +144,9 @@ function getSeverityClass(severity) {
 }
 
 .issue-stage-tag,
-.issue-location {
+.issue-location,
+.issue-rule-tag,
+.issue-rule-id {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
@@ -154,6 +162,16 @@ function getSeverityClass(severity) {
 }
 
 .issue-location {
+  background: rgba(95, 108, 123, 0.08);
+  color: var(--muted);
+}
+
+.issue-rule-tag {
+  background: rgba(19, 63, 103, 0.08);
+  color: var(--primary);
+}
+
+.issue-rule-id {
   background: rgba(95, 108, 123, 0.08);
   color: var(--muted);
 }

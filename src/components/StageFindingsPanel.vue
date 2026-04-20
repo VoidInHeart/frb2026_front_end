@@ -100,6 +100,14 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
                 <h3>{{ issue.title }}</h3>
                 <span class="finding-location">{{ issue.location }}</span>
               </div>
+              <div v-if="issue.ruleLabel || issue.ruleId" class="finding-meta-row">
+                <span class="finding-rule-tag">
+                  {{ issue.ruleLabel || issue.ruleId }}
+                </span>
+                <span v-if="issue.ruleLabel && issue.ruleId" class="finding-rule-id">
+                  {{ issue.ruleId }}
+                </span>
+              </div>
             </div>
             <span class="severity-badge" :class="getSeverityClass(issue.severity)">
               {{ issue.severity }}
@@ -219,6 +227,34 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   background: rgba(255, 255, 255, 0.68);
   display: grid;
   gap: 12px;
+}
+
+.finding-meta-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.finding-rule-tag,
+.finding-rule-id {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.finding-rule-tag {
+  background: rgba(19, 63, 103, 0.08);
+  color: var(--primary);
+}
+
+.finding-rule-id {
+  background: rgba(95, 108, 123, 0.08);
+  color: var(--muted);
 }
 
 .finding-head {

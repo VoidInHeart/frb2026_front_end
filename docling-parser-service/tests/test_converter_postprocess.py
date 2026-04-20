@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+import unittest
+
+from docling_parser_service.converter import _postprocess_markdown
+
+
+class ConverterPostprocessTests(unittest.TestCase):
+    def test_explicit_blank_lines_are_preserved(self) -> None:
+        markdown = """## 1.3.2 仓库级代码智能任务
+第一行没有句号 仍然属于同一段
+
+另一段重新开始 也应继续保留
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("第一行没有句号仍然属于同一段", processed)
+        self.assertIn("\n\n另一段重新开始也应继续保留\n", processed)
+
+    def test_chapter_intro_stays_with_chapter_heading(self) -> None:
+        markdown = """## 第二章 仓库级增量代码生成相关理论与技术
+这是第二章的引言段。
+## 2.1 仓库级增量代码生成
+这里是 2.1 的正文。
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("## 第二章 仓库级增量代码生成相关理论与技术\n这是第二章的引言段。", processed)
+        self.assertIn("## 2.1 仓库级增量代码生成\n这里是 2.1 的正文。", processed)
+
+    def test_first_child_body_chapter_intro_is_hoisted_back_to_chapter(self) -> None:
+        markdown = """## 第二章 仓库级增量代码生成相关理论与技术
+## 2.1 仓库级增量代码生成
+这是一段应回到第二章标题下的章节引导，本章将进行详细介绍。
+
+这里是 2.1 的正文。
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn(
+            "## 第二章 仓库级增量代码生成相关理论与技术\n这是一段应回到第二章标题下的章节引导，本章将进行详细介绍。",
+            processed,
+        )
+        self.assertIn("## 2.1 仓库级增量代码生成\n这里是 2.1 的正文。", processed)
+        self.assertEqual(processed.count("本章将进行详细介绍。"), 1)
+
+    def test_table_block_gets_trailing_blank_line(self) -> None:
+        markdown = """## 3.2.2 程序员推理路径数据标注
+表 2 初始 RPU 集合分类
+| 类别 | RPU 名称 |
+| --- | --- |
+| A | B |
+表后正文
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("| A | B |\n\n表后正文", processed)
+
+    def test_image_block_gets_trailing_blank_line(self) -> None:
+        markdown = """## 2.2.5 AI Agent 技术
+图 4 AI Agent 结构示意图
+![Image](assets/example.png)
+图后正文
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("![Image](assets/example.png)\n\n图后正文", processed)
+
+    def test_adjacent_plain_text_lines_become_distinct_paragraphs(self) -> None:
+        markdown = """## 2.2.1 代码生成模型
+第一段内容。
+第二段内容。
+第三段内容。
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("第一段内容。\n\n第二段内容。\n\n第三段内容。", processed)
+
+    def test_algorithm_like_headings_are_demoted_into_body(self) -> None:
+        markdown = """## 3.2.5 推理图 GoR 合成
+本节导语。
+## 算法：GoR
+错误! 未找到引用源。
+## Synthesis
+输入: 数据集
+## 输出：GoR G
+10. return G
+## 表 3 CodeBrain 推理过程算法伪代码
+## 4.1 CodeBrain 整体流程
+这里是后续章节。
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("表 3 CodeBrain 推理过程算法伪代码", processed)
+        self.assertIn("算法：GoR", processed)
+        self.assertIn("Synthesis", processed)
+        self.assertIn("输出：GoR G", processed)
+        self.assertNotIn("\n## 算法：GoR\n", processed)
+        self.assertNotIn("\n## Synthesis\n", processed)
+        self.assertNotIn("\n## 输出：GoR G\n", processed)
+        self.assertNotIn("\n## 表 3 CodeBrain 推理过程算法伪代码\n", processed)
+        self.assertIn("## 4.1 CodeBrain 整体流程\n这里是后续章节。", processed)
+
+    def test_feature_analysis_fragment_is_repaired(self) -> None:
+        markdown = """## 4.2.2 功能分析智能体
+Structure  Feature 。该过程基于 LLM 实现，通过设计提示模板将输入的新功能需求转化为包含关键信息的结构化需求形式。
+
+实现。首先提取需求中提取与实现新功能相
+
+Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链接；然后基于网络请求接口提取相关内容；最后由 LLM 关的内容。
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("Structure Feature 。该过程基于 LLM 实现", processed)
+        self.assertIn(
+            "Analyse Webpage Content 。该过程基于网络请求接口与 LLM 实现。首先提取需求中的网页链接；然后基于网络请求接口提取相关内容；最后由 LLM 提取与实现新功能相关的内容。",
+            processed,
+        )
+        self.assertNotIn("实现。首先提取需求中提取与实现新功能相", processed)
+        self.assertNotIn("该过程基于网络请求接口与 LLM 的网页链接", processed)
+
+    def test_duplicate_sibling_section_numbers_are_renumbered(self) -> None:
+        markdown = """## 4.2 各组件设计说明
+## 4.2.1 决策智能体
+决策正文
+## 4.2.1 功能分析智能体
+功能分析正文
+## 4.2.1 代码定位智能体
+代码定位正文
+"""
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("## 4.2.1 决策智能体", processed)
+        self.assertIn("## 4.2.2 功能分析智能体", processed)
+        self.assertIn("## 4.2.3 代码定位智能体", processed)
+
+
+if __name__ == "__main__":
+    unittest.main()
