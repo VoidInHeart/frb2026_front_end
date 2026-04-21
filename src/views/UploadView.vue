@@ -1,5 +1,5 @@
 <script setup>
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { stagePendingUpload } from "../stores/pendingUpload";
 import { clearSession } from "../stores/reviewSession";
@@ -22,6 +22,14 @@ const dragOverField = reactive({
 });
 
 const demoAvailable = import.meta.env.VITE_USE_MOCK !== "false";
+const hasAdvancedArtifacts = computed(
+  () => Boolean(form.markdownFile && form.documentIrFile)
+);
+const primarySubmitLabel = computed(() =>
+  hasAdvancedArtifacts.value && !form.paperFile
+    ? "直接提交 paper bundle"
+    : "提交并进入解析预览"
+);
 
 function handleFileChange(event, field) {
   const [file] = event.target.files ?? [];
@@ -48,10 +56,11 @@ function handleDrop(event, field) {
 }
 
 async function startReview(options = {}) {
-  const { useDemo = false, mockProfile = "default" } = options;
-  const hasAdvancedArtifacts = form.markdownFile && form.documentIrFile;
+  const { useDemo = false, mockProfile = "default", preferArtifacts = false } = options;
+  const useArtifactMode =
+    !useDemo && (preferArtifacts || (!form.paperFile && hasAdvancedArtifacts.value));
 
-  if (!useDemo && !form.paperFile && !hasAdvancedArtifacts) {
+  if (!useDemo && !form.paperFile && !hasAdvancedArtifacts.value) {
     errorMessage.value =
       "请上传 PDF，或在高级导入中同时提供 `paper.md` 与 `paper_meta.json`。";
     return;
@@ -64,7 +73,7 @@ async function startReview(options = {}) {
     clearSession();
     stagePendingUpload({
       useDemo,
-      paperFile: useDemo ? null : form.paperFile,
+      paperFile: useDemo || useArtifactMode ? null : form.paperFile,
       markdownFile: useDemo ? null : form.markdownFile,
       documentIrFile: useDemo ? null : form.documentIrFile,
       imageBaseUrl: useDemo ? "/mock" : form.imageBaseUrl,
@@ -110,9 +119,9 @@ async function startReview(options = {}) {
     <section class="form-panel glass-card">
       <div>
         <p class="summary-kicker">上传入口</p>
-        <h2 class="section-title">上传 PDF 论文</h2>
+        <h2 class="section-title">上传 PDF 或直接提交 Paper Bundle</h2>
         <p class="section-subtitle">
-          默认以 PDF 为主入口；如果你已经拿到了 `paper.md` 和 `paper_meta.json`，也可以在下方高级导入中直接复用。
+          默认可以上传 PDF；如果你已经拿到了 `paper.md` 和 `paper_meta.json`，也可以在下方直接提交 `paper_bundle`，跳过解析接口。
         </p>
       </div>
 
@@ -141,6 +150,9 @@ async function startReview(options = {}) {
 
       <details class="advanced-block">
         <summary>高级导入</summary>
+        <p class="field-hint advanced-direct-hint">
+          同时提供 `paper.md` 和 `paper_meta.json` 后，可以直接提交 `paper bundle` 到后端 `/api/runs`，不会再先调用 `/api/papers/parse`。
+        </p>
 
         <div class="advanced-grid">
           <div
@@ -210,9 +222,19 @@ async function startReview(options = {}) {
           class="primary-button"
           type="button"
           :disabled="loading"
-          @click="startReview()"
+          @click="startReview({ preferArtifacts: hasAdvancedArtifacts && !form.paperFile })"
         >
-          {{ loading ? "正在提交..." : "提交并进入解析预览" }}
+          {{ loading ? "正在提交..." : primarySubmitLabel }}
+        </button>
+
+        <button
+          v-if="hasAdvancedArtifacts && form.paperFile"
+          class="ghost-button"
+          type="button"
+          :disabled="loading"
+          @click="startReview({ preferArtifacts: true })"
+        >
+          直接提交 paper bundle
         </button>
 
         <button
@@ -380,6 +402,10 @@ async function startReview(options = {}) {
   cursor: pointer;
   font-weight: 700;
   color: var(--primary);
+}
+
+.advanced-direct-hint {
+  margin: 0;
 }
 
 .advanced-grid {

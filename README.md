@@ -57,7 +57,7 @@ VITE_PARSER_API_BASE_URL=http://127.0.0.1:8000
 - `VITE_USE_MOCK=true` 时，上传页仍可走真实解析，但审查 run、汇总和推荐列表使用 mock 数据。
 - `VITE_USE_MOCK=false` 时，前端切到真实的 `/api/runs` 运行态工作流。
 - `VITE_USE_LOCAL_PARSER=true` 时，上传 PDF 会优先调用本仓库内置的解析接口 `http://127.0.0.1:8000/papers/parse`。
-- `VITE_USE_LOCAL_PARSER=false` 时，PDF 上传和高级导入都会走业务后端的 `POST /api/papers/parse`。
+- `VITE_USE_LOCAL_PARSER=false` 时，PDF 上传会走业务后端的 `POST /api/papers/parse`；如果直接提供 `paper.md` 与 `paper_meta.json`，前端会跳过解析接口，直接创建 review run。
 
 ## 非 Mock 联调配置
 
@@ -92,8 +92,10 @@ VITE_PARSER_API_BASE_URL=http://127.0.0.1:8000
   - 在“高级导入”里同时提供 `paper.md` 与 `paper_meta.json`。
 - 当 `VITE_USE_LOCAL_PARSER=true` 且用户上传的是 PDF 时，前端会先请求本地解析服务：
   - `POST {VITE_PARSER_API_BASE_URL}/papers/parse`
-- 其他情况会走业务后端的解析入口：
+- 其他情况里，如果上传的是 PDF，会走业务后端的解析入口：
   - `POST {VITE_API_BASE_URL}/papers/parse`
+- 如果在“高级导入”里直接提供 `paper.md` 与 `paper_meta.json`，前端会直接把它们组装成 `paper_bundle`，然后进入：
+  - `POST {VITE_API_BASE_URL}/runs`
 - 前端会把解析结果统一整理成 submission 对象，核心字段包括：
   - `submissionId`
   - `paperName`
@@ -189,7 +191,7 @@ VITE_PARSER_API_BASE_URL=http://127.0.0.1:8000
 非 mock 模式下，当前前端主流程实际会用到这些接口：
 
 - `POST http://127.0.0.1:8000/papers/parse`：本地解析服务，启用 `VITE_USE_LOCAL_PARSER=true` 且上传 PDF 时使用。
-- `POST /api/papers/parse`：业务后端解析入口，关闭本地解析或使用高级导入时使用。
+- `POST /api/papers/parse`：业务后端解析入口，关闭本地解析且上传 PDF 时使用。
 - `POST /api/runs`：创建 run。
 - `GET /api/runs/{run_id}/state`：查询 run 状态。
 - `POST /api/runs/{run_id}/stages/{stage_name}`：触发阶段执行或人工决策。

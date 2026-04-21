@@ -1499,6 +1499,47 @@ async function uploadViaLocalParser(paperFile) {
   };
 }
 
+async function uploadViaLocalArtifacts({
+  paperFile,
+  markdownFile,
+  documentIrFile,
+  imageBaseUrl,
+  mockProfile = "default",
+  useMockFallback = false
+}) {
+  const hasLocalArtifacts = Boolean(markdownFile && documentIrFile);
+  const paperMarkdown = hasLocalArtifacts
+    ? await readFileAsText(markdownFile)
+    : await fetch("/mock/paper.md").then((response) => response.text());
+  const paperMeta = hasLocalArtifacts
+    ? await readFileAsJson(documentIrFile)
+    : await loadMockPaperMeta();
+  const normalizedPaperMeta =
+    !hasLocalArtifacts && mockProfile !== "default"
+      ? {
+          ...paperMeta,
+          __mockProfile: mockProfile
+        }
+      : paperMeta;
+  const mockPaperName =
+    mockProfile === "logic-pass" ? "閫昏緫瀹℃煡閫氳繃鏍蜂緥" : "绀轰緥璁烘枃";
+
+  return {
+    submissionId: makeSubmissionId(),
+    paperName:
+      paperFile?.name ??
+      normalizedPaperMeta?.title ??
+      normalizedPaperMeta?.doc_id ??
+      mockPaperName,
+    paperMarkdown,
+    paperAssetBase: imageBaseUrl || "/mock",
+    paperMeta: normalizedPaperMeta,
+    documentIr: normalizedPaperMeta,
+    uploadedAt: new Date().toISOString(),
+    sourceMode: hasLocalArtifacts ? "local-artifacts" : useMockFallback ? "mock" : "local-artifacts"
+  };
+}
+
 export async function uploadPaper({
   paperFile,
   markdownFile,
@@ -1510,6 +1551,16 @@ export async function uploadPaper({
 
   if (USE_LOCAL_PARSER && paperFile) {
     return uploadViaLocalParser(paperFile);
+  }
+
+  if (hasLocalArtifacts) {
+    return uploadViaLocalArtifacts({
+      paperFile,
+      markdownFile,
+      documentIrFile,
+      imageBaseUrl,
+      mockProfile
+    });
   }
 
   if (!USE_MOCK) {

@@ -70,11 +70,24 @@ const sourceLabel = computed(() => {
   return "高级导入";
 });
 
+const isDirectBundleFlow = computed(
+  () =>
+    Boolean(
+      !uploadRequest.value?.useDemo &&
+        uploadRequest.value?.markdownFile &&
+        uploadRequest.value?.documentIrFile &&
+        !uploadRequest.value?.paperFile
+    )
+);
+
 const statusTitle = computed(() => {
   if (errorMessage.value) {
     return "处理已中断";
   }
 
+  if (phase.value === "parsing" && isDirectBundleFlow.value) {
+    return "正在准备 paper bundle";
+  }
   if (phase.value === "parsing") {
     return "正在解析论文内容";
   }
@@ -101,6 +114,9 @@ const progressStageLabel = computed(() => {
     return "WAITING";
   }
 
+  if (phase.value === "parsing" && isDirectBundleFlow.value) {
+    return "BUNDLE";
+  }
   if (phase.value === "parsing") {
     return "PARSING";
   }
@@ -216,6 +232,15 @@ function startProgressLoop(nextPhase) {
 function updatePhase(nextPhase) {
   phase.value = nextPhase;
   startProgressLoop(nextPhase);
+
+  if (nextPhase === "parsing" && isDirectBundleFlow.value) {
+    playDetailLoop([
+      "正在读取你提供的 paper.md 和 paper_meta.json。",
+      "这条路径会直接组装 paper bundle，不再调用解析接口。",
+      "paper bundle 准备完成后会自动创建新的 review run。"
+    ]);
+    return;
+  }
 
   if (nextPhase === "parsing") {
     playDetailLoop([
