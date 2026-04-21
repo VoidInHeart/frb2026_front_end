@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import {
   createReviewRun,
   fetchRunState,
+  triggerStageExecution,
   uploadPaper
 } from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
@@ -291,16 +292,41 @@ async function finalizeSubmission(submission) {
     paperMarkdown: submission.paperMarkdown,
     paperMeta: submission.paperMeta
   });
-  const initialRunState = await fetchRunState(runRecord.runId);
+  let initialRunState = await fetchRunState(runRecord.runId);
 
   if (disposed) {
     return;
   }
 
+  const initialStage = initialRunState.nextStage ?? runRecord.currentStage ?? "format";
+  const initialStageStatus =
+    initialRunState.stageRuns?.find((item) => item.stageName === initialStage)?.status ?? "";
+  const allowedActions = Array.isArray(initialRunState.allowedActions)
+    ? initialRunState.allowedActions
+    : [];
+  const shouldAutoStartDirectBundle =
+    submission.sourceMode === "local-artifacts" &&
+    initialStage &&
+    ["", "pending", "created"].includes(initialStageStatus) &&
+    (allowedActions.length === 0 || allowedActions.includes("continue"));
+
+  if (shouldAutoStartDirectBundle) {
+    await triggerStageExecution({
+      runId: runRecord.runId,
+      stageName: initialStage,
+      action: "continue"
+    });
+    initialRunState = await fetchRunState(runRecord.runId);
+
+    if (disposed) {
+      return;
+    }
+  }
+
   setSubmission(submission);
   setRunRecord(runRecord);
   setRunState(initialRunState);
-  setCurrentStage(initialRunState.nextStage ?? runRecord.currentStage ?? "format");
+  setCurrentStage(initialRunState.nextStage ?? initialStage);
   clearPendingUpload();
 
   updatePhase("ready");

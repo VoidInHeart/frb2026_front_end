@@ -149,7 +149,7 @@ const decisionActions = computed(() => {
     actionInFlight.value ||
     decisionInFlight.value ||
     ["failed", "aborted"].includes(runState.value?.status ?? "") ||
-    currentStageDisplayed.value === "summary"
+    visibleStage.value === "summary"
   ) {
     return [];
   }
@@ -179,7 +179,7 @@ const decisionActions = computed(() => {
 const footerAction = computed(() => {
   if (
     !runReady.value ||
-    currentStageDisplayed.value === "summary" ||
+    visibleStage.value === "summary" ||
     activeStageResult.value ||
     stagePanelLoading.value ||
     actionInFlight.value ||
@@ -191,9 +191,13 @@ const footerAction = computed(() => {
 
   const visibleStatus = visibleStageStatus.value || "";
   const nextStage = runState.value?.nextStage ?? "";
+  const allowedActions = Array.isArray(runState.value?.allowedActions)
+    ? runState.value.allowedActions
+    : [];
   const allowedStatuses = ["", "pending", "created"];
+  const canContinue = allowedActions.length === 0 || allowedActions.includes("continue");
 
-  if (!allowedStatuses.includes(visibleStatus)) {
+  if (!canContinue || !allowedStatuses.includes(visibleStatus)) {
     return null;
   }
 
@@ -230,7 +234,7 @@ function hasObjectContent(value) {
     : false;
 }
 
-function hasReadyStageSnapshot(snapshot) {
+function hasDisplayableStageSnapshot(snapshot) {
   if (!snapshot) {
     return false;
   }
@@ -244,6 +248,22 @@ function hasReadyStageSnapshot(snapshot) {
   }
 
   return hasObjectContent(snapshot.stageOutput);
+}
+
+function hasFinalizedStageSnapshot(snapshot) {
+  if (!snapshot) {
+    return false;
+  }
+
+  if (snapshot.stageStatus === "skipped") {
+    return true;
+  }
+
+  if (snapshot.review) {
+    return isFinalStageStatus(snapshot.stageStatus || "completed");
+  }
+
+  return isFinalStageStatus(snapshot.stageStatus);
 }
 
 function getStateStageStatus(state, stageKey) {
@@ -318,14 +338,16 @@ async function tryFetchStageSnapshot(stageKey) {
     return {
       snapshot,
       stageNotReady: false,
-      ready: hasReadyStageSnapshot(snapshot)
+      displayable: hasDisplayableStageSnapshot(snapshot),
+      finalized: hasFinalizedStageSnapshot(snapshot)
     };
   } catch (error) {
     if (error?.code === "STAGE_NOT_READY") {
       return {
         snapshot: null,
         stageNotReady: true,
-        ready: false
+        displayable: false,
+        finalized: false
       };
     }
 
@@ -349,9 +371,13 @@ async function tickStagePolling() {
       return;
     }
 
-    if (result.ready) {
+    if (result.finalized) {
       pollingStage.value = "";
       await syncRunState();
+      return;
+    }
+
+    if (result.displayable) {
       return;
     }
 
@@ -430,13 +456,14 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
 
   const snapshotResult = await tryFetchStageSnapshot(stageKey);
 
-  if (snapshotResult.ready) {
+  if (snapshotResult.finalized) {
     await syncRunState();
     return;
   }
 
   if (
     snapshotResult.stageNotReady ||
+    snapshotResult.displayable ||
     ["running", "in_progress", "waiting"].includes(stateStageStatus)
   ) {
     pollingStage.value = stageKey;

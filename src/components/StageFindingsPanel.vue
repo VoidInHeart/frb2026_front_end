@@ -82,11 +82,16 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
       </div>
     </div>
 
-    <div v-if="props.loading" class="empty-state panel-empty">
+    <div v-if="props.loading && !props.result" class="empty-state panel-empty">
       正在读取当前阶段结果...
     </div>
 
     <template v-else-if="props.result">
+      <div v-if="props.loading" class="result-banner result-banner-progress">
+        <strong>当前结果持续更新中</strong>
+        <p>后端已经返回本阶段的累计结果，页面会继续轮询并逐步刷新。</p>
+      </div>
+
       <div class="result-banner" :class="{ 'result-banner-critical': props.result.severe }">
         <strong>{{ props.result.headline }}</strong>
         <p>{{ props.result.overview }}</p>
@@ -197,6 +202,11 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
 .result-banner-critical {
   background: rgba(208, 122, 53, 0.1);
   border-color: rgba(208, 122, 53, 0.18);
+}
+
+.result-banner-progress {
+  background: rgba(19, 63, 103, 0.08);
+  border-color: rgba(19, 63, 103, 0.16);
 }
 
 .result-banner strong,

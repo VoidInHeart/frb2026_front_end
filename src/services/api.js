@@ -808,25 +808,73 @@ function extractReviewSummaryPayload(source) {
   );
 }
 
+function buildFormatProgressOverview(stageOutput, issues = []) {
+  const progress = ensureObject(stageOutput.prefilter_progress);
+  const completedChapterCount = Number(progress.completed_chapter_count ?? progress.completedChapterCount ?? 0);
+  const completedUnitCount = Number(progress.completed_unit_count ?? progress.completedUnitCount ?? 0);
+  const latestChapter = {};
+  const latestUnit = {};
+  const overviewParts = [];
+
+  if (completedChapterCount > 0 || completedUnitCount > 0) {
+    overviewParts.push(`已累计完成 ${completedChapterCount || 0} 个章节、${completedUnitCount || 0} 个小节`);
+  }
+
+  if (latestChapter.chapter_title) {
+    overviewParts.push(`最近完成章节：${latestChapter.chapter_title}`);
+  } else if (latestUnit.unit_title) {
+    overviewParts.push(`最近完成小节：${latestUnit.unit_title}`);
+  }
+
+  if (issues.length) {
+    overviewParts.push(`当前已累计发现 ${issues.length} 条格式问题`);
+  } else if (
+    Array.isArray(stageOutput.violations) ||
+    Array.isArray(stageOutput.risk_signals) ||
+    Array.isArray(stageOutput.chapter_reviews)
+  ) {
+    overviewParts.push("当前累计结果已同步，暂未发现需要展示的格式问题");
+  }
+
+  return overviewParts.join("；");
+}
+
+function extractFormatStageIssues(stageOutput) {
+  const report = ensureArray(
+    stageOutput.issues?.length
+      ? stageOutput.issues
+      : [
+          ...ensureArray(stageOutput.violations),
+          ...ensureArray(stageOutput.risk_signals)
+        ]
+  );
+
+  const issues = report.map((item, index) =>
+    item?.rule_id || item?.status
+      ? mapRuleAuditItemToFormatIssue(item, index)
+      : mapGenericIssue(item, index, "format")
+  );
+
+  return dedupeStageIssueCards(issues);
+}
+
 function normalizeFormatStageReview(stageName, stageStatus, stageOutput) {
   if (looksLikeStageReview(stageOutput)) {
     return attachStageReviewMeta(stageOutput, stageName, stageStatus, stageOutput);
   }
 
-  const report = ensureArray(
-    stageOutput.violations ??
-      stageOutput.report ??
-      stageOutput.audit_items ??
-      stageOutput.items ??
-      stageOutput.issues
-  );
-  const issues = report.length
-    ? report.map((item, index) =>
-        item?.rule_id || item?.status
-          ? mapRuleAuditItemToFormatIssue(item, index)
-          : mapGenericIssue(item, index, stageName)
-      )
-    : [];
+  const issues =
+    stageOutput.report || stageOutput.audit_items || stageOutput.items
+      ? ensureArray(
+          stageOutput.report ??
+            stageOutput.audit_items ??
+            stageOutput.items
+        ).map((item, index) =>
+          item?.rule_id || item?.status
+            ? mapRuleAuditItemToFormatIssue(item, index)
+            : mapGenericIssue(item, index, stageName)
+        )
+      : extractFormatStageIssues(stageOutput);
   const severe =
     Boolean(stageOutput.severe) ||
     issues.filter((item) => item.severity === "严重").length >= 2;
@@ -852,6 +900,37 @@ function normalizeFormatStageReview(stageName, stageStatus, stageOutput) {
           stageOutput.next_actions ??
           stageOutput.nextActions
       )
+    }),
+    stageName,
+    stageStatus,
+    stageOutput
+  );
+}
+
+function buildDisplayableStageReview(stageName, payload) {
+  const { stageStatus, stageOutput } = extractStagePayload(payload);
+
+  if (["completed", "skipped"].includes(stageStatus) || stageOutput.available === false) {
+    return normalizeStageReview(stageName, payload);
+  }
+
+  if (stageName !== "format" || !hasObjectContent(stageOutput)) {
+    return null;
+  }
+
+  const issues = extractFormatStageIssues(stageOutput);
+  const progressOverview = buildFormatProgressOverview(stageOutput, issues);
+  const severe = issues.filter((item) => item.severity === "涓ラ噸").length >= 2;
+
+  return attachStageReviewMeta(
+    createStageReview({
+      stageId: stageName,
+      stageLabel: REVIEW_STAGE_LABELS[stageName],
+      severe,
+      headline: "格式审查进行中",
+      overview: progressOverview || "后端已返回当前累计审查结果，正在继续处理后续章节。",
+      issues,
+      followUpActions: []
     }),
     stageName,
     stageStatus,
@@ -1041,12 +1120,7 @@ function normalizeStageSnapshotRecord(stageName, payload) {
     stageName,
     stageStatus,
     stageOutput,
-    review:
-      stageName !== "summary" &&
-      (["completed", "skipped"].includes(stageStatus) ||
-        stageOutput.available === false)
-        ? normalizeStageReview(stageName, payload)
-        : null,
+    review: stageName !== "summary" ? buildDisplayableStageReview(stageName, payload) : null,
     raw
   };
 }
