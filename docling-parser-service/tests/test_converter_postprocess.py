@@ -144,5 +144,19 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
         self.assertIn("## 4.2.3 代码定位智能体", processed)
 
 
+    def test_parenthesized_chinese_section_headings_become_level_three(self) -> None:
+        markdown = (
+            "## 4.2 \u5404\u7ec4\u4ef6\u8bbe\u8ba1\u8bf4\u660e\n"
+            "## \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53\n"
+            "\u8fd9\u91cc\u662f\u6b63\u6587\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("## 4.2 \u5404\u7ec4\u4ef6\u8bbe\u8ba1\u8bf4\u660e", processed)
+        self.assertIn("### \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53", processed)
+        self.assertNotIn("\n## \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53\n", processed)
+
+
 if __name__ == "__main__":
     unittest.main()
