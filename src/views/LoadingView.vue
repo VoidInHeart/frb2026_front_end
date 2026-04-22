@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import {
   createReviewRun,
   fetchRunState,
-  triggerStageExecution,
   uploadPaper
 } from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
@@ -238,7 +237,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取你提供的 paper.md 和 paper_meta.json。",
       "这条路径会直接组装 paper bundle，不再调用解析接口。",
-      "paper bundle 准备完成后会自动创建新的 review run。"
+      "paper bundle 准备完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
     ]);
     return;
   }
@@ -299,29 +298,6 @@ async function finalizeSubmission(submission) {
   }
 
   const initialStage = initialRunState.nextStage ?? runRecord.currentStage ?? "format";
-  const initialStageStatus =
-    initialRunState.stageRuns?.find((item) => item.stageName === initialStage)?.status ?? "";
-  const allowedActions = Array.isArray(initialRunState.allowedActions)
-    ? initialRunState.allowedActions
-    : [];
-  const shouldAutoStartDirectBundle =
-    submission.sourceMode === "local-artifacts" &&
-    initialStage &&
-    ["", "pending", "created"].includes(initialStageStatus) &&
-    (allowedActions.length === 0 || allowedActions.includes("continue"));
-
-  if (shouldAutoStartDirectBundle) {
-    await triggerStageExecution({
-      runId: runRecord.runId,
-      stageName: initialStage,
-      action: "continue"
-    });
-    initialRunState = await fetchRunState(runRecord.runId);
-
-    if (disposed) {
-      return;
-    }
-  }
 
   setSubmission(submission);
   setRunRecord(runRecord);

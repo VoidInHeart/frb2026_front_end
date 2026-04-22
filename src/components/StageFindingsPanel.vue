@@ -26,13 +26,17 @@ const props = defineProps({
     type: Object,
     default: null
   },
+  startAction: {
+    type: Object,
+    default: null
+  },
   statusText: {
     type: String,
     default: ""
   }
 });
 
-const emit = defineEmits(["action", "footer"]);
+const emit = defineEmits(["action", "footer", "start"]);
 
 function getSeverityClass(severity) {
   if (severity === "严重" || severity === "critical" || severity === "major") {
@@ -60,6 +64,7 @@ function getActionClass(variant) {
 
 const visibleActions = computed(() => props.actions.filter(Boolean));
 const hasFooterAction = computed(() => Boolean(props.footerAction));
+const hasStartAction = computed(() => Boolean(props.startAction));
 </script>
 
 <template>
@@ -130,6 +135,20 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
 
     <div v-else class="empty-state panel-empty">
       当前阶段还没有结果，可以按当前 run state 触发执行或决策。
+    </div>
+
+    <div v-if="hasStartAction" class="standalone-action-row">
+      <button
+        class="primary-button standalone-action-button"
+        type="button"
+        :disabled="props.startAction.disabled"
+        @click="emit('start')"
+      >
+        {{ props.startAction.label }}
+      </button>
+      <p v-if="props.startAction.hint" class="standalone-action-hint">
+        {{ props.startAction.hint }}
+      </p>
     </div>
 
     <div class="panel-footer">
@@ -328,6 +347,22 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   text-align: center;
 }
 
+.standalone-action-row {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.standalone-action-button {
+  min-width: 220px;
+}
+
+.standalone-action-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
 .panel-footer {
   display: flex;
   justify-content: flex-end;
@@ -358,11 +393,13 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   }
 
   .panel-footer,
-  .action-row {
+  .action-row,
+  .standalone-action-row {
     justify-content: stretch;
   }
 
   .footer-button,
+  .standalone-action-button,
   .action-row > button {
     width: 100%;
   }
