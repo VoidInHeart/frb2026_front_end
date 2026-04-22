@@ -4,11 +4,13 @@ import asyncio
 import json
 import os
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 from uuid import uuid4
 
 import uvicorn
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -22,6 +24,8 @@ RUNS_ROOT = PROJECT_ROOT / "outputs" / "api_runs"
 HOST = os.getenv("DOCLING_PARSER_HOST", "127.0.0.1").strip() or "127.0.0.1"
 PORT = int(os.getenv("DOCLING_PARSER_PORT", "8010") or "8010")
 CONVERSION_SEMAPHORE = asyncio.Semaphore(1)
+PARSE_PROGRESS: dict[str, dict[str, object]] = {}
+PARSE_PROGRESS_LOCK = Lock()
 
 app = FastAPI(title="Docling Parser Service", version="0.1.0")
 app.add_middleware(
@@ -50,6 +54,69 @@ def _build_asset_base(request: Request, submission_id: str) -> str:
     return f"{str(request.base_url).rstrip('/')}/assets/{submission_id}/paper_bundle"
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_fraction(value: object) -> float | None:
+    try:
+        fraction = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(1.0, fraction))
+
+
+def _set_parse_progress(
+    submission_id: str,
+    *,
+    status: str | None = None,
+    phase: str | None = None,
+    message: str | None = None,
+    fraction: object = None,
+    current_chunk: int | None = None,
+    total_chunks: int | None = None,
+    page_start: int | None = None,
+    page_end: int | None = None,
+) -> dict[str, object]:
+    with PARSE_PROGRESS_LOCK:
+        payload = dict(PARSE_PROGRESS.get(submission_id, {}))
+        payload["submissionId"] = submission_id
+        payload["updatedAt"] = _utc_now_iso()
+
+        if status is not None:
+            payload["status"] = status
+        if phase is not None:
+            payload["phase"] = phase
+        if message is not None:
+            payload["message"] = message
+
+        normalized_fraction = _normalize_fraction(fraction)
+        if normalized_fraction is not None:
+            payload["fraction"] = normalized_fraction
+            payload["percent"] = round(normalized_fraction * 100, 1)
+
+        optional_fields = {
+            "currentChunk": current_chunk,
+            "totalChunks": total_chunks,
+            "pageStart": page_start,
+            "pageEnd": page_end,
+        }
+        for key, value in optional_fields.items():
+            if value is None:
+                payload.pop(key, None)
+            else:
+                payload[key] = value
+
+        PARSE_PROGRESS[submission_id] = payload
+        return dict(payload)
+
+
+def _get_parse_progress(submission_id: str) -> dict[str, object] | None:
+    with PARSE_PROGRESS_LOCK:
+        payload = PARSE_PROGRESS.get(submission_id)
+        return dict(payload) if payload else None
+
+
 @app.get("/health")
 def health() -> dict[str, object]:
     try:
@@ -69,10 +136,19 @@ def health() -> dict[str, object]:
         }
 
 
+@app.get("/papers/parse-progress/{submission_id}")
+def get_parse_progress(submission_id: str) -> dict[str, object]:
+    payload = _get_parse_progress(submission_id)
+    if not payload:
+        raise HTTPException(status_code=404, detail="Parse progress not found.")
+    return payload
+
+
 @app.post("/papers/parse")
 async def parse_paper(
     request: Request,
     paper: UploadFile = File(...),
+    submission_id: str | None = Form(None),
 ) -> dict:
     original_name = Path(paper.filename or "paper.pdf").name
     suffix = Path(original_name).suffix or ".pdf"
@@ -80,7 +156,14 @@ async def parse_paper(
     if suffix.lower() != ".pdf":
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported.")
 
-    submission_id = uuid4().hex
+    submission_id = (submission_id or "").strip() or uuid4().hex
+    _set_parse_progress(
+        submission_id,
+        status="queued",
+        phase="queued",
+        message=f"queued '{original_name}' for docling parsing",
+        fraction=0.0,
+    )
     upload_root = _ensure_directory(RUNS_ROOT / submission_id / "input")
     output_root = _ensure_directory(RUNS_ROOT / submission_id)
     uploaded_pdf_path = upload_root / original_name
@@ -88,20 +171,68 @@ async def parse_paper(
     with uploaded_pdf_path.open("wb") as buffer:
         shutil.copyfileobj(paper.file, buffer)
 
+    _set_parse_progress(
+        submission_id,
+        status="processing",
+        phase="preparing",
+        message=f"uploaded '{original_name}', preparing docling parser",
+        fraction=0.08,
+    )
+
     try:
         converter = DoclingLaptopConverter()
     except DoclingNotInstalledError as exc:
+        _set_parse_progress(
+            submission_id,
+            status="failed",
+            phase="failed",
+            message=str(exc),
+            fraction=0.08,
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    def handle_progress(payload: dict[str, object]) -> None:
+        _set_parse_progress(
+            submission_id,
+            status="processing",
+            phase=str(payload.get("phase") or "parsing"),
+            message=str(payload.get("message") or ""),
+            fraction=payload.get("fraction"),
+            current_chunk=payload.get("current_chunk"),
+            total_chunks=payload.get("total_chunks"),
+            page_start=payload.get("page_start"),
+            page_end=payload.get("page_end"),
+        )
 
     try:
         async with CONVERSION_SEMAPHORE:
-            result = await run_in_threadpool(converter.convert_pdf, uploaded_pdf_path, output_root)
+            result = await run_in_threadpool(
+                converter.convert_pdf,
+                uploaded_pdf_path,
+                output_root,
+                handle_progress,
+            )
     except Exception as exc:
+        _set_parse_progress(
+            submission_id,
+            status="failed",
+            phase="failed",
+            message=f"Docling conversion failed: {exc}",
+            fraction=1.0,
+        )
         raise HTTPException(status_code=500, detail=f"Docling conversion failed: {exc}") from exc
 
     markdown_path = Path(result["markdown_path"])
     paper_meta_path = Path(result["paper_meta_path"])
     bundle_dir = Path(result["bundle_dir"])
+
+    _set_parse_progress(
+        submission_id,
+        status="completed",
+        phase="completed",
+        message=f"parsed '{original_name}' successfully",
+        fraction=1.0,
+    )
 
     return {
         "submissionId": submission_id,

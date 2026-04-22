@@ -563,7 +563,7 @@ onMounted(async () => {
   setCurrentStage(initialStage);
   startStagePolling();
   await ensureDisplayedStage(initialStage, {
-    autoStart: false,
+    autoStart: initialStage === "format",
     action: "continue"
   });
 });

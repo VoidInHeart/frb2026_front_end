@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import {
   createReviewRun,
   fetchRunState,
+  isLocalParserEnabled,
   triggerStageExecution,
   uploadPaper
 } from "../services/api";
@@ -25,6 +26,7 @@ const statusDetail = ref("正在准备解析任务...");
 const errorMessage = ref("");
 const retrying = ref(false);
 const progress = ref(6);
+const externalParsingProgress = ref(null);
 
 let disposed = false;
 let detailTimer = null;
@@ -81,6 +83,15 @@ const isDirectBundleFlow = computed(
     )
 );
 
+const usesDoclingParser = computed(
+  () =>
+    Boolean(
+      !uploadRequest.value?.useDemo &&
+        uploadRequest.value?.paperFile &&
+        isLocalParserEnabled()
+    )
+);
+
 const statusTitle = computed(() => {
   if (errorMessage.value) {
     return "处理已中断";
@@ -113,6 +124,24 @@ const progressLabel = computed(() => `${progressPercent.value}%`);
 const progressStageLabel = computed(() => {
   if (errorMessage.value) {
     return "WAITING";
+  }
+
+  if (
+    phase.value === "parsing" &&
+    externalParsingProgress.value?.provider === "docling" &&
+    externalParsingProgress.value?.source === "parser" &&
+    externalParsingProgress.value?.currentChunk &&
+    externalParsingProgress.value?.totalChunks
+  ) {
+    return `DOC ${externalParsingProgress.value.currentChunk}/${externalParsingProgress.value.totalChunks}`;
+  }
+
+  if (
+    phase.value === "parsing" &&
+    externalParsingProgress.value?.provider === "docling" &&
+    externalParsingProgress.value?.source === "upload"
+  ) {
+    return "UPLOAD";
   }
 
   if (phase.value === "parsing" && isDirectBundleFlow.value) {
@@ -185,6 +214,83 @@ function stopRedirectTimer() {
   }
 }
 
+function normalizeFraction(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return Math.max(0, Math.min(1, value));
+}
+
+function resetParsingProgress() {
+  externalParsingProgress.value = null;
+}
+
+function mapParsingProgressToPhaseFraction(progressEvent) {
+  const fraction = normalizeFraction(progressEvent?.fraction);
+
+  if (fraction === null) {
+    return null;
+  }
+
+  if (progressEvent?.source === "upload") {
+    return 0.18 * fraction;
+  }
+
+  if (progressEvent?.source === "parser") {
+    return 0.18 + 0.82 * fraction;
+  }
+
+  return fraction;
+}
+
+function applyExternalParsingProgress(progressEvent) {
+  if (!progressEvent) {
+    return;
+  }
+
+  externalParsingProgress.value = {
+    ...(externalParsingProgress.value ?? {}),
+    ...progressEvent
+  };
+
+  if (phase.value !== "parsing") {
+    return;
+  }
+
+  if (progressEvent.message) {
+    stopDetailLoop();
+    statusDetail.value = progressEvent.message;
+  }
+
+  if (progressEvent.source === "parser") {
+    stopProgressLoop();
+  }
+
+  const phaseFraction = mapParsingProgressToPhaseFraction(
+    externalParsingProgress.value
+  );
+
+  if (phaseFraction === null) {
+    return;
+  }
+
+  const range = phaseProgressMap.parsing;
+  const nextProgress = Number(
+    (range.floor + phaseFraction * (range.ceiling - range.floor)).toFixed(2)
+  );
+
+  if (progressEvent.source === "parser") {
+    progress.value = Math.max(range.floor, Math.min(range.ceiling, nextProgress));
+    return;
+  }
+
+  progress.value = Math.max(
+    progress.value,
+    Math.max(range.floor, Math.min(range.ceiling, nextProgress))
+  );
+}
+
 function playDetailLoop(messages) {
   stopDetailLoop();
   statusDetail.value = messages[0] ?? "";
@@ -204,34 +310,57 @@ function startProgressLoop(nextPhase) {
   stopProgressLoop();
 
   const range = phaseProgressMap[nextPhase] ?? phaseProgressMap.queued;
+  const effectiveCeiling =
+    nextPhase === "parsing" &&
+    usesDoclingParser.value &&
+    externalParsingProgress.value?.source !== "parser"
+      ? Math.min(range.ceiling, range.floor + (range.ceiling - range.floor) * 0.24)
+      : range.ceiling;
   progress.value = Math.max(progress.value, range.floor);
 
-  if (range.floor === range.ceiling) {
-    progress.value = range.ceiling;
+  if (range.floor === effectiveCeiling) {
+    progress.value = effectiveCeiling;
     return;
   }
 
   progressTimer = window.setInterval(() => {
-    const remaining = range.ceiling - progress.value;
+    const remaining = effectiveCeiling - progress.value;
 
     if (remaining <= 0.2) {
-      progress.value = range.ceiling;
+      progress.value = effectiveCeiling;
       stopProgressLoop();
       return;
     }
 
     const increment =
-      remaining > 24 ? 1.3 : remaining > 10 ? 0.75 : remaining > 4 ? 0.34 : 0.16;
+      nextPhase === "parsing" && usesDoclingParser.value
+        ? remaining > 12
+          ? 0.22
+          : remaining > 5
+            ? 0.14
+            : 0.08
+        : remaining > 24
+          ? 1.3
+          : remaining > 10
+            ? 0.75
+            : remaining > 4
+              ? 0.34
+              : 0.16;
 
     progress.value = Math.min(
-      range.ceiling,
+      effectiveCeiling,
       Number((progress.value + increment).toFixed(2))
     );
-  }, 120);
+  }, nextPhase === "parsing" && usesDoclingParser.value ? 200 : 120);
 }
 
 function updatePhase(nextPhase) {
   phase.value = nextPhase;
+
+  if (nextPhase !== "parsing") {
+    resetParsingProgress();
+  }
+
   startProgressLoop(nextPhase);
 
   if (nextPhase === "parsing" && isDirectBundleFlow.value) {
@@ -247,7 +376,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
       "这一阶段主要生成 paper.md 与 paper_meta.json。",
-      "解析完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
+      "解析完成后会自动创建新的 review run，并尝试直接启动格式审查。"
     ]);
     return;
   }
@@ -304,13 +433,13 @@ async function finalizeSubmission(submission) {
   const allowedActions = Array.isArray(initialRunState.allowedActions)
     ? initialRunState.allowedActions
     : [];
-  const shouldAutoStartDirectBundle =
-    submission.sourceMode === "local-artifacts" &&
+  const shouldAutoStartInitialStage =
     initialStage &&
+    initialStage !== "summary" &&
     ["", "pending", "created"].includes(initialStageStatus) &&
     (allowedActions.length === 0 || allowedActions.includes("continue"));
 
-  if (shouldAutoStartDirectBundle) {
+  if (shouldAutoStartInitialStage) {
     await triggerStageExecution({
       runId: runRecord.runId,
       stageName: initialStage,
@@ -352,6 +481,7 @@ async function runUploadFlow() {
 
   errorMessage.value = "";
   retrying.value = true;
+  resetParsingProgress();
 
   try {
     let submission = resolvedSubmission.value;
@@ -365,7 +495,8 @@ async function runUploadFlow() {
         markdownFile: uploadRequest.value.markdownFile,
         documentIrFile: uploadRequest.value.documentIrFile,
         imageBaseUrl: uploadRequest.value.imageBaseUrl,
-        mockProfile: uploadRequest.value.mockProfile
+        mockProfile: uploadRequest.value.mockProfile,
+        onProgress: applyExternalParsingProgress
       });
 
       if (disposed) {
@@ -406,6 +537,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true;
+  resetParsingProgress();
   stopDetailLoop();
   stopProgressLoop();
   stopRedirectTimer();

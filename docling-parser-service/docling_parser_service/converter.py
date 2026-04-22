@@ -8,7 +8,7 @@ import sys
 import tempfile
 import hashlib
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
 
 class DoclingNotInstalledError(RuntimeError):
@@ -1755,7 +1755,25 @@ class DoclingLaptopConverter:
             "using_ascii_workspace_alias": RUNTIME_WORKSPACE_ROOT != WORKSPACE_ROOT,
         }
 
-    def convert_pdf(self, pdf_path: str | Path, output_dir: str | Path) -> Dict[str, str]:
+    def convert_pdf(
+        self,
+        pdf_path: str | Path,
+        output_dir: str | Path,
+        progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    ) -> Dict[str, str]:
+        def emit_progress(message: str, *, phase: str, fraction: float, **extra: Any) -> None:
+            normalized_fraction = max(0.0, min(1.0, float(fraction)))
+            _log_progress(message)
+            if progress_callback:
+                progress_callback(
+                    {
+                        "phase": phase,
+                        "fraction": normalized_fraction,
+                        "message": message,
+                        **extra,
+                    }
+                )
+
         pdf_path = Path(pdf_path).resolve()
         output_root = _ensure_directory(Path(output_dir).resolve())
         runtime_pdf_path = _to_runtime_path(pdf_path)
@@ -1764,8 +1782,10 @@ class DoclingLaptopConverter:
         assets_root = _ensure_directory(bundle_root / "assets")
         total_pages = _count_pdf_pages(runtime_pdf_path)
 
-        _log_progress(
-            f"starting conversion for '{pdf_path.name}' ({total_pages} pages, chunk_pages={self._chunk_pages})"
+        emit_progress(
+            f"starting conversion for '{pdf_path.name}' ({total_pages} pages, chunk_pages={self._chunk_pages})",
+            phase="preparing",
+            fraction=0.05,
         )
 
         if total_pages > self._chunk_pages:
@@ -1780,12 +1800,30 @@ class DoclingLaptopConverter:
                 status_values: list[str] = []
                 origin = _build_origin_metadata(pdf_path)
                 document_name = pdf_path.stem
+                total_chunks = max(1, len(chunk_specs))
+
+                emit_progress(
+                    f"prepared {total_chunks} chunks for docling conversion",
+                    phase="preparing",
+                    fraction=0.1,
+                    current_chunk=0,
+                    total_chunks=total_chunks,
+                    page_start=1,
+                    page_end=total_pages,
+                )
 
                 for chunk_spec in chunk_specs:
-                    _log_progress(
+                    emit_progress(
                         "processing chunk "
                         f"{chunk_spec['chunk_index']}/{len(chunk_specs)} "
-                        f"(pages {chunk_spec['page_start']}-{chunk_spec['page_end']})"
+                        f"(pages {chunk_spec['page_start']}-{chunk_spec['page_end']})",
+                        phase="parsing",
+                        fraction=0.12
+                        + ((chunk_spec["chunk_index"] - 1) / total_chunks) * 0.72,
+                        current_chunk=chunk_spec["chunk_index"],
+                        total_chunks=total_chunks,
+                        page_start=chunk_spec["page_start"],
+                        page_end=chunk_spec["page_end"],
                     )
                     chunk_result = self._converter.convert(
                         chunk_spec["pdf_path"],
@@ -1815,11 +1853,17 @@ class DoclingLaptopConverter:
                             "document": chunk_document_dict,
                         }
                     )
-                    _log_progress(
+                    emit_progress(
                         "finished chunk "
                         f"{chunk_spec['chunk_index']}/{len(chunk_specs)} "
                         f"(pages {chunk_spec['page_start']}-{chunk_spec['page_end']}, "
-                        f"status={getattr(chunk_result, 'status', 'SUCCESS')})"
+                        f"status={getattr(chunk_result, 'status', 'SUCCESS')})",
+                        phase="parsing",
+                        fraction=0.12 + (chunk_spec["chunk_index"] / total_chunks) * 0.72,
+                        current_chunk=chunk_spec["chunk_index"],
+                        total_chunks=total_chunks,
+                        page_start=chunk_spec["page_start"],
+                        page_end=chunk_spec["page_end"],
                     )
 
                 markdown = _merge_markdown_chunks(chunk_markdowns)
@@ -1833,11 +1877,25 @@ class DoclingLaptopConverter:
                 markdown = _postprocess_markdown(markdown)
                 markdown = _inject_missing_figure_images(markdown, document_dict, _to_real_path(pdf_path), assets_root)
                 status = "SUCCESS" if all(value.endswith("SUCCESS") for value in status_values) else "PARTIAL_SUCCESS"
-                _log_progress(
-                    f"merged {len(chunk_specs)} chunks into final bundle (status={status})"
+                emit_progress(
+                    f"merged {len(chunk_specs)} chunks into final bundle (status={status})",
+                    phase="merging",
+                    fraction=0.92,
+                    current_chunk=total_chunks,
+                    total_chunks=total_chunks,
+                    page_start=1,
+                    page_end=total_pages,
                 )
         else:
-            _log_progress("processing single chunk document")
+            emit_progress(
+                "processing single chunk document",
+                phase="parsing",
+                fraction=0.2,
+                current_chunk=1,
+                total_chunks=1,
+                page_start=1,
+                page_end=total_pages,
+            )
             result = self._converter.convert(
                 runtime_pdf_path,
                 raises_on_error=True,
@@ -1850,7 +1908,15 @@ class DoclingLaptopConverter:
             markdown = _postprocess_markdown(markdown)
             markdown = _inject_missing_figure_images(markdown, document_dict, _to_real_path(pdf_path), assets_root)
             status = str(getattr(result, "status", "SUCCESS"))
-            _log_progress(f"finished single chunk document (status={status})")
+            emit_progress(
+                f"finished single chunk document (status={status})",
+                phase="parsing",
+                fraction=0.88,
+                current_chunk=1,
+                total_chunks=1,
+                page_start=1,
+                page_end=total_pages,
+            )
 
         markdown_path = bundle_root / "paper.md"
         paper_meta_path = bundle_root / "paper_meta.json"
@@ -1869,7 +1935,13 @@ class DoclingLaptopConverter:
             total_pages=total_pages,
         )
         paper_meta_path.write_text(json.dumps(paper_meta, ensure_ascii=False, indent=2), encoding="utf-8")
-        _log_progress(f"wrote paper bundle to '{_to_real_path(bundle_root)}'")
+        emit_progress(
+            f"wrote paper bundle to '{_to_real_path(bundle_root)}'",
+            phase="writing",
+            fraction=0.97,
+            page_start=1,
+            page_end=total_pages,
+        )
 
         return {
             "bundle_dir": str(_to_real_path(bundle_root)),

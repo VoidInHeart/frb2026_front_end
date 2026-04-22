@@ -3,6 +3,10 @@ export const LOCAL_PARSER_ENDPOINTS = Object.freeze({
     method: "GET",
     path: "/health"
   },
+  parsePaperProgress: {
+    method: "GET",
+    path: "/papers/parse-progress/:submissionId"
+  },
   parsePaper: {
     method: "POST",
     path: "/papers/parse"
@@ -66,6 +70,7 @@ export const APP_API_ENDPOINTS = Object.freeze({
 
 export const UPLOAD_FORM_FIELDS = Object.freeze({
   paper: "paper",
+  submissionId: "submission_id",
   markdownFile: "markdown_file",
   paperMetaFile: "paper_meta_file",
   legacyDocumentIrFile: "document_ir_file",
@@ -73,6 +78,21 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
   customRuleFile: "rule_text_file",
   customRuleText: "rule_text"
 });
+
+/**
+ * @typedef {Object} ParseProgressResponse
+ * @property {string} submissionId
+ * @property {"queued"|"processing"|"completed"|"failed"} status
+ * @property {string} phase
+ * @property {number} fraction
+ * @property {number} percent
+ * @property {string=} message
+ * @property {number=} currentChunk
+ * @property {number=} totalChunks
+ * @property {number=} pageStart
+ * @property {number=} pageEnd
+ * @property {string} updatedAt
+ */
 
 /**
  * @typedef {Object} AnchorRecord

@@ -67,6 +67,8 @@ const FINAL_STAGE_STATUSES = new Set([
   "aborted"
 ]);
 
+const LOCAL_PARSER_PROGRESS_POLL_MS = 500;
+
 const mockRecommendations = [
   {
     id: "retrieval-augmented-peer-review",
@@ -304,7 +306,12 @@ function parseXhrJsonResponse(xhr) {
   }
 }
 
-async function requestJsonWithUploadProgress(url, options = {}, requestLabel = "upload") {
+async function requestJsonWithUploadProgress(
+  url,
+  options = {},
+  requestLabel = "upload",
+  listeners = {}
+) {
   if (typeof XMLHttpRequest === "undefined" || !options?.body) {
     return fetchJson(url, options);
   }
@@ -323,6 +330,19 @@ async function requestJsonWithUploadProgress(url, options = {}, requestLabel = "
     console.info(`[upload] ${requestLabel} started`);
 
     xhr.upload.addEventListener("progress", (event) => {
+      const fraction =
+        event.lengthComputable && event.total > 0 ? event.loaded / event.total : null;
+
+      if (typeof listeners.onUploadProgress === "function") {
+        listeners.onUploadProgress({
+          loaded: event.loaded,
+          total: event.total,
+          lengthComputable: event.lengthComputable,
+          fraction,
+          percent: fraction === null ? null : Math.round(fraction * 1000) / 10
+        });
+      }
+
       if (!event.lengthComputable) {
         if (event.loaded - lastLoggedLoaded >= 1024 * 1024) {
           lastLoggedLoaded = event.loaded;
@@ -1169,6 +1189,105 @@ function makeSubmissionId() {
   return `submission-${Date.now()}`;
 }
 
+function reportUploadLifecycle(onProgress, payload) {
+  if (typeof onProgress === "function") {
+    onProgress({
+      ...payload,
+      reportedAt: new Date().toISOString()
+    });
+  }
+}
+
+async function fetchLocalParserProgress(submissionId) {
+  const endpoint = LOCAL_PARSER_ENDPOINTS.parsePaperProgress.path.replace(
+    ":submissionId",
+    encodeURIComponent(String(submissionId ?? ""))
+  );
+  const response = await fetch(`${PARSER_API_BASE_URL}${endpoint}`);
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`local parser progress request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function startLocalParserProgressMonitor({ submissionId, onProgress }) {
+  if (
+    typeof window === "undefined" ||
+    !submissionId ||
+    typeof onProgress !== "function"
+  ) {
+    return {
+      stop() {}
+    };
+  }
+
+  let stopped = false;
+  let inFlight = false;
+
+  const tick = async () => {
+    if (stopped || inFlight) {
+      return;
+    }
+
+    inFlight = true;
+
+    try {
+      const payload = await fetchLocalParserProgress(submissionId);
+
+      if (!payload) {
+        return;
+      }
+
+      reportUploadLifecycle(onProgress, {
+        provider: "docling",
+        source: "parser",
+        submissionId,
+        status: payload.status ?? "processing",
+        phase: payload.phase ?? payload.status ?? "parsing",
+        fraction:
+          typeof payload.fraction === "number"
+            ? payload.fraction
+            : typeof payload.percent === "number"
+              ? payload.percent / 100
+              : null,
+        percent: payload.percent ?? null,
+        message: payload.message ?? "",
+        currentChunk: payload.currentChunk ?? null,
+        totalChunks: payload.totalChunks ?? null,
+        pageStart: payload.pageStart ?? null,
+        pageEnd: payload.pageEnd ?? null
+      });
+
+      if (["completed", "failed"].includes(payload.status ?? "")) {
+        stopped = true;
+      }
+    } catch {
+      // Ignore transient polling errors and let the main upload request decide success.
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  const timer = window.setInterval(() => {
+    void tick();
+  }, LOCAL_PARSER_PROGRESS_POLL_MS);
+
+  void tick();
+
+  return {
+    stop() {
+      stopped = true;
+      window.clearInterval(timer);
+    }
+  };
+}
+
 function summarizeRuleLine(line, index) {
   const compact = line.replace(/^[-*0-9.\s]+/, "").trim();
   if (!compact) {
@@ -1535,11 +1654,32 @@ function mapTask2RuleToLibraryItem(rule, index) {
   };
 }
 
-async function uploadViaLocalParser(paperFile) {
+export function isLocalParserEnabled() {
+  return USE_LOCAL_PARSER;
+}
+
+async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
+  const submissionId = makeSubmissionId();
   const formData = new FormData();
   formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
+  formData.append(UPLOAD_FORM_FIELDS.submissionId, submissionId);
 
   let data;
+  const progressMonitor = startLocalParserProgressMonitor({
+    submissionId,
+    onProgress
+  });
+
+  reportUploadLifecycle(onProgress, {
+    provider: "docling",
+    source: "upload",
+    submissionId,
+    phase: "uploading",
+    status: "processing",
+    fraction: 0,
+    percent: 0,
+    message: `正在上传 ${paperFile?.name ?? "论文"} 到 Docling 解析服务...`
+  });
 
   try {
     data = await requestJsonWithUploadProgress(
@@ -1548,9 +1688,33 @@ async function uploadViaLocalParser(paperFile) {
         method: "POST",
         body: formData
       },
-      "local parser upload"
+      "local parser upload",
+      {
+        onUploadProgress: (progressEvent) => {
+          reportUploadLifecycle(onProgress, {
+            provider: "docling",
+            source: "upload",
+            submissionId,
+            phase: "uploading",
+            status: "processing",
+            fraction:
+              typeof progressEvent.fraction === "number"
+                ? progressEvent.fraction
+                : null,
+            percent:
+              typeof progressEvent.percent === "number"
+                ? progressEvent.percent
+                : null,
+            message:
+              typeof progressEvent.percent === "number"
+                ? `正在上传论文到 Docling（${Math.round(progressEvent.percent)}%）...`
+                : "正在上传论文到 Docling 解析服务..."
+          });
+        }
+      }
     );
   } catch (error) {
+    progressMonitor.stop();
     const message =
       error instanceof Error ? error.message : "unknown parser error";
     throw new Error(
@@ -1558,10 +1722,23 @@ async function uploadViaLocalParser(paperFile) {
     );
   }
 
+  progressMonitor.stop();
+
+  reportUploadLifecycle(onProgress, {
+    provider: "docling",
+    source: "parser",
+    submissionId: data?.submissionId ?? submissionId,
+    phase: "completed",
+    status: "completed",
+    fraction: 1,
+    percent: 100,
+    message: "Docling 解析完成，正在创建 review run..."
+  });
+
   const normalizedPaperMeta = data.paperMeta ?? data.documentIr ?? {};
 
   return {
-    submissionId: data.submissionId ?? makeSubmissionId(),
+    submissionId: data.submissionId ?? submissionId,
     paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
     paperMarkdown: data.paperMarkdown ?? "",
     paperAssetBase: data.paperAssetBase ?? "",
@@ -1619,12 +1796,13 @@ export async function uploadPaper({
   markdownFile,
   documentIrFile,
   imageBaseUrl,
-  mockProfile = "default"
+  mockProfile = "default",
+  onProgress
 }) {
   const hasLocalArtifacts = markdownFile && documentIrFile;
 
   if (USE_LOCAL_PARSER && paperFile) {
-    return uploadViaLocalParser(paperFile);
+    return uploadViaLocalParser(paperFile, { onProgress });
   }
 
   if (hasLocalArtifacts) {
