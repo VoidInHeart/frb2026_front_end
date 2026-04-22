@@ -37,6 +37,9 @@ NUMBER_ONLY_HEADING_RE = re.compile(
     r"^(?:第[一二三四五六七八九十百千零〇两]+章|[0-9]+(?:\.[0-9]+)*\.?|\([0-9]+\))$"
 )
 SECTION_NUMBER_PREFIX_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)+)\s*(.*)$")
+PAREN_CN_SECTION_RE = re.compile(
+    r"^\uFF08[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\u5343\u96F6\u3007\u4E24]+\uFF09\s*.*$"
+)
 CHAPTER_HEADING_RE = re.compile(r"^第([一二三四五六七八九十百千零〇两]+)章(?:\s+.*)?$")
 MATH_LIKE_HEADING_RE = re.compile(r"[=∈∑∏√≤≥≈]")
 FORMULA_INTRO_CUE_RE = re.compile(
@@ -558,6 +561,9 @@ def _normalize_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized_blocks: list[dict[str, Any]] = []
     for block in blocks:
         current = dict(block)
+        title = str(current.get("title", "")).strip()
+        if PAREN_CN_SECTION_RE.match(title):
+            current["level"] = 3
         current["body"] = _normalize_block_body(list(current.get("body", [])))
         normalized_blocks.append(current)
     return normalized_blocks
@@ -673,6 +679,7 @@ def _merge_split_headings(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 and prefix_match
                 and prefix_match.group(2).strip()
                 and not next_has_prefix
+                and not PAREN_CN_SECTION_RE.match(next_title)
                 and len(next_title) <= 20
             ):
                 current["title"] = f"{str(current.get('title', '')).strip()} {next_title}".strip()
