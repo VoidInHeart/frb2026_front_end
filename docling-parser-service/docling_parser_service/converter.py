@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import hashlib
+import unicodedata
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -112,7 +113,21 @@ CANONICAL_ANALYSE_WEBPAGE_LINE = (
 
 
 def _normalize_heading_text(title: str) -> str:
-    return re.sub(r"\s+", "", str(title or "")).strip().lower()
+    normalized_title = _normalize_compatibility_cjk_chars(str(title or ""))
+    return re.sub(r"\s+", "", normalized_title).strip().lower()
+
+
+def _normalize_compatibility_cjk_chars(text: str) -> str:
+    normalized_chars: list[str] = []
+
+    for char in str(text or ""):
+        codepoint = ord(char)
+        if 0x2E80 <= codepoint <= 0x2FDF or 0xF900 <= codepoint <= 0xFAFF:
+            normalized_chars.append(unicodedata.normalize("NFKC", char))
+            continue
+        normalized_chars.append(char)
+
+    return "".join(normalized_chars)
 
 
 def _normalize_asset_paths(markdown: str) -> str:
@@ -1405,6 +1420,7 @@ def _inject_missing_figure_images(
 
 def _postprocess_markdown(markdown: str) -> str:
     normalized = _normalize_asset_paths(markdown)
+    normalized = _normalize_compatibility_cjk_chars(normalized)
     leading_lines, blocks = _parse_markdown_blocks(normalized)
     blocks = _drop_leading_front_matter(blocks)
     blocks = _filter_excluded_blocks(blocks)

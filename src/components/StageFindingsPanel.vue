@@ -22,13 +22,21 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
+  footerAction: {
+    type: Object,
+    default: null
+  },
+  startAction: {
+    type: Object,
+    default: null
+  },
   statusText: {
     type: String,
     default: ""
   }
 });
 
-const emit = defineEmits(["action"]);
+const emit = defineEmits(["action", "footer", "start"]);
 
 function normalizeStatusLabel(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -73,6 +81,8 @@ const shouldShowStatusText = computed(() => {
 
   return normalizeStatusLabel(props.statusText) !== normalizeStatusLabel(resultStatusText.value);
 });
+const hasFooterAction = computed(() => Boolean(props.footerAction));
+const hasStartAction = computed(() => Boolean(props.startAction));
 </script>
 
 <template>
@@ -149,8 +159,22 @@ const shouldShowStatusText = computed(() => {
       </div>
     </div>
 
-    <div v-if="visibleActions.length" class="panel-footer">
-      <div class="action-row">
+    <div v-if="hasStartAction" class="standalone-action-row">
+      <button
+        class="primary-button standalone-action-button"
+        type="button"
+        :disabled="props.startAction.disabled"
+        @click="emit('start')"
+      >
+        {{ props.startAction.label }}
+      </button>
+      <p v-if="props.startAction.hint" class="standalone-action-hint">
+        {{ props.startAction.hint }}
+      </p>
+    </div>
+
+    <div v-if="visibleActions.length || hasFooterAction" class="panel-footer">
+      <div v-if="visibleActions.length" class="action-row">
         <button
           v-for="action in visibleActions"
           :key="action.key"
@@ -162,6 +186,16 @@ const shouldShowStatusText = computed(() => {
           {{ action.label }}
         </button>
       </div>
+
+      <button
+        v-else-if="hasFooterAction"
+        class="primary-button footer-button"
+        type="button"
+        :disabled="props.footerAction.disabled"
+        @click="emit('footer')"
+      >
+        {{ props.footerAction.label }}
+      </button>
     </div>
   </section>
 </template>
@@ -356,6 +390,22 @@ const shouldShowStatusText = computed(() => {
   align-content: start;
 }
 
+.standalone-action-row {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.standalone-action-button {
+  min-width: 220px;
+}
+
+.standalone-action-hint {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
 .panel-footer {
   display: flex;
   justify-content: flex-end;
@@ -366,6 +416,10 @@ const shouldShowStatusText = computed(() => {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.footer-button {
+  min-width: 220px;
 }
 
 @media (max-width: 1240px) {
@@ -382,10 +436,13 @@ const shouldShowStatusText = computed(() => {
   }
 
   .panel-footer,
-  .action-row {
+  .action-row,
+  .standalone-action-row {
     justify-content: stretch;
   }
 
+  .footer-button,
+  .standalone-action-button,
   .action-row > button {
     width: 100%;
   }

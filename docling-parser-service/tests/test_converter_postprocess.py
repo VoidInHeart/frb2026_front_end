@@ -157,6 +157,20 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
         self.assertIn("### \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53", processed)
         self.assertNotIn("\n## \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53\n", processed)
 
+    def test_compatibility_ideographs_in_titles_are_normalized(self) -> None:
+        markdown = (
+            "## 4.2 \u5404\u7ec4\u4ef6\u8bbe\u8ba1\u8bf4\u660e\n"
+            "## \uff08\u2f00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53\n"
+            "\u5e94\u2f64\u573a\u666f\u8bf4\u660e\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("### \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53", processed)
+        self.assertIn("\u5e94\u7528\u573a\u666f\u8bf4\u660e\u3002", processed)
+        self.assertNotIn("\u2f00", processed)
+        self.assertNotIn("\u2f64", processed)
+
 
 if __name__ == "__main__":
     unittest.main()

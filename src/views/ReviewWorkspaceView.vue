@@ -6,10 +6,10 @@ import ReviewStageTracker from "../components/ReviewStageTracker.vue";
 import StageFindingsPanel from "../components/StageFindingsPanel.vue";
 import {
   buildReviewDigest,
-  countAnchorsByType,
   fetchRunState,
   fetchStageRecord,
-  getAnchorCount,
+  getChunkCount,
+  getImageCount,
   getPageCount,
   getPaperMeta,
   triggerStageExecution
@@ -27,6 +27,7 @@ import {
 const router = useRouter();
 
 const POLL_INTERVAL_MS = 15000;
+const STATE_POLL_INTERVAL_MS = 5000;
 const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
 const FINAL_STAGE_STATUSES = new Set([
   "complete",
@@ -43,6 +44,7 @@ const errorMessage = ref("");
 const pageMessage = ref("");
 const pollingStage = ref("");
 const stagePollInFlight = ref(false);
+const runStatePollInFlight = ref(false);
 const displayedStageStatuses = ref({
   format: "",
   logic: "",
@@ -51,6 +53,7 @@ const displayedStageStatuses = ref({
 });
 
 let stagePollTimer = 0;
+let runStatePollTimer = 0;
 
 const stageMetaMap = {
   format: {
@@ -82,9 +85,8 @@ const showImages = computed({
 });
 
 const pageCount = computed(() => getPageCount(paperMeta.value));
-const anchorCount = computed(() => getAnchorCount(paperMeta.value));
-const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
-const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
+const chunkCount = computed(() => getChunkCount(submission.value));
+const imageCount = computed(() => getImageCount(submission.value));
 const runReady = computed(() => Boolean(runRecord.value?.runId));
 
 const lastCompletedStage = computed(() => {
@@ -113,6 +115,11 @@ const activeStageResult = computed(
   () => stageReviews.value[visibleStage.value] ?? null
 );
 
+const activeStageResultFinalized = computed(() =>
+  Boolean(activeStageResult.value?.stageStatus) &&
+  isFinalStageStatus(activeStageResult.value.stageStatus)
+);
+
 const visibleStageStatus = computed(
   () =>
     displayedStageStatuses.value[visibleStage.value] ||
@@ -121,9 +128,18 @@ const visibleStageStatus = computed(
     ""
 );
 
+const formatStageStatus = computed(
+  () =>
+    displayedStageStatuses.value.format ||
+    runState.value?.stageRuns?.find((item) => item.stageName === "format")?.status ||
+    ""
+);
+
 const stagePanelLoading = computed(
   () =>
-    loadingStage.value === visibleStage.value || pollingStage.value === visibleStage.value
+    loadingStage.value === visibleStage.value ||
+    (pollingStage.value === visibleStage.value &&
+      ["running", "in_progress", "waiting"].includes(visibleStageStatus.value))
 );
 
 const stateCompleted = computed(() =>
@@ -145,6 +161,7 @@ const statusText = computed(() => {
 const decisionActions = computed(() => {
   if (
     !activeStageResult.value ||
+    !activeStageResultFinalized.value ||
     stagePanelLoading.value ||
     actionInFlight.value ||
     decisionInFlight.value ||
@@ -189,6 +206,10 @@ const footerAction = computed(() => {
     return null;
   }
 
+  if (visibleStage.value === "format") {
+    return null;
+  }
+
   const visibleStatus = visibleStageStatus.value || "";
   const nextStage = runState.value?.nextStage ?? "";
   const allowedActions = Array.isArray(runState.value?.allowedActions)
@@ -214,6 +235,38 @@ const footerAction = computed(() => {
   };
 });
 
+const formatStartAction = computed(() => {
+  if (
+    !runReady.value ||
+    loadingStage.value === "format" ||
+    actionInFlight.value ||
+    decisionInFlight.value ||
+    ["failed", "aborted"].includes(runState.value?.status ?? "")
+  ) {
+    return null;
+  }
+
+  const nextStage = runState.value?.nextStage ?? "";
+  const allowedActions = Array.isArray(runState.value?.allowedActions)
+    ? runState.value.allowedActions
+    : [];
+  const canContinue = allowedActions.length === 0 || allowedActions.includes("continue");
+
+  if (!canContinue || !["pending", "created", ""].includes(formatStageStatus.value)) {
+    return null;
+  }
+
+  if (nextStage && nextStage !== "format") {
+    return null;
+  }
+
+  return {
+    label: "开始格式审查",
+    hint: "这个按钮只负责启动第一阶段，不会直接进入逻辑审查。",
+    disabled: false
+  };
+});
+
 function refreshSummarySnapshot() {
   setWorkflowSummary(
     buildReviewDigest({
@@ -226,6 +279,10 @@ function refreshSummarySnapshot() {
 
 function isFinalStageStatus(status) {
   return FINAL_STAGE_STATUSES.has(status ?? "");
+}
+
+function isInProgressStageStatus(status) {
+  return ["running", "in_progress", "waiting"].includes(status ?? "");
 }
 
 function hasObjectContent(value) {
@@ -293,6 +350,22 @@ function setDisplayedStageStatus(stageKey, status = "") {
   };
 }
 
+function applyRunStateStatuses(state) {
+  if (!Array.isArray(state?.stageRuns)) {
+    return;
+  }
+
+  const nextStatuses = { ...displayedStageStatuses.value };
+  for (const item of state.stageRuns) {
+    const stageName = String(item?.stageName ?? "").trim();
+    if (!stageName || !(stageName in nextStatuses)) {
+      continue;
+    }
+    nextStatuses[stageName] = String(item?.status ?? "").trim();
+  }
+  displayedStageStatuses.value = nextStatuses;
+}
+
 async function syncRunState() {
   if (!runRecord.value?.runId) {
     return null;
@@ -300,7 +373,41 @@ async function syncRunState() {
 
   const nextState = await fetchRunState(runRecord.value.runId);
   setRunState(nextState);
+  applyRunStateStatuses(nextState);
   return nextState;
+}
+
+async function tickRunStatePolling() {
+  if (!runRecord.value?.runId || runStatePollInFlight.value) {
+    return;
+  }
+
+  runStatePollInFlight.value = true;
+
+  try {
+    await syncRunState();
+  } catch (error) {
+    if (!errorMessage.value) {
+      errorMessage.value =
+        error instanceof Error ? error.message : "run state 轮询失败";
+    }
+  } finally {
+    runStatePollInFlight.value = false;
+  }
+}
+
+function stopRunStatePolling() {
+  if (runStatePollTimer) {
+    window.clearInterval(runStatePollTimer);
+    runStatePollTimer = 0;
+  }
+}
+
+function startRunStatePolling() {
+  stopRunStatePolling();
+  runStatePollTimer = window.setInterval(() => {
+    void tickRunStatePolling();
+  }, STATE_POLL_INTERVAL_MS);
 }
 
 function stopStagePolling() {
@@ -462,9 +569,20 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
   }
 
   if (
-    snapshotResult.stageNotReady ||
+    snapshotResult.stageNotReady
+  ) {
+    if (isInProgressStageStatus(stateStageStatus)) {
+      pollingStage.value = stageKey;
+      void tickStagePolling();
+    } else if (pollingStage.value === stageKey) {
+      pollingStage.value = "";
+    }
+    return;
+  }
+
+  if (
     snapshotResult.displayable ||
-    ["running", "in_progress", "waiting"].includes(stateStageStatus)
+    isInProgressStageStatus(stateStageStatus)
   ) {
     pollingStage.value = stageKey;
     void tickStagePolling();
@@ -473,8 +591,7 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
 
   if (
     autoStart &&
-    (latestState?.nextStage === stageKey ||
-      ["pending", "created", ""].includes(stateStageStatus))
+    latestState?.nextStage === stageKey
   ) {
     await triggerStage(stageKey, action);
   }
@@ -544,6 +661,13 @@ async function handleFooterAction() {
   await triggerStage(visibleStage.value, "continue");
 }
 
+async function handleFormatStartAction() {
+  errorMessage.value = "";
+  setCurrentStage("format");
+  pageMessage.value = "正在启动格式审查。";
+  await triggerStage("format", "continue");
+}
+
 function restartReview() {
   clearSession();
   router.push({ name: "upload" });
@@ -561,6 +685,7 @@ onMounted(async () => {
       : "format";
 
   setCurrentStage(initialStage);
+  startRunStatePolling();
   startStagePolling();
   await ensureDisplayedStage(initialStage, {
     autoStart: initialStage === "format",
@@ -569,6 +694,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  stopRunStatePolling();
   stopStagePolling();
 });
 </script>
@@ -595,9 +721,8 @@ onBeforeUnmount(() => {
       <div class="hero-pills">
         <span class="pill pill-primary">{{ submission.paperName }}</span>
         <span class="pill pill-neutral">页数 {{ pageCount }}</span>
-        <span class="pill pill-neutral">锚点 {{ anchorCount }}</span>
-        <span class="pill pill-neutral">图 {{ figureCount }}</span>
-        <span class="pill pill-neutral">表 {{ tableCount }}</span>
+        <span class="pill pill-neutral">分块 {{ chunkCount }}</span>
+        <span class="pill pill-neutral">图片 {{ imageCount }}</span>
         <span class="pill pill-neutral">来源 {{ submission.sourceMode }}</span>
       </div>
     </header>
@@ -653,21 +778,14 @@ onBeforeUnmount(() => {
         :result="activeStageResult"
         :loading="stagePanelLoading"
         :actions="decisionActions"
+        :footer-action="footerAction"
+        :start-action="formatStartAction"
         :status-text="statusText"
         @action="handleDecisionAction"
+        @footer="handleFooterAction"
+        @start="handleFormatStartAction"
       />
     </section>
-
-    <div v-if="footerAction" class="workspace-footer-action">
-      <button
-        class="primary-button workspace-footer-button"
-        type="button"
-        :disabled="footerAction.disabled"
-        @click="handleFooterAction"
-      >
-        {{ footerAction.label }}
-      </button>
-    </div>
   </section>
 </template>
 
@@ -790,15 +908,6 @@ onBeforeUnmount(() => {
   max-height: none;
 }
 
-.workspace-footer-action {
-  display: flex;
-  justify-content: center;
-}
-
-.workspace-footer-button {
-  min-width: min(100%, 320px);
-}
-
 @media (max-width: 1240px) {
   .stage-layout {
     grid-template-columns: 1fr;
@@ -819,14 +928,6 @@ onBeforeUnmount(() => {
 
   .hero-actions {
     justify-content: flex-start;
-  }
-
-  .workspace-footer-action {
-    justify-content: stretch;
-  }
-
-  .workspace-footer-button {
-    width: 100%;
   }
 }
 </style>

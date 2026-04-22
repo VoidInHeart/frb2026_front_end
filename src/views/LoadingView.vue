@@ -367,7 +367,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取你提供的 paper.md 和 paper_meta.json。",
       "这条路径会直接组装 paper bundle，不再调用解析接口。",
-      "paper bundle 准备完成后会自动创建新的 review run。"
+      "paper bundle 准备完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
     ]);
     return;
   }

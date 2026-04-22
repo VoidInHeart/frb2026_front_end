@@ -6,11 +6,11 @@ import ReviewStageTracker from "../components/ReviewStageTracker.vue";
 import SummaryIssueBoard from "../components/SummaryIssueBoard.vue";
 import SummarySuggestionPanel from "../components/SummarySuggestionPanel.vue";
 import {
-  countAnchorsByType,
   fetchRecommendationsRecord,
   fetchRunState,
   fetchRunSummaryRecord,
-  getAnchorCount,
+  getChunkCount,
+  getImageCount,
   getPageCount,
   getPaperMeta
 } from "../services/api";
@@ -44,9 +44,8 @@ const summary = computed(() => reviewSession.workflow.summary);
 const recommendations = computed(() => reviewSession.recommendations);
 
 const pageCount = computed(() => getPageCount(paperMeta.value));
-const anchorCount = computed(() => getAnchorCount(paperMeta.value));
-const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
-const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
+const chunkCount = computed(() => getChunkCount(submission.value));
+const imageCount = computed(() => getImageCount(submission.value));
 
 const bannerTitle = computed(() =>
   summaryPending.value ? "正在生成汇总结果" : "正在生成推荐论文"
@@ -236,9 +235,8 @@ onBeforeUnmount(() => {
       <div class="hero-pills">
         <span class="pill pill-primary">{{ submission.paperName }}</span>
         <span class="pill pill-neutral">页数 {{ pageCount }}</span>
-        <span class="pill pill-neutral">锚点 {{ anchorCount }}</span>
-        <span class="pill pill-neutral">图 {{ figureCount }}</span>
-        <span class="pill pill-neutral">表 {{ tableCount }}</span>
+        <span class="pill pill-neutral">分块 {{ chunkCount }}</span>
+        <span class="pill pill-neutral">图片 {{ imageCount }}</span>
         <span v-if="runState" class="pill pill-neutral">run: {{ runState.status }}</span>
       </div>
     </header>
