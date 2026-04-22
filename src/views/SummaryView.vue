@@ -27,6 +27,7 @@ const router = useRouter();
 
 const POLL_INTERVAL_MS = 15000;
 const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
+const SHOW_MOCK_POLLING_HINT = import.meta.env.VITE_USE_MOCK !== "false";
 
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
@@ -247,7 +248,7 @@ onBeforeUnmount(() => {
         </button>
         <p class="summary-kicker">汇总页</p>
         <h1 class="section-title">汇总结论与推荐论文</h1>
-        <p class="section-subtitle hero-subtitle">
+        <p v-if="SHOW_MOCK_POLLING_HINT" class="section-subtitle hero-subtitle">
           页面会自动轮询 `GET /summary` 和 `GET /recommendations`。
           当前后端会先完成主任务，再在后台异步生成推荐论文。
         </p>
