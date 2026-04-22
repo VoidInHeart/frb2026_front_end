@@ -17,6 +17,7 @@ import {
 import {
   reviewSession,
   setCurrentStage,
+  setDisplayedStage,
   setRecommendations,
   setRunState,
   setWorkflowSummary
@@ -25,6 +26,7 @@ import {
 const router = useRouter();
 
 const POLL_INTERVAL_MS = 15000;
+const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
 
 const recommendationLoading = ref(false);
 const summaryLoading = ref(false);
@@ -46,6 +48,16 @@ const recommendations = computed(() => reviewSession.recommendations);
 const pageCount = computed(() => getPageCount(paperMeta.value));
 const chunkCount = computed(() => getChunkCount(submission.value));
 const imageCount = computed(() => getImageCount(submission.value));
+const revisitableStageIds = computed(() =>
+  REVIEW_STAGE_ORDER.filter((stageKey) => {
+    const reviewStatus = stageReviews.value[stageKey]?.stageStatus ?? "";
+    const stateStatus =
+      runState.value?.stageRuns?.find((item) => item.stageName === stageKey)?.status ??
+      reviewStatus;
+
+    return ["complete", "completed"].includes(String(stateStatus));
+  })
+);
 
 const bannerTitle = computed(() =>
   summaryPending.value ? "正在生成汇总结果" : "正在生成推荐论文"
@@ -180,6 +192,15 @@ function openRecommendation(paper) {
   });
 }
 
+function openStageSnapshot(stageKey) {
+  if (!stageKey || stageKey === "summary") {
+    return;
+  }
+
+  setDisplayedStage(stageKey);
+  router.push({ name: "workspace" });
+}
+
 onMounted(async () => {
   if (!submission.value || !runRecord.value?.runId) {
     router.replace({ name: "upload" });
@@ -246,6 +267,8 @@ onBeforeUnmount(() => {
       :reviews="stageReviews"
       :run-state="runState"
       :summary-ready="Boolean(summary)"
+      :clickable-stage-ids="revisitableStageIds"
+      @select-stage="openStageSnapshot"
     />
 
     <div

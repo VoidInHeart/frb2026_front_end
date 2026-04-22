@@ -124,6 +124,14 @@ export function setCurrentStage(stage) {
   reviewSession.workflow.currentStageDisplayed = stage;
 }
 
+export function setDisplayedStage(stage) {
+  if (!REVIEW_STAGE_IDS.includes(stage)) {
+    return;
+  }
+
+  reviewSession.workflow.currentStageDisplayed = stage;
+}
+
 export function setStageReview(stage, payload) {
   if (!(stage in reviewSession.workflow.reviews)) {
     return;

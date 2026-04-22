@@ -18,6 +18,7 @@ import {
   clearSession,
   reviewSession,
   setCurrentStage,
+  setDisplayedStage,
   setRunState,
   setShowImages,
   setStageReview,
@@ -68,6 +69,10 @@ const stageMetaMap = {
   innovation: {
     kicker: "阶段三",
     title: "创新性审查"
+  },
+  summary: {
+    kicker: "阶段四",
+    title: "汇总页面"
   }
 };
 
@@ -76,6 +81,9 @@ const runRecord = computed(() => reviewSession.runRecord);
 const runState = computed(() => reviewSession.runState);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
+const currentProgressStage = computed(
+  () => reviewSession.workflow.currentStage ?? "format"
+);
 const currentStageDisplayed = computed(
   () => reviewSession.workflow.currentStageDisplayed ?? reviewSession.workflow.currentStage
 );
@@ -120,6 +128,11 @@ const activeStageResultFinalized = computed(() =>
   Boolean(activeStageResult.value?.stageStatus) &&
   isFinalStageStatus(activeStageResult.value.stageStatus)
 );
+const isViewingHistory = computed(
+  () =>
+    currentStageDisplayed.value !== "summary" &&
+    currentStageDisplayed.value !== currentProgressStage.value
+);
 const severeForwardActionsBlocked = computed(
   () =>
     ["format", "logic"].includes(visibleStage.value) &&
@@ -140,6 +153,21 @@ const formatStageStatus = computed(
     displayedStageStatuses.value.format ||
     runState.value?.stageRuns?.find((item) => item.stageName === "format")?.status ||
     ""
+);
+
+const revisitableStageIds = computed(() =>
+  REVIEW_STAGE_ORDER.filter((stageKey) => {
+    const reviewStatus = stageReviews.value[stageKey]?.stageStatus ?? "";
+    const stateStatus =
+      displayedStageStatuses.value[stageKey] ||
+      runState.value?.stageRuns?.find((item) => item.stageName === stageKey)?.status ||
+      reviewStatus;
+
+    return (
+      ["complete", "completed"].includes(String(stateStatus)) &&
+      stageKey !== currentStageDisplayed.value
+    );
+  })
 );
 
 const stagePanelLoading = computed(
@@ -169,6 +197,7 @@ const decisionActions = computed(() => {
   if (
     !activeStageResult.value ||
     !activeStageResultFinalized.value ||
+    isViewingHistory.value ||
     stagePanelLoading.value ||
     actionInFlight.value ||
     decisionInFlight.value ||
@@ -221,6 +250,14 @@ const footerAction = computed(() => {
     return null;
   }
 
+  if (isViewingHistory.value) {
+    return {
+      label: "返回当前进度",
+      disabled: false,
+      mode: "return_current_progress"
+    };
+  }
+
   if (visibleStage.value === "innovation" && activeStageResultFinalized.value) {
     return {
       label: "进入汇总页面",
@@ -265,6 +302,7 @@ const footerAction = computed(() => {
 const formatStartAction = computed(() => {
   if (
     !runReady.value ||
+    isViewingHistory.value ||
     loadingStage.value === "format" ||
     actionInFlight.value ||
     decisionInFlight.value ||
@@ -638,6 +676,19 @@ async function openStage(stageKey, action = "continue") {
   });
 }
 
+async function showStageHistory(stageKey) {
+  if (!stageKey || stageKey === "summary") {
+    return;
+  }
+
+  errorMessage.value = "";
+  pageMessage.value = `正在查看${stageMetaMap[stageKey]?.title ?? stageKey}的历史记录。`;
+  setDisplayedStage(stageKey);
+  await ensureDisplayedStage(stageKey, {
+    autoStart: false
+  });
+}
+
 async function handleDecisionAction(action) {
   if (!activeStageResult.value || !runRecord.value?.runId) {
     return;
@@ -685,6 +736,21 @@ async function handleFooterAction() {
 
   errorMessage.value = "";
 
+  if (footerAction.value.mode === "return_current_progress") {
+    pageMessage.value = "已返回当前进度。";
+
+    if (currentProgressStage.value === "summary") {
+      await openStage("summary");
+      return;
+    }
+
+    setDisplayedStage(currentProgressStage.value);
+    await ensureDisplayedStage(currentProgressStage.value, {
+      autoStart: false
+    });
+    return;
+  }
+
   if (footerAction.value.mode === "summary") {
     pageMessage.value = "正在进入汇总阶段。";
     await openStage("summary");
@@ -702,6 +768,10 @@ async function handleFormatStartAction() {
   await triggerStage("format", "continue");
 }
 
+async function handleTrackerStageSelect(stageKey) {
+  await showStageHistory(stageKey);
+}
+
 function restartReview() {
   clearSession();
   router.push({ name: "upload" });
@@ -716,13 +786,23 @@ onMounted(async () => {
   const initialStage =
     currentStageDisplayed.value && currentStageDisplayed.value !== "summary"
       ? currentStageDisplayed.value
+      : currentProgressStage.value && currentProgressStage.value !== "summary"
+        ? currentProgressStage.value
       : "format";
+  const restoreHistoryView =
+    currentStageDisplayed.value &&
+    currentStageDisplayed.value !== "summary" &&
+    currentStageDisplayed.value !== currentProgressStage.value;
 
-  setCurrentStage(initialStage);
+  if (restoreHistoryView) {
+    setDisplayedStage(initialStage);
+  } else {
+    setCurrentStage(initialStage);
+  }
   startRunStatePolling();
   startStagePolling();
   await ensureDisplayedStage(initialStage, {
-    autoStart: initialStage === "format",
+    autoStart: !restoreHistoryView && initialStage === "format",
     action: "continue"
   });
 });
@@ -766,6 +846,8 @@ onBeforeUnmount(() => {
       :reviews="stageReviews"
       :run-state="runState"
       :summary-ready="Boolean(reviewSession.workflow.summary)"
+      :clickable-stage-ids="revisitableStageIds"
+      @select-stage="handleTrackerStageSelect"
     />
 
     <div v-if="pageMessage" class="success-banner">{{ pageMessage }}</div>
@@ -791,6 +873,12 @@ onBeforeUnmount(() => {
           </span>
           <span class="pill pill-neutral">
             当前查看: {{ activeStageMeta.title }}
+          </span>
+          <span
+            v-if="isViewingHistory"
+            class="pill pill-neutral"
+          >
+            当前进度: {{ stageMetaMap[currentProgressStage]?.title ?? currentProgressStage }}
           </span>
           <span v-if="runState" class="pill pill-neutral">
             next_stage: {{ runState.nextStage }}

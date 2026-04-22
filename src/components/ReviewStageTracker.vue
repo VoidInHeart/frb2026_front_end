@@ -17,8 +17,14 @@ const props = defineProps({
   summaryReady: {
     type: Boolean,
     default: false
+  },
+  clickableStageIds: {
+    type: Array,
+    default: () => []
   }
 });
+
+const emit = defineEmits(["select-stage"]);
 
 const stageItems = [
   {
@@ -83,6 +89,18 @@ function isReached(status) {
   return ["completed", "skipped", "running", "waiting"].includes(status);
 }
 
+function isStageClickable(stageId) {
+  return props.clickableStageIds.includes(stageId);
+}
+
+function handleStageClick(stageId) {
+  if (!isStageClickable(stageId)) {
+    return;
+  }
+
+  emit("select-stage", stageId);
+}
+
 const completedCount = computed(
   () =>
     stageItems.filter((item) =>
@@ -131,13 +149,18 @@ const trackerCopy = computed(() => {
 
     <div class="tracker-line" aria-label="四阶段进度">
       <template v-for="(item, index) in stageItems" :key="item.id">
-        <div
+        <component
+          :is="isStageClickable(item.id) ? 'button' : 'div'"
           class="tracker-node"
           :class="{
             reached: isReached(getStageStatus(item.id)),
             active: activeStage === item.id,
-            'summary-active': activeStage === 'summary' && item.id === 'summary'
+            'summary-active': activeStage === 'summary' && item.id === 'summary',
+            'tracker-node-clickable': isStageClickable(item.id)
           }"
+          :type="isStageClickable(item.id) ? 'button' : null"
+          :title="isStageClickable(item.id) ? '点击查看阶段快照' : null"
+          @click="handleStageClick(item.id)"
         >
           <span class="tracker-dot"></span>
           <div class="tracker-text">
@@ -145,7 +168,7 @@ const trackerCopy = computed(() => {
             <strong>{{ item.label }}</strong>
             <span class="tracker-status">{{ getStageStatus(item.id) }}</span>
           </div>
-        </div>
+        </component>
 
         <div
           v-if="index < stageItems.length - 1"
@@ -204,6 +227,10 @@ const trackerCopy = computed(() => {
   align-items: center;
   gap: 14px;
   color: var(--muted);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
 }
 
 .tracker-node.reached {
@@ -216,6 +243,28 @@ const trackerCopy = computed(() => {
 
 .tracker-node.summary-active {
   color: var(--success);
+}
+
+.tracker-node-clickable {
+  cursor: pointer;
+}
+
+.tracker-node-clickable .tracker-text strong {
+  text-decoration: underline;
+  text-decoration-color: rgba(19, 63, 103, 0.24);
+  text-underline-offset: 4px;
+}
+
+.tracker-node-clickable:hover,
+.tracker-node-clickable:focus-visible {
+  color: var(--primary);
+  outline: none;
+}
+
+.tracker-node-clickable:hover .tracker-dot,
+.tracker-node-clickable:focus-visible .tracker-dot {
+  border-color: rgba(19, 63, 103, 0.55);
+  background: rgba(19, 63, 103, 0.12);
 }
 
 .tracker-dot {
