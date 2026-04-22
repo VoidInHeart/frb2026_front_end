@@ -225,10 +225,6 @@ function ensureArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function hasObjectContent(value) {
-  return isPlainObject(value) && Object.keys(value).length > 0;
-}
-
 function coerceStageName(stageName, fallback = "format") {
   return REVIEW_STAGE_ORDER.includes(stageName) ? stageName : fallback;
 }
