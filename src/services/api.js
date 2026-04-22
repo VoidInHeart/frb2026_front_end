@@ -1221,7 +1221,43 @@ export function getPageCount(submissionOrMeta) {
 
 export function getAnchorCount(submissionOrMeta) {
   const meta = getPaperMeta(submissionOrMeta);
-  return meta?.anchors?.length ?? meta?.blocks?.length ?? 0;
+  return (
+    meta?.anchors?.length ??
+    meta?.blocks?.length ??
+    meta?.chunks?.length ??
+    meta?.chunk_count ??
+    meta?.chunkCount ??
+    0
+  );
+}
+
+export function getChunkCount(submissionOrMeta) {
+  const meta = getPaperMeta(submissionOrMeta);
+  return (
+    meta?.chunk_count ??
+    meta?.chunkCount ??
+    meta?.chunks?.length ??
+    meta?.summary?.group_count ??
+    0
+  );
+}
+
+export function getImageCount(submissionOrMeta) {
+  const markdownText =
+    submissionOrMeta?.paperMarkdown ??
+    submissionOrMeta?.paper_md ??
+    submissionOrMeta?.markdown_text ??
+    "";
+
+  if (typeof markdownText === "string" && markdownText.trim()) {
+    const imageMatches = markdownText.match(/!\[[^\]]*\]\([^)]+\)/g);
+    if (Array.isArray(imageMatches)) {
+      return imageMatches.length;
+    }
+  }
+
+  const meta = getPaperMeta(submissionOrMeta);
+  return meta?.image_count ?? meta?.images?.length ?? 0;
 }
 
 export function countAnchorsByType(submissionOrMeta, type) {
@@ -1232,12 +1268,14 @@ export function countAnchorsByType(submissionOrMeta, type) {
 function buildMockSummary(metaSource) {
   const paperMeta = getPaperMeta(metaSource);
   const pageCount = getPageCount(paperMeta);
-  const anchorCount = getAnchorCount(paperMeta);
-  const figureCount = countAnchorsByType(paperMeta, "figure");
-  const tableCount = countAnchorsByType(paperMeta, "table");
+  const chunkCount = getChunkCount(metaSource);
+  const imageCount = getImageCount(metaSource);
+  const anchorCount = chunkCount;
+  const figureCount = imageCount;
+  const tableCount = 0;
 
   return {
-    overallScore: Math.min(95, 72 + Math.round(pageCount / 2) + figureCount),
+    overallScore: Math.min(95, 72 + Math.round(pageCount / 2) + imageCount),
     verdict: "建议大修后进入下一轮评审",
     summary:
       "当前解析结果已经符合锚点列表式输出的方向，适合继续把评语生成、推荐检索等后续模块接到统一的 paper_meta.json 中。",
@@ -2265,7 +2303,7 @@ export async function submitPaperMeta({ submissionId, documentIr, paperMeta }) {
     success: true,
     docId: meta?.doc_id ?? "unknown-doc",
     pageCount: getPageCount(meta),
-    blockCount: getAnchorCount(meta),
+    blockCount: getChunkCount(meta),
     sentAt: new Date().toISOString()
   };
 }

@@ -6,10 +6,10 @@ import ReviewStageTracker from "../components/ReviewStageTracker.vue";
 import StageFindingsPanel from "../components/StageFindingsPanel.vue";
 import {
   buildReviewDigest,
-  countAnchorsByType,
   fetchRunState,
   fetchStageRecord,
-  getAnchorCount,
+  getChunkCount,
+  getImageCount,
   getPageCount,
   getPaperMeta,
   triggerStageExecution
@@ -85,9 +85,8 @@ const showImages = computed({
 });
 
 const pageCount = computed(() => getPageCount(paperMeta.value));
-const anchorCount = computed(() => getAnchorCount(paperMeta.value));
-const figureCount = computed(() => countAnchorsByType(paperMeta.value, "figure"));
-const tableCount = computed(() => countAnchorsByType(paperMeta.value, "table"));
+const chunkCount = computed(() => getChunkCount(submission.value));
+const imageCount = computed(() => getImageCount(submission.value));
 const runReady = computed(() => Boolean(runRecord.value?.runId));
 
 const lastCompletedStage = computed(() => {
@@ -726,9 +725,8 @@ onBeforeUnmount(() => {
       <div class="hero-pills">
         <span class="pill pill-primary">{{ submission.paperName }}</span>
         <span class="pill pill-neutral">页数 {{ pageCount }}</span>
-        <span class="pill pill-neutral">锚点 {{ anchorCount }}</span>
-        <span class="pill pill-neutral">图 {{ figureCount }}</span>
-        <span class="pill pill-neutral">表 {{ tableCount }}</span>
+        <span class="pill pill-neutral">分块 {{ chunkCount }}</span>
+        <span class="pill pill-neutral">图片 {{ imageCount }}</span>
         <span class="pill pill-neutral">来源 {{ submission.sourceMode }}</span>
       </div>
     </header>
