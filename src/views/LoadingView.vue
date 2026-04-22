@@ -5,7 +5,6 @@ import {
   createReviewRun,
   fetchRunState,
   isLocalParserEnabled,
-  triggerStageExecution,
   uploadPaper
 } from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
@@ -376,7 +375,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
       "这一阶段主要生成 paper.md 与 paper_meta.json。",
-      "解析完成后会自动创建新的 review run，并尝试直接启动格式审查。"
+      "解析完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
     ]);
     return;
   }
@@ -428,29 +427,6 @@ async function finalizeSubmission(submission) {
   }
 
   const initialStage = initialRunState.nextStage ?? runRecord.currentStage ?? "format";
-  const initialStageStatus =
-    initialRunState.stageRuns?.find((item) => item.stageName === initialStage)?.status ?? "";
-  const allowedActions = Array.isArray(initialRunState.allowedActions)
-    ? initialRunState.allowedActions
-    : [];
-  const shouldAutoStartInitialStage =
-    initialStage &&
-    initialStage !== "summary" &&
-    ["", "pending", "created"].includes(initialStageStatus) &&
-    (allowedActions.length === 0 || allowedActions.includes("continue"));
-
-  if (shouldAutoStartInitialStage) {
-    await triggerStageExecution({
-      runId: runRecord.runId,
-      stageName: initialStage,
-      action: "continue"
-    });
-    initialRunState = await fetchRunState(runRecord.runId);
-
-    if (disposed) {
-      return;
-    }
-  }
 
   setSubmission(submission);
   setRunRecord(runRecord);
