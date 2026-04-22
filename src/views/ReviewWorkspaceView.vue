@@ -29,6 +29,7 @@ const router = useRouter();
 const POLL_INTERVAL_MS = 15000;
 const STATE_POLL_INTERVAL_MS = 5000;
 const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
+const SEVERE_STAGE_ACTION_HINT = "问题太过严重，请跳过后续审查阶段";
 const FINAL_STAGE_STATUSES = new Set([
   "complete",
   "completed",
@@ -119,6 +120,12 @@ const activeStageResultFinalized = computed(() =>
   Boolean(activeStageResult.value?.stageStatus) &&
   isFinalStageStatus(activeStageResult.value.stageStatus)
 );
+const severeForwardActionsBlocked = computed(
+  () =>
+    ["format", "logic"].includes(visibleStage.value) &&
+    activeStageResultFinalized.value &&
+    Boolean(activeStageResult.value?.severe)
+);
 
 const visibleStageStatus = computed(
   () =>
@@ -171,6 +178,13 @@ const decisionActions = computed(() => {
     return [];
   }
 
+  if (visibleStage.value === "innovation") {
+    return [];
+  }
+
+  const blockedBySevere = severeForwardActionsBlocked.value;
+  const disabledReason = blockedBySevere ? SEVERE_STAGE_ACTION_HINT : "";
+
   return [
     {
       key: "jump_summary",
@@ -182,13 +196,15 @@ const decisionActions = computed(() => {
       key: "skip",
       label: "跳过下一阶段审查",
       variant: "secondary",
-      disabled: stateCompleted.value
+      disabled: stateCompleted.value || blockedBySevere,
+      disabledReason
     },
     {
       key: "continue",
       label: "继续下一阶段审查",
       variant: "primary",
-      disabled: stateCompleted.value
+      disabled: stateCompleted.value || blockedBySevere,
+      disabledReason
     }
   ];
 });
@@ -197,12 +213,23 @@ const footerAction = computed(() => {
   if (
     !runReady.value ||
     visibleStage.value === "summary" ||
-    activeStageResult.value ||
     stagePanelLoading.value ||
     actionInFlight.value ||
     decisionInFlight.value ||
     ["failed", "aborted"].includes(runState.value?.status ?? "")
   ) {
+    return null;
+  }
+
+  if (visibleStage.value === "innovation" && activeStageResultFinalized.value) {
+    return {
+      label: "进入汇总页面",
+      disabled: false,
+      mode: "summary"
+    };
+  }
+
+  if (activeStageResult.value) {
     return null;
   }
 
@@ -652,11 +679,18 @@ async function handleDecisionAction(action) {
 }
 
 async function handleFooterAction() {
-  if (!visibleStage.value || visibleStage.value === "summary") {
+  if (!visibleStage.value || visibleStage.value === "summary" || !footerAction.value) {
     return;
   }
 
   errorMessage.value = "";
+
+  if (footerAction.value.mode === "summary") {
+    pageMessage.value = "正在进入汇总阶段。";
+    await openStage("summary");
+    return;
+  }
+
   pageMessage.value = `正在启动${activeStageMeta.value.title}。`;
   await triggerStage(visibleStage.value, "continue");
 }

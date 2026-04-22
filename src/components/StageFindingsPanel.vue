@@ -175,16 +175,23 @@ const hasStartAction = computed(() => Boolean(props.startAction));
 
     <div v-if="visibleActions.length || hasFooterAction" class="panel-footer">
       <div v-if="visibleActions.length" class="action-row">
-        <button
+        <span
           v-for="action in visibleActions"
           :key="action.key"
-          :class="getActionClass(action.variant)"
-          type="button"
-          :disabled="action.disabled"
-          @click="emit('action', action.key)"
+          class="action-button-wrap"
+          :class="{ 'action-button-wrap-tooltip': action.disabled && action.disabledReason }"
+          :title="action.disabled && action.disabledReason ? action.disabledReason : null"
+          :data-tooltip="action.disabled && action.disabledReason ? action.disabledReason : null"
         >
-          {{ action.label }}
-        </button>
+          <button
+            :class="getActionClass(action.variant)"
+            type="button"
+            :disabled="action.disabled"
+            @click="emit('action', action.key)"
+          >
+            {{ action.label }}
+          </button>
+        </span>
       </div>
 
       <button
@@ -418,6 +425,45 @@ const hasStartAction = computed(() => Boolean(props.startAction));
   justify-content: flex-end;
 }
 
+.action-button-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.action-button-wrap-tooltip {
+  cursor: not-allowed;
+}
+
+.action-button-wrap-tooltip > button {
+  pointer-events: none;
+}
+
+.action-button-wrap-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  min-width: 220px;
+  max-width: 260px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.94);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+  z-index: 2;
+}
+
+.action-button-wrap-tooltip:hover::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .footer-button {
   min-width: 220px;
 }
@@ -441,9 +487,10 @@ const hasStartAction = computed(() => Boolean(props.startAction));
     justify-content: stretch;
   }
 
+  .action-row > .action-button-wrap,
   .footer-button,
   .standalone-action-button,
-  .action-row > button {
+  .action-row > .action-button-wrap > button {
     width: 100%;
   }
 }
