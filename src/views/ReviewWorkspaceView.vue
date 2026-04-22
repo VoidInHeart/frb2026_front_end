@@ -657,12 +657,21 @@ onBeforeUnmount(() => {
         :result="activeStageResult"
         :loading="stagePanelLoading"
         :actions="decisionActions"
-        :footer-action="footerAction"
         :status-text="statusText"
         @action="handleDecisionAction"
-        @footer="handleFooterAction"
       />
     </section>
+
+    <div v-if="footerAction" class="workspace-footer-action">
+      <button
+        class="primary-button workspace-footer-button"
+        type="button"
+        :disabled="footerAction.disabled"
+        @click="handleFooterAction"
+      >
+        {{ footerAction.label }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -785,6 +794,15 @@ onBeforeUnmount(() => {
   max-height: none;
 }
 
+.workspace-footer-action {
+  display: flex;
+  justify-content: center;
+}
+
+.workspace-footer-button {
+  min-width: min(100%, 320px);
+}
+
 @media (max-width: 1240px) {
   .stage-layout {
     grid-template-columns: 1fr;
@@ -805,6 +823,14 @@ onBeforeUnmount(() => {
 
   .hero-actions {
     justify-content: flex-start;
+  }
+
+  .workspace-footer-action {
+    justify-content: stretch;
+  }
+
+  .workspace-footer-button {
+    width: 100%;
   }
 }
 </style>

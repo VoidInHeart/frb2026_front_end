@@ -8,3 +8,4 @@ tmp/
 !.env.example
 
 docling-parser-service/outputs/*
+docling-parser-service/**/__pycache__/

@@ -3182,3 +3182,7 @@ export async function toggleBackendRule(ruleId) {
     msg: `规则 ${ruleId} 状态已切换`
   };
 }
+
+function hasObjectContent(value) {
+  return isPlainObject(value) && Object.keys(value).length > 0;
+}

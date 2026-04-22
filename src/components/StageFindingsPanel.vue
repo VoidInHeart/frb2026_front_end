@@ -22,17 +22,13 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  footerAction: {
-    type: Object,
-    default: null
-  },
   statusText: {
     type: String,
     default: ""
   }
 });
 
-const emit = defineEmits(["action", "footer"]);
+const emit = defineEmits(["action"]);
 
 function getSeverityClass(severity) {
   if (severity === "严重" || severity === "critical" || severity === "major") {
@@ -59,7 +55,6 @@ function getActionClass(variant) {
 }
 
 const visibleActions = computed(() => props.actions.filter(Boolean));
-const hasFooterAction = computed(() => Boolean(props.footerAction));
 </script>
 
 <template>
@@ -82,19 +77,21 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
       </div>
     </div>
 
-    <div v-if="props.loading && !props.result" class="empty-state panel-empty">
-      正在读取当前阶段结果...
+    <div v-if="props.loading && !props.result" class="panel-body panel-body-empty">
+      <div class="empty-state panel-empty">正在读取当前阶段结果...</div>
     </div>
 
-    <template v-else-if="props.result">
-      <div v-if="props.loading" class="result-banner result-banner-progress">
-        <strong>当前结果持续更新中</strong>
-        <p>后端已经返回本阶段的累计结果，页面会继续轮询并逐步刷新。</p>
-      </div>
+    <div v-else-if="props.result" class="panel-body">
+      <div class="banner-stack">
+        <div v-if="props.loading" class="result-banner result-banner-progress">
+          <strong>当前结果持续更新中</strong>
+          <p>后端已经返回本阶段的累计结果，页面会继续轮询并逐步刷新。</p>
+        </div>
 
-      <div class="result-banner" :class="{ 'result-banner-critical': props.result.severe }">
-        <strong>{{ props.result.headline }}</strong>
-        <p>{{ props.result.overview }}</p>
+        <div class="result-banner" :class="{ 'result-banner-critical': props.result.severe }">
+          <strong>{{ props.result.headline }}</strong>
+          <p>{{ props.result.overview }}</p>
+        </div>
       </div>
 
       <div v-if="props.result.issues?.length" class="finding-list">
@@ -123,17 +120,19 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
         </article>
       </div>
 
-      <div v-else class="empty-state panel-empty">
+      <div v-else class="empty-state panel-empty panel-empty-compact">
         当前阶段没有可展示的问题结果。
       </div>
-    </template>
-
-    <div v-else class="empty-state panel-empty">
-      当前阶段还没有结果，可以按当前 run state 触发执行或决策。
     </div>
 
-    <div class="panel-footer">
-      <div v-if="visibleActions.length" class="action-row">
+    <div v-else class="panel-body panel-body-empty">
+      <div class="empty-state panel-empty">
+        当前阶段还没有结果，可以按当前 run state 触发执行或决策。
+      </div>
+    </div>
+
+    <div v-if="visibleActions.length" class="panel-footer">
+      <div class="action-row">
         <button
           v-for="action in visibleActions"
           :key="action.key"
@@ -145,16 +144,6 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
           {{ action.label }}
         </button>
       </div>
-
-      <button
-        v-else-if="hasFooterAction"
-        class="primary-button footer-button"
-        type="button"
-        :disabled="props.footerAction.disabled"
-        @click="emit('footer')"
-      >
-        {{ props.footerAction.label }}
-      </button>
     </div>
   </section>
 </template>
@@ -163,7 +152,7 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
 .findings-panel {
   padding: 24px;
   display: grid;
-  grid-template-rows: auto minmax(0, auto) minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
   min-height: var(--workspace-panel-height, 750px);
   max-height: var(--workspace-panel-height, 1050px);
@@ -190,6 +179,22 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.panel-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+}
+
+.panel-body-empty {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.banner-stack {
+  display: grid;
+  gap: 12px;
 }
 
 .result-banner {
@@ -328,6 +333,11 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   text-align: center;
 }
 
+.panel-empty-compact {
+  min-height: 0;
+  align-content: start;
+}
+
 .panel-footer {
   display: flex;
   justify-content: flex-end;
@@ -338,10 +348,6 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
-}
-
-.footer-button {
-  min-width: 220px;
 }
 
 @media (max-width: 1240px) {
@@ -362,7 +368,6 @@ const hasFooterAction = computed(() => Boolean(props.footerAction));
     justify-content: stretch;
   }
 
-  .footer-button,
   .action-row > button {
     width: 100%;
   }
