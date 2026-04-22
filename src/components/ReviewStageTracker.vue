@@ -110,7 +110,7 @@ const trackerCopy = computed(() => {
     return "当前 run 处于等待决策状态，请先执行继续、跳过或终止。";
   }
 
-  return "阶段顺序由后端 run state 控制，前端只在当前允许阶段触发执行。";
+  return "审查会按顺序推进，你现在可以操作当前可执行的阶段。";
 });
 </script>
 
