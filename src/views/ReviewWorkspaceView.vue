@@ -580,10 +580,6 @@ onBeforeUnmount(() => {
         <div class="hero-copy">
           <p class="summary-kicker">分阶段审查工作区</p>
           <h1 class="section-title">按阶段快照驱动的审查流程</h1>
-          <p class="section-subtitle hero-subtitle">
-            当前页面展示哪个阶段，就只请求哪个 `GET /runs/{run_id}/stages/{stage_name}`。
-            `GET /state` 只在拿到阶段结果后用来更新整体 workflow 状态和按钮可用性。
-          </p>
         </div>
 
         <div class="hero-actions">

@@ -30,6 +30,10 @@ const props = defineProps({
 
 const emit = defineEmits(["action"]);
 
+function normalizeStatusLabel(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
 function getSeverityClass(severity) {
   if (severity === "严重" || severity === "critical" || severity === "major") {
     return "severity-critical";
@@ -55,6 +59,20 @@ function getActionClass(variant) {
 }
 
 const visibleActions = computed(() => props.actions.filter(Boolean));
+const resultStatusText = computed(
+  () => props.result?.stageStatus || (props.result?.severe ? "critical" : "completed")
+);
+const shouldShowStatusText = computed(() => {
+  if (!props.statusText) {
+    return false;
+  }
+
+  if (!props.result) {
+    return true;
+  }
+
+  return normalizeStatusLabel(props.statusText) !== normalizeStatusLabel(resultStatusText.value);
+});
 </script>
 
 <template>
@@ -66,13 +84,13 @@ const visibleActions = computed(() => props.actions.filter(Boolean));
       </div>
 
       <div class="panel-badges">
-        <span v-if="props.statusText" class="pill pill-neutral">{{ props.statusText }}</span>
+        <span v-if="shouldShowStatusText" class="pill pill-neutral">{{ props.statusText }}</span>
         <span
           v-if="props.result"
           class="pill"
           :class="props.result.severe ? 'pill-accent' : 'pill-success'"
         >
-          {{ props.result.stageStatus || (props.result.severe ? "critical" : "completed") }}
+          {{ resultStatusText }}
         </span>
       </div>
     </div>
