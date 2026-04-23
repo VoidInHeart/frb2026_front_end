@@ -43,6 +43,20 @@ npm run dev:all
 npm run build
 ```
 
+## 页面入口
+
+- `/`：主页（研航智审品牌页），包含站点简介、能力特点、`开启论文评审` 和 `About Us` 快捷入口。
+- `/upload`：原上传与启动审查流程页面（保留原有流程能力）。
+- `/about`：关于我们页面。
+
+Logo 默认按以下候选路径加载，请将站点 logo 放到 `public/assets/` 下：
+
+- `/assets/logo.svg`
+- `/assets/logo.png`
+- `/assets/logo.jpg`
+- `/assets/logo.jpeg`
+- `/assets/logo.webp`
+
 ## 环境变量
 
 根目录 `.env` 可参考：

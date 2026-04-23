@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
+import AboutView from "../views/AboutView.vue";
+import HomeView from "../views/HomeView.vue";
 import LoadingView from "../views/LoadingView.vue";
 import RecommendationDetailView from "../views/RecommendationDetailView.vue";
 import ReviewWorkspaceView from "../views/ReviewWorkspaceView.vue";
@@ -10,6 +12,15 @@ const router = createRouter({
   routes: [
     {
       path: "/",
+      name: "home",
+      component: HomeView,
+      meta: {
+        title: "研航智审"
+      }
+    },
+    {
+      path: "/upload",
+      alias: "/review/start",
       name: "upload",
       component: UploadView,
       meta: {
@@ -46,6 +57,14 @@ const router = createRouter({
       component: RecommendationDetailView,
       meta: {
         title: "推荐论文详情"
+      }
+    },
+    {
+      path: "/about",
+      name: "about",
+      component: AboutView,
+      meta: {
+        title: "关于我们"
       }
     }
   ]

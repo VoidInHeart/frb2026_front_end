@@ -28,6 +28,14 @@ const stageLabelMap = {
 };
 
 const currentStageLabel = computed(() => {
+  if (route.name === "home") {
+    return "主页";
+  }
+
+  if (route.name === "about") {
+    return "关于我们";
+  }
+
   if (route.name === "loading") {
     return "正在解析";
   }
@@ -67,25 +75,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header class="topbar glass-card">
+  <header class="topbar">
     <div class="topbar-brand">
-      <div class="topbar-kicker">Structured Paper Review</div>
-      <RouterLink class="topbar-title" to="/">论文分阶段审查系统</RouterLink>
+      <div class="topbar-kicker">Rule-Driven Expert Review</div>
+      <RouterLink class="topbar-title" to="/">研航智审</RouterLink>
     </div>
 
     <nav class="topbar-nav">
+      <RouterLink class="nav-link" :class="{ active: route.name === 'home' }" to="/">
+        主页
+      </RouterLink>
+
       <RouterLink
         class="nav-link"
         :class="{ active: route.name === 'upload' || route.name === 'loading' }"
-        to="/"
+        to="/upload"
       >
-        上传论文
+        开启评审
       </RouterLink>
 
       <RouterLink
         class="nav-link"
         :class="{ active: route.name === 'workspace', disabled: !workspaceReady }"
-        :to="workspaceReady ? '/workspace' : '/'"
+        :to="workspaceReady ? '/workspace' : '/upload'"
       >
         审查工作区
       </RouterLink>
@@ -97,9 +109,13 @@ onBeforeUnmount(() => {
           'summary-active': route.name === 'summary',
           disabled: !summaryReady
         }"
-        :to="summaryReady ? '/summary' : '/'"
+        :to="summaryReady ? '/summary' : '/upload'"
       >
         汇总页面
+      </RouterLink>
+
+      <RouterLink class="nav-link" :class="{ active: route.name === 'about' }" to="/about">
+        About Us
       </RouterLink>
 
       <span class="pill pill-primary">{{ currentStageLabel }}</span>
@@ -132,17 +148,21 @@ onBeforeUnmount(() => {
 <style scoped>
 .topbar {
   position: fixed;
-  top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
-  width: min(calc(100% - 32px), var(--content-width));
-  margin: 0 auto;
-  padding: 16px 20px;
+  width: 100%;
+  margin: 0;
+  padding: 14px clamp(14px, 2.2vw, 32px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 8px 24px rgba(19, 42, 76, 0.08);
 }
 
 .topbar-brand {
@@ -232,9 +252,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 720px) {
   .topbar {
-    width: min(calc(100% - 20px), var(--content-width));
-    top: 12px;
-    padding: 14px;
+    padding: 12px 14px;
     align-items: flex-start;
     flex-direction: column;
   }
