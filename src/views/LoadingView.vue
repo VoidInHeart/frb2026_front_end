@@ -5,6 +5,7 @@ import {
   createReviewRun,
   fetchRunState,
   isLocalParserEnabled,
+  triggerStageExecution,
   uploadPaper
 } from "../services/api";
 import { clearPendingUpload, getPendingUpload } from "../stores/pendingUpload";
@@ -427,6 +428,35 @@ async function finalizeSubmission(submission) {
   }
 
   const initialStage = initialRunState.nextStage ?? runRecord.currentStage ?? "format";
+  const initialStageStatus =
+    initialRunState.stageRuns?.find((item) => item.stageName === initialStage)?.status ?? "";
+  const allowedActions = Array.isArray(initialRunState.allowedActions)
+    ? initialRunState.allowedActions
+    : [];
+  const sourceAllowsInitialStageAutoStart =
+    submission.sourceMode === "local-artifacts" ||
+    submission.sourceMode === "mock" ||
+    submission.sourceMode === "local-parser-api" ||
+    submission.sourceMode === "api";
+  const shouldAutoStartInitialStage =
+    sourceAllowsInitialStageAutoStart &&
+    initialStage &&
+    initialStage !== "summary" &&
+    ["", "pending", "created"].includes(initialStageStatus) &&
+    (allowedActions.length === 0 || allowedActions.includes("continue"));
+
+  if (shouldAutoStartInitialStage) {
+    await triggerStageExecution({
+      runId: runRecord.runId,
+      stageName: initialStage,
+      action: "continue"
+    });
+    initialRunState = await fetchRunState(runRecord.runId);
+
+    if (disposed) {
+      return;
+    }
+  }
 
   setSubmission(submission);
   setRunRecord(runRecord);

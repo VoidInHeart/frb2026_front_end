@@ -21,6 +21,9 @@ const props = defineProps({
 });
 
 const suggestions = computed(() => props.summary?.modificationSuggestions ?? []);
+const runStatusLabel = computed(() =>
+  props.runState?.status === "complete" ? "completed" : props.runState?.status
+);
 </script>
 
 <template>
@@ -37,7 +40,7 @@ const suggestions = computed(() => props.summary?.modificationSuggestions ?? [])
         >
           {{ props.runRecord?.runId ? "run 已创建" : "run 未就绪" }}
         </span>
-        <span v-if="props.runState?.status" class="pill pill-neutral">{{ props.runState.status }}</span>
+        <span v-if="runStatusLabel" class="pill pill-neutral">{{ runStatusLabel }}</span>
       </div>
     </div>
 

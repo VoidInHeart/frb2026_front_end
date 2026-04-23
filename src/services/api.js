@@ -61,6 +61,7 @@ const RULE_LABELS = Object.freeze({
 });
 
 const FINAL_STAGE_STATUSES = new Set([
+  "complete",
   "completed",
   "skipped",
   "failed",
@@ -456,12 +457,22 @@ function getNextStageName(stageName) {
   return REVIEW_STAGE_ORDER[index + 1];
 }
 
+function normalizeStatusValue(status, fallback = "") {
+  const value = String(status ?? fallback).trim();
+
+  if (!value) {
+    return fallback;
+  }
+
+  return value === "complete" ? "completed" : value;
+}
+
 function normalizeRunRecord(payload) {
   const data = ensureObject(payload?.data ?? payload);
 
   return {
     runId: data.run_id ?? data.runId ?? "",
-    status: data.status ?? "created",
+    status: normalizeStatusValue(data.status, "created"),
     currentStage: coerceStageName(
       data.current_stage ?? data.currentStage ?? data.next_stage ?? data.nextStage,
       "format"
@@ -483,7 +494,7 @@ function normalizeStageRuns(stageRuns = []) {
 
     byStage.set(stageName, {
       stageName,
-      status: item?.status ?? "pending"
+      status: normalizeStatusValue(item?.status, "pending")
     });
   }
 
@@ -495,6 +506,7 @@ function normalizeStageRuns(stageRuns = []) {
 
 function estimateRunProgress(stageRuns = []) {
   const progressByStatus = {
+    complete: 25,
     completed: 25,
     skipped: 25,
     failed: 25,
@@ -522,7 +534,7 @@ function normalizeRunState(payload) {
 
   return {
     runId: data.run_id ?? data.runId ?? "",
-    status: data.status ?? "created",
+    status: normalizeStatusValue(data.status, "created"),
     currentStage: coerceStageName(
       data.current_stage ?? data.currentStage ?? nextStage,
       nextStage
@@ -554,7 +566,10 @@ function extractStagePayload(source) {
   const data = ensureObject(source?.data ?? source);
 
   return {
-    stageStatus: data.stage_status ?? data.stageStatus ?? "completed",
+    stageStatus: normalizeStatusValue(
+      data.stage_status ?? data.stageStatus,
+      "completed"
+    ),
     stageOutput: ensureObject(
       data.stage_output ??
         data.stageOutput ??
@@ -944,7 +959,7 @@ function normalizeFormatStageReview(stageName, stageStatus, stageOutput) {
 function buildDisplayableStageReview(stageName, payload) {
   const { stageStatus, stageOutput } = extractStagePayload(payload);
 
-  if (["completed", "skipped"].includes(stageStatus) || stageOutput.available === false) {
+  if (["complete", "completed", "skipped"].includes(stageStatus) || stageOutput.available === false) {
     return normalizeStageReview(stageName, payload);
   }
 
