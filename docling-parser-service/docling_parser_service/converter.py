@@ -1483,12 +1483,139 @@ def _inject_missing_figure_images(
     return _render_markdown_blocks(leading_lines, updated)
 
 
-def _postprocess_markdown(markdown: str) -> str:
+def _iter_docling_text_items(doc_dict: dict[str, Any] | None) -> list[tuple[dict[str, Any], int]]:
+    if not isinstance(doc_dict, dict):
+        return []
+
+    items: list[tuple[dict[str, Any], int]] = []
+    chunks = doc_dict.get("chunks")
+    if isinstance(chunks, list):
+        for chunk in chunks:
+            if not isinstance(chunk, dict):
+                continue
+            document = chunk.get("document", {})
+            if not isinstance(document, dict):
+                continue
+            try:
+                page_start = int(chunk.get("page_start") or 1)
+            except (TypeError, ValueError):
+                page_start = 1
+            for item in document.get("texts", []) or []:
+                if isinstance(item, dict):
+                    items.append((item, page_start))
+        return items
+
+    for item in doc_dict.get("texts", []) or []:
+        if isinstance(item, dict):
+            items.append((item, 1))
+    return items
+
+
+def _heading_bbox_sort_keys(doc_dict: dict[str, Any] | None) -> dict[str, list[tuple[int, float, float]]]:
+    keys: dict[str, list[tuple[int, float, float]]] = {}
+
+    for item, page_start in _iter_docling_text_items(doc_dict):
+        if str(item.get("label") or "") != "section_header":
+            continue
+        title = str(item.get("text") or item.get("orig") or "").strip()
+        title_key = _normalize_heading_text(title)
+        if not title_key:
+            continue
+        prov = item.get("prov")
+        if not isinstance(prov, list) or not prov:
+            continue
+        first_prov = prov[0] if isinstance(prov[0], dict) else {}
+        bbox = first_prov.get("bbox", {}) if isinstance(first_prov, dict) else {}
+        if not isinstance(bbox, dict):
+            continue
+        try:
+            relative_page = int(first_prov.get("page_no") or 1)
+            top = float(bbox.get("t"))
+            left = float(bbox.get("l", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            continue
+        absolute_page = page_start + relative_page - 1
+        keys.setdefault(title_key, []).append((absolute_page, -top, left))
+
+    return keys
+
+
+def _assign_block_bbox_sort_keys(
+    blocks: list[dict[str, Any]],
+    doc_dict: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    available_keys = {
+        title: list(values)
+        for title, values in _heading_bbox_sort_keys(doc_dict).items()
+    }
+    assigned: list[dict[str, Any]] = []
+
+    for block in blocks:
+        current = dict(block)
+        title_key = _normalize_heading_text(str(current.get("title", "")))
+        sort_values = available_keys.get(title_key)
+        if sort_values:
+            current["_bbox_sort_key"] = sort_values.pop(0)
+        assigned.append(current)
+    return assigned
+
+
+def _strip_internal_block_fields(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    cleaned: list[dict[str, Any]] = []
+    for block in blocks:
+        current = dict(block)
+        current.pop("_bbox_sort_key", None)
+        cleaned.append(current)
+    return cleaned
+
+
+def _repair_same_page_heading_order_from_bbox(
+    blocks: list[dict[str, Any]],
+    doc_dict: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    keyed_blocks = _assign_block_bbox_sort_keys(blocks, doc_dict)
+    if not any("_bbox_sort_key" in block for block in keyed_blocks):
+        return blocks
+
+    repaired: list[dict[str, Any]] = []
+    run: list[dict[str, Any]] = []
+    run_page: int | None = None
+
+    def flush_run() -> None:
+        nonlocal run, run_page
+        if len(run) > 1:
+            keys = [block.get("_bbox_sort_key") for block in run]
+            sorted_run = sorted(run, key=lambda block: block.get("_bbox_sort_key", (0, 0.0, 0.0)))
+            if keys != [block.get("_bbox_sort_key") for block in sorted_run]:
+                run = sorted_run
+        repaired.extend(run)
+        run = []
+        run_page = None
+
+    for block in keyed_blocks:
+        key = block.get("_bbox_sort_key")
+        if not isinstance(key, tuple):
+            flush_run()
+            repaired.append(block)
+            continue
+
+        page = int(key[0])
+        if run and run_page != page:
+            flush_run()
+        run.append(block)
+        run_page = page
+
+    flush_run()
+    return _strip_internal_block_fields(repaired)
+
+
+def _postprocess_markdown(markdown: str, doc_dict: dict[str, Any] | None = None) -> str:
     normalized = _normalize_asset_paths(markdown)
     normalized = _normalize_compatibility_cjk_chars(normalized)
     leading_lines, blocks = _parse_markdown_blocks(normalized)
     blocks = _drop_leading_front_matter(blocks)
     blocks = _filter_excluded_blocks(blocks)
+    blocks = _repair_same_page_heading_order_from_bbox(blocks, doc_dict)
     blocks = _repair_related_work_blocks_misordered_after_abstract(blocks)
     blocks = _merge_split_headings(blocks)
     blocks = _move_chapter_headings_before_children(blocks)
@@ -1747,7 +1874,7 @@ def _export_markdown_with_assets(
     )
     markdown = output_path.read_text(encoding="utf-8")
     markdown = _inject_formula_fallbacks(markdown, doc_dict)
-    markdown = _postprocess_markdown(markdown)
+    markdown = _postprocess_markdown(markdown, doc_dict=doc_dict)
     output_path.write_text(markdown, encoding="utf-8")
     return markdown
 
@@ -1956,7 +2083,7 @@ class DoclingLaptopConverter:
                     total_pages=total_pages,
                 )
                 markdown = _recover_chunk_boundary_sections(markdown, document_dict, assets_root)
-                markdown = _postprocess_markdown(markdown)
+                markdown = _postprocess_markdown(markdown, doc_dict=document_dict)
                 markdown = _inject_missing_figure_images(markdown, document_dict, _to_real_path(pdf_path), assets_root)
                 status = "SUCCESS" if all(value.endswith("SUCCESS") for value in status_values) else "PARTIAL_SUCCESS"
                 emit_progress(
@@ -1987,7 +2114,7 @@ class DoclingLaptopConverter:
             document = result.document
             document_dict = document.export_to_dict()
             markdown = _export_markdown_with_assets(document, document_dict, bundle_root / "paper.md")
-            markdown = _postprocess_markdown(markdown)
+            markdown = _postprocess_markdown(markdown, doc_dict=document_dict)
             markdown = _inject_missing_figure_images(markdown, document_dict, _to_real_path(pdf_path), assets_root)
             status = str(getattr(result, "status", "SUCCESS"))
             emit_progress(

@@ -5,6 +5,26 @@ import unittest
 from docling_parser_service.converter import _postprocess_markdown
 
 
+def _section_header(title: str, *, page: int, top: float, left: float = 80.0) -> dict:
+    return {
+        "label": "section_header",
+        "text": title,
+        "orig": title,
+        "prov": [
+            {
+                "page_no": page,
+                "bbox": {
+                    "l": left,
+                    "t": top,
+                    "r": left + 100,
+                    "b": top - 12,
+                    "coord_origin": "BOTTOMLEFT",
+                },
+            }
+        ],
+    }
+
+
 class ConverterPostprocessTests(unittest.TestCase):
     def test_explicit_blank_lines_are_preserved(self) -> None:
         markdown = """## 1.3.2 仓库级代码智能任务
@@ -219,6 +239,77 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
         self.assertIn("### 2. \u8bc4\u4ef7\u6307\u6807", processed)
         self.assertNotIn("\n## 1. \u6a21\u578b\u6784\u5efa\n", processed)
         self.assertNotIn("\n## 2. \u8bc4\u4ef7\u6307\u6807\n", processed)
+
+    def test_bbox_repair_reorders_same_page_heading_inversion(self) -> None:
+        markdown = (
+            "## \u6458\u8981\n"
+            "\u6458\u8981\u6b63\u6587\u3002\n"
+            "## \uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282\n"
+            "\u8bef\u6392\u6b63\u6587\u3002\n"
+            "## \u4e00\u3001\u5f15\u8a00\n"
+            "\u5f15\u8a00\u6b63\u6587\u3002\n"
+            "## \uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f\n"
+            "\u80cc\u666f\u6b63\u6587\u3002\n"
+        )
+        doc_dict = {
+            "chunks": [
+                {
+                    "page_start": 1,
+                    "document": {
+                        "texts": [
+                            _section_header("\u6458\u8981", page=1, top=760),
+                            _section_header("\uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282", page=2, top=280),
+                            _section_header("\u4e00\u3001\u5f15\u8a00", page=2, top=740),
+                            _section_header("\uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f", page=2, top=620),
+                        ]
+                    },
+                }
+            ]
+        }
+
+        processed = _postprocess_markdown(markdown, doc_dict=doc_dict)
+
+        intro_index = processed.index("## \u4e00\u3001\u5f15\u8a00")
+        background_index = processed.index("### \uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f")
+        misplaced_index = processed.index("### \uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282")
+        self.assertLess(intro_index, background_index)
+        self.assertLess(background_index, misplaced_index)
+
+    def test_bbox_repair_keeps_cross_page_order(self) -> None:
+        markdown = (
+            "## \u4e00\u3001\u7b2c\u4e00\u9875\u7ae0\u8282\n"
+            "\u7b2c\u4e00\u9875\u6b63\u6587\u3002\n"
+            "## \u4e8c\u3001\u7b2c\u4e8c\u9875\u7ae0\u8282\n"
+            "\u7b2c\u4e8c\u9875\u6b63\u6587\u3002\n"
+        )
+        doc_dict = {
+            "texts": [
+                _section_header("\u4e00\u3001\u7b2c\u4e00\u9875\u7ae0\u8282", page=1, top=120),
+                _section_header("\u4e8c\u3001\u7b2c\u4e8c\u9875\u7ae0\u8282", page=2, top=760),
+            ]
+        }
+
+        processed = _postprocess_markdown(markdown, doc_dict=doc_dict)
+
+        self.assertLess(
+            processed.index("## \u4e00\u3001\u7b2c\u4e00\u9875\u7ae0\u8282"),
+            processed.index("## \u4e8c\u3001\u7b2c\u4e8c\u9875\u7ae0\u8282"),
+        )
+
+    def test_bbox_repair_is_noop_without_docling_metadata(self) -> None:
+        markdown = (
+            "## \uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282\n"
+            "\u8bef\u6392\u6b63\u6587\u3002\n"
+            "## \u4e00\u3001\u5f15\u8a00\n"
+            "\u5f15\u8a00\u6b63\u6587\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertLess(
+            processed.index("### \uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282"),
+            processed.index("## \u4e00\u3001\u5f15\u8a00"),
+        )
 
 
 if __name__ == "__main__":
