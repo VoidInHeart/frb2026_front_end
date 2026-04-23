@@ -404,6 +404,15 @@ function getNextReviewStage(stageKey) {
   return REVIEW_STAGE_ORDER[index + 1];
 }
 
+function applyStageReviewResult(stageKey, review, fallbackStatus = "completed") {
+  setDisplayedStageStatus(stageKey, review?.stageStatus ?? fallbackStatus);
+
+  if (review && stageKey in stageReviews.value) {
+    setStageReview(stageKey, review);
+    refreshSummarySnapshot();
+  }
+}
+
 function setDisplayedStageStatus(stageKey, status = "") {
   if (!stageKey) {
     return;
@@ -576,11 +585,17 @@ async function triggerStage(stageKey, action = "continue") {
   loadingStage.value = stageKey;
 
   try {
-    await triggerStageExecution({
+    const review = await triggerStageExecution({
       runId: runRecord.value.runId,
       stageName: stageKey,
       action
     });
+
+    if (review) {
+      applyStageReviewResult(stageKey, review);
+      await syncRunState();
+      return;
+    }
 
     setDisplayedStageStatus(stageKey, "running");
     pollingStage.value = stageKey;
@@ -602,6 +617,49 @@ async function triggerStage(stageKey, action = "continue") {
   } finally {
     loadingStage.value = "";
     actionInFlight.value = "";
+  }
+}
+
+async function skipStageAndAdvance(skippedStageKey) {
+  if (!runRecord.value?.runId || !skippedStageKey || skippedStageKey === "summary") {
+    await openStage("summary");
+    return;
+  }
+
+  loadingStage.value = skippedStageKey;
+
+  try {
+    const review = await triggerStageExecution({
+      runId: runRecord.value.runId,
+      stageName: skippedStageKey,
+      action: "skip"
+    });
+
+    applyStageReviewResult(skippedStageKey, review, "skipped");
+
+    const latestState = await syncRunState();
+    const skippedStageStatus = getStateStageStatus(latestState, skippedStageKey);
+
+    if (isFinalStageStatus(skippedStageStatus)) {
+      setDisplayedStageStatus(skippedStageKey, skippedStageStatus);
+    } else {
+      setDisplayedStageStatus(skippedStageKey, "skipped");
+    }
+
+    const targetStage = getNextReviewStage(skippedStageKey);
+
+    if (!targetStage || targetStage === "summary") {
+      pageMessage.value = `已跳过${stageMetaMap[skippedStageKey]?.title ?? skippedStageKey}，正在进入汇总阶段。`;
+      await openStage("summary");
+      setDisplayedStageStatus(skippedStageKey, "skipped");
+      return;
+    }
+
+    pageMessage.value = `已跳过${stageMetaMap[skippedStageKey]?.title ?? skippedStageKey}，正在进入${stageMetaMap[targetStage]?.title ?? targetStage}。`;
+    await openStage(targetStage, "continue");
+    setDisplayedStageStatus(skippedStageKey, "skipped");
+  } finally {
+    loadingStage.value = "";
   }
 }
 
@@ -715,7 +773,7 @@ async function handleDecisionAction(action) {
 
     if (action === "skip") {
       pageMessage.value = `正在跳过${stageMetaMap[nextStage]?.title ?? nextStage}。`;
-      await openStage(nextStage, "skip");
+      await skipStageAndAdvance(nextStage);
       return;
     }
 

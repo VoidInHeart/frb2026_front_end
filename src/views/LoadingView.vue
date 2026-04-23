@@ -433,7 +433,13 @@ async function finalizeSubmission(submission) {
   const allowedActions = Array.isArray(initialRunState.allowedActions)
     ? initialRunState.allowedActions
     : [];
+  const sourceAllowsInitialStageAutoStart =
+    submission.sourceMode === "local-artifacts" ||
+    submission.sourceMode === "mock" ||
+    submission.sourceMode === "local-parser-api" ||
+    submission.sourceMode === "api";
   const shouldAutoStartInitialStage =
+    sourceAllowsInitialStageAutoStart &&
     initialStage &&
     initialStage !== "summary" &&
     ["", "pending", "created"].includes(initialStageStatus) &&

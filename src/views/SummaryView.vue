@@ -41,6 +41,9 @@ let pollTimer = 0;
 const submission = computed(() => reviewSession.currentSubmission);
 const runRecord = computed(() => reviewSession.runRecord);
 const runState = computed(() => reviewSession.runState);
+const runStatusLabel = computed(() =>
+  runState.value?.status === "complete" ? "completed" : runState.value?.status
+);
 const paperMeta = computed(() => getPaperMeta(submission.value));
 const stageReviews = computed(() => reviewSession.workflow.reviews);
 const summary = computed(() => reviewSession.workflow.summary);
@@ -215,6 +218,8 @@ onMounted(async () => {
     await syncRunState();
 
     const summaryReady = await tryLoadSummary();
+    await syncRunState();
+
     if (summaryReady) {
       summaryPending.value = false;
       const recommendationsReady = await tryLoadRecommendations();
@@ -259,7 +264,7 @@ onBeforeUnmount(() => {
         <span class="pill pill-neutral">页数 {{ pageCount }}</span>
         <span class="pill pill-neutral">分块 {{ chunkCount }}</span>
         <span class="pill pill-neutral">图片 {{ imageCount }}</span>
-        <span v-if="runState" class="pill pill-neutral">run: {{ runState.status }}</span>
+        <span v-if="runStatusLabel" class="pill pill-neutral">run: {{ runStatusLabel }}</span>
       </div>
     </header>
 

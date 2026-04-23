@@ -49,10 +49,15 @@ const stageItems = [
   }
 ];
 
+const runStatusLabel = computed(() =>
+  props.runState?.status === "complete" ? "completed" : props.runState?.status
+);
+
 function getRunStageStatus(stageId) {
-  return (
+  const status =
     props.runState?.stageRuns?.find((item) => item.stageName === stageId)?.status ?? ""
-  );
+
+  return status === "complete" ? "completed" : status;
 }
 
 function getStageStatus(stageId) {
@@ -71,7 +76,8 @@ function getStageStatus(stageId) {
   }
 
   if (props.reviews?.[stageId]?.stageStatus) {
-    return props.reviews[stageId].stageStatus;
+    const status = props.reviews[stageId].stageStatus;
+    return status === "complete" ? "completed" : status;
   }
 
   if (props.reviews?.[stageId]) {
@@ -86,7 +92,7 @@ function getStageStatus(stageId) {
 }
 
 function isReached(status) {
-  return ["completed", "skipped", "running", "waiting"].includes(status);
+  return ["complete", "completed", "skipped", "running", "waiting"].includes(status);
 }
 
 function isStageClickable(stageId) {
@@ -143,7 +149,7 @@ const trackerCopy = computed(() => {
 
       <div class="tracker-summary">
         <span class="pill pill-neutral">已完成 {{ completedCount }}/4</span>
-        <span class="pill pill-primary">{{ props.runState?.status || "idle" }}</span>
+        <span class="pill pill-primary">{{ runStatusLabel || "idle" }}</span>
       </div>
     </div>
 
