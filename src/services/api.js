@@ -613,6 +613,20 @@ function normalizeEvidenceList(value, fallbackMessage = "未返回结构化证�
         return "";
       }
 
+      if (typeof item === "object") {
+        const sectionTitle = String(
+          item.section_title ?? item.section ?? item.title ?? item.label ?? ""
+        ).trim();
+        const quote = String(
+          item.quote ?? item.snippet ?? item.full_text ?? ""
+        ).trim();
+        const reason = String(item.reason ?? item.note ?? "").trim();
+        const anchorId = String(
+          item.anchor_id ?? item.anchor ?? item.evidence_id ?? ""
+        ).trim();
+        return [sectionTitle, quote, reason, anchorId].filter(Boolean).join(" · ");
+      }
+
       return String(item);
     })
     .filter(Boolean)
@@ -996,6 +1010,7 @@ function normalizeLogicStageReview(stageName, stageStatus, stageOutput) {
         (severe ? "逻辑审查发现高优先级问题" : "逻辑审查已完成"),
       overview:
         stageOutput.overview ??
+        logicAnalysis.global_summary ??
         logicAnalysis.core_argument_consistency?.conflict_summary ??
         logicAnalysis.reasoning_depth?.assessment ??
         "当前阶段已完成逻辑链路检查。",
@@ -1640,6 +1655,7 @@ export function mapTask1AuditToReviewSummary(logicAnalysis) {
           ? "建议大修后再进入下一轮"
           : "建议补充说明后继续推进",
     summary:
+      logicAnalysis?.global_summary ??
       logicAnalysis?.core_argument_consistency?.conflict_summary ??
       logicAnalysis?.structure_rationality?.assessment ??
       "已完成全局逻辑分析。",
@@ -1649,7 +1665,9 @@ export function mapTask1AuditToReviewSummary(logicAnalysis) {
         .slice(0, 3)
         .map(([, value]) => value.summary) || [],
     weaknesses:
-      issues.slice(0, 3).map((item) => item.analysis) ||
+      issues
+        .slice(0, 3)
+        .map((item) => item.issue_title ?? item.issueTitle ?? item.analysis) ||
       ["当前还没有识别到明确弱点。"],
     nextActions:
       issues.slice(0, 3).map((item) => makeActionSuggestion(item)) ||
@@ -2971,16 +2989,31 @@ function buildMockFormatReview(metaSource) {
 }
 
 function mapTask1IssueToStageIssue(issue, index) {
+  const rawEvidenceLinks = issue.evidence_links ?? issue.evidenceLinks ?? [];
+  const normalizedEvidence = normalizeEvidenceList(
+    rawEvidenceLinks,
+    "证据链待后端补充"
+  );
+  const firstEvidence = ensureArray(rawEvidenceLinks)[0];
+  const evidenceLocation =
+    typeof firstEvidence === "string"
+      ? firstEvidence
+      : firstEvidence?.section_title ??
+        firstEvidence?.section ??
+        firstEvidence?.anchor_id ??
+        firstEvidence?.anchor ??
+        "";
+
   return {
     id: issue.issue_id ?? `logic-issue-${index + 1}`,
-    title: issue.logical_node ? issue.logical_node.replace(/_/g, " ") : `逻辑问题 ${index + 1}`,
+    title:
+      issue.issue_title ??
+      issue.issueTitle ??
+      (issue.logical_node ? issue.logical_node.replace(/_/g, " ") : `逻辑问题 ${index + 1}`),
     severity: toStageSeverityLabel(issue.severity),
-    location: issue.evidence_links?.[0] ?? `逻辑链路 ${index + 1}`,
+    location: evidenceLocation || issue.location || `逻辑链路 ${index + 1}`,
     description: issue.analysis ?? "后端尚未返回该问题的详细分析。",
-    evidence:
-      issue.evidence_links?.length
-        ? issue.evidence_links.map((item) => `证据锚点 · ${item}`)
-        : ["证据链待后端补充"],
+    evidence: normalizedEvidence,
     suggestion: makeWorkflowSuggestion(issue)
   };
 }

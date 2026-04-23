@@ -231,12 +231,25 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
  */
 
 /**
+ * @typedef {Object} LogicEvidenceLink
+ * @property {string=} section_title
+ * @property {string=} section
+ * @property {string=} quote
+ * @property {string=} snippet
+ * @property {string=} full_text
+ * @property {string=} anchor_id
+ * @property {string=} anchor
+ * @property {string=} reason
+ */
+
+/**
  * @typedef {Object} Task1AuditIssue
  * @property {string} issue_id
  * @property {string} logical_node
+ * @property {string=} issue_title
  * @property {"critical"|"major"|"medium"|"minor"} severity
  * @property {string} analysis
- * @property {string[]} evidence_links
+ * @property {(string|LogicEvidenceLink)[]} evidence_links
  * @property {string=} scope
  * @property {string[]=} dimension_keys
  * @property {number=} confidence

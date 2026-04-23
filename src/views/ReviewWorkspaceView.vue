@@ -663,17 +663,11 @@ async function skipStageAndAdvance(skippedStageKey) {
   }
 }
 
-async function ensureDisplayedStage(stageKey, { autoStart = false, action = "continue" } = {}) {
+async function ensureDisplayedStage(
+  stageKey,
+  { autoStart = false, action = "continue", refreshSnapshot = false, allowPolling = true } = {}
+) {
   if (!runRecord.value?.runId || !stageKey || stageKey === "summary") {
-    return;
-  }
-
-  if (stageReviews.value[stageKey]) {
-    setDisplayedStageStatus(
-      stageKey,
-      stageReviews.value[stageKey]?.stageStatus ?? "completed"
-    );
-    await syncRunState();
     return;
   }
 
@@ -681,12 +675,30 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
   const stateStageStatus = getStateStageStatus(latestState, stageKey);
 
   if (stateStageStatus) {
-    setDisplayedStageStatus(stageKey, stateStageStatus);
+    setDisplayedStageStatus(
+      stageKey,
+      stateStageStatus
+    );
+  }
+
+  if (stageReviews.value[stageKey] && !refreshSnapshot) {
+    setDisplayedStageStatus(
+      stageKey,
+      stateStageStatus || stageReviews.value[stageKey]?.stageStatus || "completed"
+    );
+
+    if (!allowPolling && pollingStage.value === stageKey) {
+      pollingStage.value = "";
+    }
+    return;
   }
 
   const snapshotResult = await tryFetchStageSnapshot(stageKey);
 
   if (snapshotResult.finalized) {
+    if (!allowPolling && pollingStage.value === stageKey) {
+      pollingStage.value = "";
+    }
     await syncRunState();
     return;
   }
@@ -694,7 +706,7 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
   if (
     snapshotResult.stageNotReady
   ) {
-    if (isInProgressStageStatus(stateStageStatus)) {
+    if (allowPolling && isInProgressStageStatus(stateStageStatus)) {
       pollingStage.value = stageKey;
       void tickStagePolling();
     } else if (pollingStage.value === stageKey) {
@@ -704,12 +716,17 @@ async function ensureDisplayedStage(stageKey, { autoStart = false, action = "con
   }
 
   if (
-    snapshotResult.displayable ||
-    isInProgressStageStatus(stateStageStatus)
+    allowPolling &&
+    (snapshotResult.displayable ||
+      isInProgressStageStatus(stateStageStatus))
   ) {
     pollingStage.value = stageKey;
     void tickStagePolling();
     return;
+  }
+
+  if (!allowPolling && pollingStage.value === stageKey) {
+    pollingStage.value = "";
   }
 
   if (
@@ -743,7 +760,9 @@ async function showStageHistory(stageKey) {
   pageMessage.value = `正在查看${stageMetaMap[stageKey]?.title ?? stageKey}的历史记录。`;
   setDisplayedStage(stageKey);
   await ensureDisplayedStage(stageKey, {
-    autoStart: false
+    autoStart: false,
+    refreshSnapshot: true,
+    allowPolling: false
   });
 }
 

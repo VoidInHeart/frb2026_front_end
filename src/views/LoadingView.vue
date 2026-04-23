@@ -376,7 +376,7 @@ function updatePhase(nextPhase) {
     playDetailLoop([
       "正在读取论文文件并准备解析环境。",
       "这一阶段主要生成 paper.md 与 paper_meta.json。",
-      "解析完成后会自动创建新的 review run，并尝试直接启动格式审查。"
+      "解析完成后会自动创建新的 review run，但不会自动开始第一阶段审查。"
     ]);
     return;
   }
