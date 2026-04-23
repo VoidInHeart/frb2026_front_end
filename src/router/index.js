@@ -15,8 +15,8 @@ const router = createRouter({
       name: "home",
       component: HomeView,
       meta: {
-        title: "研航智审"
-      }
+        title: "研航智审",
+      },
     },
     {
       path: "/upload",
@@ -24,50 +24,50 @@ const router = createRouter({
       name: "upload",
       component: UploadView,
       meta: {
-        title: "上传论文"
-      }
+        title: "上传论文",
+      },
     },
     {
       path: "/loading",
       name: "loading",
       component: LoadingView,
       meta: {
-        title: "姝ｅ湪瑙ｆ瀽璁烘枃"
-      }
+        title: "加载页面",
+      },
     },
     {
       path: "/workspace",
       name: "workspace",
       component: ReviewWorkspaceView,
       meta: {
-        title: "审查工作区"
-      }
+        title: "审查工作区",
+      },
     },
     {
       path: "/summary",
       name: "summary",
       component: SummaryView,
       meta: {
-        title: "汇总页面"
-      }
+        title: "汇总页面",
+      },
     },
     {
       path: "/recommendations/:paperId",
       name: "recommendation-detail",
       component: RecommendationDetailView,
       meta: {
-        title: "推荐论文详情"
-      }
+        title: "推荐论文详情",
+      },
     },
     {
       path: "/about",
       name: "about",
       component: AboutView,
       meta: {
-        title: "关于我们"
-      }
-    }
-  ]
+        title: "关于我们",
+      },
+    },
+  ],
 });
 
 router.afterEach((to) => {
