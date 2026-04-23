@@ -83,7 +83,15 @@ const isDirectBundleFlow = computed(
     )
 );
 
-const usesDoclingParser = computed(
+const parserProvider = computed(() =>
+  uploadRequest.value?.parserProvider === "llm" ? "llm" : "docling"
+);
+
+const parserProviderLabel = computed(() =>
+  parserProvider.value === "llm" ? "LLM PDF" : "Docling"
+);
+
+const usesLocalParserFlow = computed(
   () =>
     Boolean(
       !uploadRequest.value?.useDemo &&
@@ -128,17 +136,16 @@ const progressStageLabel = computed(() => {
 
   if (
     phase.value === "parsing" &&
-    externalParsingProgress.value?.provider === "docling" &&
     externalParsingProgress.value?.source === "parser" &&
     externalParsingProgress.value?.currentChunk &&
     externalParsingProgress.value?.totalChunks
   ) {
-    return `DOC ${externalParsingProgress.value.currentChunk}/${externalParsingProgress.value.totalChunks}`;
+    const providerLabel = externalParsingProgress.value?.provider === "llm" ? "LLM" : "DOC";
+    return `${providerLabel} ${externalParsingProgress.value.currentChunk}/${externalParsingProgress.value.totalChunks}`;
   }
 
   if (
     phase.value === "parsing" &&
-    externalParsingProgress.value?.provider === "docling" &&
     externalParsingProgress.value?.source === "upload"
   ) {
     return "UPLOAD";
@@ -312,7 +319,7 @@ function startProgressLoop(nextPhase) {
   const range = phaseProgressMap[nextPhase] ?? phaseProgressMap.queued;
   const effectiveCeiling =
     nextPhase === "parsing" &&
-    usesDoclingParser.value &&
+    usesLocalParserFlow.value &&
     externalParsingProgress.value?.source !== "parser"
       ? Math.min(range.ceiling, range.floor + (range.ceiling - range.floor) * 0.24)
       : range.ceiling;
@@ -333,7 +340,7 @@ function startProgressLoop(nextPhase) {
     }
 
     const increment =
-      nextPhase === "parsing" && usesDoclingParser.value
+      nextPhase === "parsing" && usesLocalParserFlow.value
         ? remaining > 12
           ? 0.22
           : remaining > 5
@@ -351,7 +358,7 @@ function startProgressLoop(nextPhase) {
       effectiveCeiling,
       Number((progress.value + increment).toFixed(2))
     );
-  }, nextPhase === "parsing" && usesDoclingParser.value ? 200 : 120);
+  }, nextPhase === "parsing" && usesLocalParserFlow.value ? 200 : 120);
 }
 
 function updatePhase(nextPhase) {
@@ -502,7 +509,8 @@ async function runUploadFlow() {
         documentIrFile: uploadRequest.value.documentIrFile,
         imageBaseUrl: uploadRequest.value.imageBaseUrl,
         mockProfile: uploadRequest.value.mockProfile,
-        onProgress: applyExternalParsingProgress
+        onProgress: applyExternalParsingProgress,
+        parserProvider: uploadRequest.value.parserProvider
       });
 
       if (disposed) {
@@ -561,6 +569,7 @@ onBeforeUnmount(() => {
 
         <div class="meta-row">
           <span class="pill pill-primary">{{ sourceLabel }}</span>
+          <span v-if="uploadRequest?.paperFile" class="pill pill-neutral">{{ parserProviderLabel }}</span>
           <span class="pill pill-neutral">{{ paperLabel }}</span>
         </div>
       </div>

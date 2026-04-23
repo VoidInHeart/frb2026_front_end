@@ -66,7 +66,7 @@ function handleLogoError() {
       </div>
 
       <p class="brand-intro">
-        让论文审查从“人工切换任务”变为“结构化协同流程”，在单一入口中连接解析、规则执行与专家建议生成。
+        让论文审查从“人工切换任务”变为“结构化协同流程” <br>从单一入口中连接解析、规则执行与专家建议生成
       </p>
 
       <div class="feature-grid">

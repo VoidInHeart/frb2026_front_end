@@ -71,6 +71,7 @@ export const APP_API_ENDPOINTS = Object.freeze({
 export const UPLOAD_FORM_FIELDS = Object.freeze({
   paper: "paper",
   submissionId: "submission_id",
+  parserProvider: "provider",
   markdownFile: "markdown_file",
   paperMetaFile: "paper_meta_file",
   legacyDocumentIrFile: "document_ir_file",
@@ -124,6 +125,8 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
  * @property {string} paperMetaPath
  * @property {string} bundleDir
  * @property {string} outputDir
+ * @property {string=} doclingDocumentPath
+ * @property {string=} llmResultPath
  */
 
 /**
@@ -133,6 +136,7 @@ export const UPLOAD_FORM_FIELDS = Object.freeze({
  * @property {string} paperMarkdown
  * @property {string} paperAssetBase
  * @property {PaperMeta} paperMeta
+ * @property {"docling"|"llm"=} provider
  * @property {ParseArtifacts=} artifacts
  */
 

@@ -10,7 +10,8 @@ const form = reactive({
   paperFile: null,
   markdownFile: null,
   documentIrFile: null,
-  imageBaseUrl: "/mock"
+  imageBaseUrl: "/mock",
+  parserProvider: "docling"
 });
 
 const loading = ref(false);
@@ -55,6 +56,10 @@ function handleDrop(event, field) {
   }
 }
 
+function selectParserProvider(provider) {
+  form.parserProvider = provider === "llm" ? "llm" : "docling";
+}
+
 async function startReview(options = {}) {
   const { useDemo = false, mockProfile = "default", preferArtifacts = false } = options;
   const useArtifactMode =
@@ -77,7 +82,8 @@ async function startReview(options = {}) {
       markdownFile: useDemo ? null : form.markdownFile,
       documentIrFile: useDemo ? null : form.documentIrFile,
       imageBaseUrl: useDemo ? "/mock" : form.imageBaseUrl,
-      mockProfile
+      mockProfile,
+      parserProvider: form.parserProvider
     });
     await router.push({ name: "loading" });
   } catch (error) {
@@ -123,6 +129,31 @@ async function startReview(options = {}) {
         <p class="section-subtitle">
           默认可以上传 PDF；如果你已经拿到了 `paper.md` 和 `paper_meta.json`，也可以在下方直接提交 `paper_bundle`，跳过解析接口。
         </p>
+      </div>
+
+      <div class="field-group parser-mode-group">
+        <label class="field-label">Parser Mode</label>
+        <div class="segmented-control" role="tablist" aria-label="Parser Mode">
+          <button
+            class="segment-button"
+            :class="{ 'segment-button-active': form.parserProvider === 'docling' }"
+            type="button"
+            @click="selectParserProvider('docling')"
+          >
+            Docling
+          </button>
+          <button
+            class="segment-button"
+            :class="{ 'segment-button-active': form.parserProvider === 'llm' }"
+            type="button"
+            @click="selectParserProvider('llm')"
+          >
+            LLM PDF
+          </button>
+        </div>
+        <span class="field-hint">
+          `Docling` uses the local parser pipeline. `LLM PDF` sends the PDF directly to an OpenAI-compatible API and asks for markdown with parsed figures and tables.
+        </span>
       </div>
 
       <div
@@ -328,6 +359,38 @@ async function startReview(options = {}) {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.parser-mode-group {
+  display: grid;
+  gap: 10px;
+}
+
+.segmented-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  width: min(100%, 320px);
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(18, 44, 84, 0.08);
+  border: 1px solid rgba(19, 63, 103, 0.12);
+}
+
+.segment-button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.segment-button-active {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: 0 6px 18px rgba(15, 39, 64, 0.08);
 }
 
 .drop-zone {

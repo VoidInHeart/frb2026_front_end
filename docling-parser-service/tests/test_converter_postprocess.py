@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from docling_parser_service.converter import _postprocess_markdown
+from docling_parser_service.converter import _collect_reference_diagnostics, _postprocess_markdown
 
 
 def _section_header(title: str, *, page: int, top: float, left: float = 80.0) -> dict:
@@ -177,6 +177,23 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
         self.assertIn("### \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53", processed)
         self.assertNotIn("\n## \uff08\u4e00\uff09\u529f\u80fd\u5206\u6790\u667a\u80fd\u4f53\n", processed)
 
+    def test_parenthesized_chinese_sections_follow_chinese_chapter_depth(self) -> None:
+        markdown = (
+            "### \u4e00\u3001\u5f15\u8a00\n"
+            "\u5f15\u8a00\u6b63\u6587\u3002\n"
+            "### \uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f\n"
+            "\u80cc\u666f\u6b63\u6587\u3002\n"
+            "#### \uff08\u4e8c\uff09\u7814\u7a76\u95ee\u9898\n"
+            "\u95ee\u9898\u6b63\u6587\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("### \u4e00\u3001\u5f15\u8a00", processed)
+        self.assertIn("#### \uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f", processed)
+        self.assertIn("#### \uff08\u4e8c\uff09\u7814\u7a76\u95ee\u9898", processed)
+        self.assertNotIn("\n### \uff08\u4e00\uff09\u7814\u7a76\u80cc\u666f\n", processed)
+
     def test_compatibility_ideographs_in_titles_are_normalized(self) -> None:
         markdown = (
             "## 4.2 \u5404\u7ec4\u4ef6\u8bbe\u8ba1\u8bf4\u660e\n"
@@ -310,6 +327,52 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
             processed.index("### \uff08\u4e00\uff09\u8bef\u6392\u5c0f\u8282"),
             processed.index("## \u4e00\u3001\u5f15\u8a00"),
         )
+
+    def test_reference_wrapped_lines_are_merged_and_embedded_markers_are_split(self) -> None:
+        markdown = (
+            "## \u53c2\u8003\u6587\u732e\n"
+            "- [1] \u674e\u5f3a , \u738b\u8389 . \u9ad8\u6821\u56fe\u4e66\u9986\u5ea7\u4f4d\u9884\u7ea6\u7cfb\u7edf\u8bbe\u8ba1\u7814\u7a76 [J]. \u56fe\u4e66\u60c5\u62a5\u5de5\u4f5c , 2021, 65(4):\n"
+            "2. 112-118.\n"
+            "- [2] Smith J, Brown T. Occupancy prediction in smart learning spaces[J]. Journal of Academic\n"
+            "4. Analytics, 2020, 12(3): 45-53.\n"
+            "- [5] \u9648\u7acb , \u8d75\u5b81 , \u5468\u51e1 . \u57fa\u4e8e LSTM \u7684\u56fe\u4e66\u9986\u4eba\u6d41\u9884\u6d4b\u7814\u7a76 [J]. \u60c5\u62a5\u79d1\u5b66 , 2024(2):55-63 [6] Zhang, L. Library seat demand prediction based on behavioral traces[C]//Proceedings of ICET. 2023: 102-106.\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("## \u53c2\u8003\u6587\u732e", processed)
+        self.assertIn(
+            "- [1] \u674e\u5f3a , \u738b\u8389 . \u9ad8\u6821\u56fe\u4e66\u9986\u5ea7\u4f4d\u9884\u7ea6\u7cfb\u7edf\u8bbe\u8ba1\u7814\u7a76 [J]. \u56fe\u4e66\u60c5\u62a5\u5de5\u4f5c , 2021, 65(4): 112-118.",
+            processed,
+        )
+        self.assertIn(
+            "- [2] Smith J, Brown T. Occupancy prediction in smart learning spaces[J]. Journal of Academic Analytics, 2020, 12(3): 45-53.",
+            processed,
+        )
+        self.assertIn(
+            "- [5] \u9648\u7acb , \u8d75\u5b81 , \u5468\u51e1 . \u57fa\u4e8e LSTM \u7684\u56fe\u4e66\u9986\u4eba\u6d41\u9884\u6d4b\u7814\u7a76 [J]. \u60c5\u62a5\u79d1\u5b66 , 2024(2):55-63",
+            processed,
+        )
+        self.assertIn(
+            "- [6] Zhang, L. Library seat demand prediction based on behavioral traces[C]//Proceedings of ICET. 2023: 102-106.",
+            processed,
+        )
+        self.assertNotIn("[5] \u9648\u7acb , \u8d75\u5b81 , \u5468\u51e1 . \u57fa\u4e8e LSTM \u7684\u56fe\u4e66\u9986\u4eba\u6d41\u9884\u6d4b\u7814\u7a76 [J]. \u60c5\u62a5\u79d1\u5b66 , 2024(2):55-63 [6]", processed)
+
+    def test_reference_missing_terminal_punctuation_is_reported(self) -> None:
+        markdown = (
+            "## \u53c2\u8003\u6587\u732e\n"
+            "- [5] \u9648\u7acb , \u8d75\u5b81 . \u57fa\u4e8e LSTM \u7684\u56fe\u4e66\u9986\u4eba\u6d41\u9884\u6d4b\u7814\u7a76 [J]. \u60c5\u62a5\u79d1\u5b66 , 2024(2):55-63\n"
+            "- [6] Zhang, L. Library seat demand prediction based on behavioral traces[C]//Proceedings of ICET. 2023: 102-106.\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+        diagnostics = _collect_reference_diagnostics(processed)
+
+        self.assertEqual(len(diagnostics), 1)
+        self.assertEqual(diagnostics[0]["type"], "missing_terminal_punctuation")
+        self.assertEqual(diagnostics[0]["entry_marker"], "[5]")
+        self.assertIn("\u53c2\u8003\u6587\u732e", diagnostics[0]["section_title"])
 
 
 if __name__ == "__main__":

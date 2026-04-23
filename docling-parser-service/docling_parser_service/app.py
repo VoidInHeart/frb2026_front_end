@@ -15,7 +15,11 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .env_loader import load_parser_service_env
 from .converter import DoclingLaptopConverter, DoclingNotInstalledError
+from .llm_converter import OpenAICompatibleConfigError, OpenAICompatiblePdfConverter
+
+load_parser_service_env()
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_ROOT.parent
@@ -69,6 +73,7 @@ def _normalize_fraction(value: object) -> float | None:
 def _set_parse_progress(
     submission_id: str,
     *,
+    provider: str | None = None,
     status: str | None = None,
     phase: str | None = None,
     message: str | None = None,
@@ -83,6 +88,8 @@ def _set_parse_progress(
         payload["submissionId"] = submission_id
         payload["updatedAt"] = _utc_now_iso()
 
+        if provider is not None:
+            payload["provider"] = provider
         if status is not None:
             payload["status"] = status
         if phase is not None:
@@ -114,26 +121,58 @@ def _set_parse_progress(
 def _get_parse_progress(submission_id: str) -> dict[str, object] | None:
     with PARSE_PROGRESS_LOCK:
         payload = PARSE_PROGRESS.get(submission_id)
-        return dict(payload) if payload else None
+    return dict(payload) if payload else None
+
+
+def _normalize_provider(value: object) -> str:
+    provider = str(value or "docling").strip().lower()
+    return provider if provider in {"docling", "llm"} else "docling"
+
+
+def _provider_display_name(provider: str) -> str:
+    return "LLM PDF" if provider == "llm" else "Docling"
+
+
+def _build_converter(provider: str):
+    if provider == "llm":
+        return OpenAICompatiblePdfConverter()
+    return DoclingLaptopConverter()
 
 
 @app.get("/health")
 def health() -> dict[str, object]:
+    providers: dict[str, dict[str, object]] = {}
+
     try:
         converter = DoclingLaptopConverter()
-        return {
-            "status": "ok",
-            "engine": "docling",
-            "docling_available": True,
+        providers["docling"] = {
+            "available": True,
             "profile": converter.profile,
         }
     except DoclingNotInstalledError as exc:
-        return {
-            "status": "degraded",
-            "engine": "docling",
-            "docling_available": False,
+        providers["docling"] = {
+            "available": False,
             "message": str(exc),
         }
+
+    try:
+        converter = OpenAICompatiblePdfConverter()
+        providers["llm"] = {
+            "available": True,
+            "profile": converter.profile,
+        }
+    except OpenAICompatibleConfigError as exc:
+        providers["llm"] = {
+            "available": False,
+            "message": str(exc),
+        }
+
+    all_available = all(bool(item.get("available")) for item in providers.values())
+    return {
+        "status": "ok" if all_available else "degraded",
+        "engine": "docling_parser_service",
+        "providers": providers,
+    }
 
 
 @app.get("/papers/parse-progress/{submission_id}")
@@ -149,9 +188,12 @@ async def parse_paper(
     request: Request,
     paper: UploadFile = File(...),
     submission_id: str | None = Form(None),
+    provider: str | None = Form(None),
 ) -> dict:
     original_name = Path(paper.filename or "paper.pdf").name
     suffix = Path(original_name).suffix or ".pdf"
+    normalized_provider = _normalize_provider(provider)
+    provider_name = _provider_display_name(normalized_provider)
 
     if suffix.lower() != ".pdf":
         raise HTTPException(status_code=400, detail="Only PDF uploads are supported.")
@@ -159,9 +201,10 @@ async def parse_paper(
     submission_id = (submission_id or "").strip() or uuid4().hex
     _set_parse_progress(
         submission_id,
+        provider=normalized_provider,
         status="queued",
         phase="queued",
-        message=f"queued '{original_name}' for docling parsing",
+        message=f"queued '{original_name}' for {provider_name} parsing",
         fraction=0.0,
     )
     upload_root = _ensure_directory(RUNS_ROOT / submission_id / "input")
@@ -173,17 +216,19 @@ async def parse_paper(
 
     _set_parse_progress(
         submission_id,
+        provider=normalized_provider,
         status="processing",
         phase="preparing",
-        message=f"uploaded '{original_name}', preparing docling parser",
+        message=f"uploaded '{original_name}', preparing {provider_name} parser",
         fraction=0.08,
     )
 
     try:
-        converter = DoclingLaptopConverter()
-    except DoclingNotInstalledError as exc:
+        converter = _build_converter(normalized_provider)
+    except (DoclingNotInstalledError, OpenAICompatibleConfigError) as exc:
         _set_parse_progress(
             submission_id,
+            provider=normalized_provider,
             status="failed",
             phase="failed",
             message=str(exc),
@@ -194,6 +239,7 @@ async def parse_paper(
     def handle_progress(payload: dict[str, object]) -> None:
         _set_parse_progress(
             submission_id,
+            provider=normalized_provider,
             status="processing",
             phase=str(payload.get("phase") or "parsing"),
             message=str(payload.get("message") or ""),
@@ -215,12 +261,13 @@ async def parse_paper(
     except Exception as exc:
         _set_parse_progress(
             submission_id,
+            provider=normalized_provider,
             status="failed",
             phase="failed",
-            message=f"Docling conversion failed: {exc}",
+            message=f"{provider_name} conversion failed: {exc}",
             fraction=1.0,
         )
-        raise HTTPException(status_code=500, detail=f"Docling conversion failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail=f"{provider_name} conversion failed: {exc}") from exc
 
     markdown_path = Path(result["markdown_path"])
     paper_meta_path = Path(result["paper_meta_path"])
@@ -228,6 +275,7 @@ async def parse_paper(
 
     _set_parse_progress(
         submission_id,
+        provider=normalized_provider,
         status="completed",
         phase="completed",
         message=f"parsed '{original_name}' successfully",
@@ -240,12 +288,14 @@ async def parse_paper(
         "paperMarkdown": markdown_path.read_text(encoding="utf-8"),
         "paperAssetBase": _build_asset_base(request, submission_id),
         "paperMeta": _read_json(paper_meta_path),
+        "provider": normalized_provider,
         "artifacts": {
             "markdownPath": str(markdown_path),
             "paperMetaPath": str(paper_meta_path),
             "bundleDir": str(bundle_dir),
             "outputDir": str(output_root),
-            "doclingDocumentPath": str(result["docling_document_path"]),
+            "doclingDocumentPath": str(result.get("docling_document_path", "")),
+            "llmResultPath": str(result.get("llm_result_path", "")),
         },
     }
 

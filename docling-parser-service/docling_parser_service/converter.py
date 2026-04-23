@@ -16,6 +16,13 @@ class DoclingNotInstalledError(RuntimeError):
     pass
 
 
+REFERENCE_HEADING_KEYWORDS = ("参考文献", "references", "bibliography")
+REFERENCE_ENTRY_MARKER_RE = re.compile(r"^(?:-\s*)?(?P<marker>\[\d+\])\s*(?P<body>.*)$")
+EMBEDDED_REFERENCE_MARKER_RE = re.compile(r"(?<!^)(?=(?:\[\d+\])\s+)")
+NUMBERED_REFERENCE_CONTINUATION_RE = re.compile(r"^(?P<ordinal>\d+)\.\s+(?P<body>.+)$")
+REFERENCE_TERMINAL_PUNCT_RE = re.compile(r"[。．\.！!？?；;）)]$")
+
+
 FORMULA_PLACEHOLDER = "<!-- formula-not-decoded -->"
 MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
 ASSET_PATH_RE = re.compile(r"\((assets\\[^)\s]+)\)")
@@ -255,6 +262,113 @@ def _normalize_inline_spacing(text: str) -> str:
     normalized = re.sub(r"(?<=[\u4e00-\u9fff])\s+(?=[，。；：！？、】【》）])", "", normalized)
     normalized = re.sub(r"(?<=[（【《])\s+(?=[\u4e00-\u9fff])", "", normalized)
     return normalized.strip()
+
+
+def _is_reference_heading(title: str) -> bool:
+    normalized_title = _normalize_heading_text(title)
+    return any(_normalize_heading_text(keyword) in normalized_title for keyword in REFERENCE_HEADING_KEYWORDS)
+
+
+def _split_embedded_reference_markers(line: str) -> list[str]:
+    stripped = str(line or "").strip()
+    if not stripped:
+        return []
+
+    has_bullet_prefix = stripped.startswith("- ")
+    payload = stripped[2:].strip() if has_bullet_prefix else stripped
+    fragments = [part.strip() for part in EMBEDDED_REFERENCE_MARKER_RE.split(payload) if part.strip()]
+    if has_bullet_prefix and fragments:
+        fragments[0] = f"- {fragments[0]}"
+    return fragments or [stripped]
+
+
+def _extract_reference_entries_from_body_lines(body_lines: list[str]) -> tuple[list[dict[str, str]], list[str]]:
+    entries: list[dict[str, str]] = []
+    orphan_lines: list[str] = []
+    current_marker = ""
+    current_text = ""
+
+    def flush_current() -> None:
+        nonlocal current_marker, current_text
+        marker = str(current_marker or "").strip()
+        text = _normalize_inline_spacing(str(current_text or "").strip())
+        if marker and text:
+            entries.append({"marker": marker, "text": text})
+        elif text:
+            orphan_lines.append(text)
+        current_marker = ""
+        current_text = ""
+
+    for raw_line in body_lines:
+        for fragment in _split_embedded_reference_markers(raw_line):
+            current_line = _normalize_inline_spacing(fragment)
+            if not current_line:
+                continue
+
+            marker_match = REFERENCE_ENTRY_MARKER_RE.match(current_line)
+            if marker_match:
+                flush_current()
+                current_marker = str(marker_match.group("marker") or "").strip()
+                current_text = str(marker_match.group("body") or "").strip()
+                continue
+
+            numbered_match = NUMBERED_REFERENCE_CONTINUATION_RE.match(current_line)
+            if current_marker and numbered_match:
+                continuation = str(numbered_match.group("body") or "").strip()
+                current_text = f"{current_text} {continuation}".strip()
+                continue
+
+            if current_marker:
+                current_text = f"{current_text} {current_line}".strip()
+            else:
+                orphan_lines.append(current_line)
+
+    flush_current()
+    return entries, orphan_lines
+
+
+def _normalize_reference_block_body(body_lines: list[str]) -> list[str]:
+    entries, orphan_lines = _extract_reference_entries_from_body_lines(body_lines)
+    if not entries:
+        return _normalize_block_body(body_lines)
+
+    normalized: list[str] = []
+    for orphan in orphan_lines:
+        normalized.append(orphan)
+        normalized.append("")
+    for entry in entries:
+        normalized.append(f"- {entry['marker']} {entry['text']}".strip())
+
+    while normalized and not normalized[-1].strip():
+        normalized.pop()
+    return normalized
+
+
+def _collect_reference_diagnostics(markdown: str) -> list[dict[str, str]]:
+    _, blocks = _parse_markdown_blocks(_normalize_compatibility_cjk_chars(str(markdown or "")))
+    diagnostics: list[dict[str, str]] = []
+
+    for block in blocks:
+        title = str(block.get("title", "")).strip()
+        if not _is_reference_heading(title):
+            continue
+
+        entries, _ = _extract_reference_entries_from_body_lines(list(block.get("body", [])))
+        for entry in entries:
+            entry_text = str(entry.get("text", "") or "").strip()
+            if not entry_text or REFERENCE_TERMINAL_PUNCT_RE.search(entry_text):
+                continue
+            diagnostics.append(
+                {
+                    "type": "missing_terminal_punctuation",
+                    "section_title": title or "references",
+                    "entry_marker": str(entry.get("marker", "") or "").strip(),
+                    "message": "参考文献条目缺少规范结束符。",
+                    "entry_text": entry_text,
+                }
+            )
+
+    return diagnostics
 
 
 def _split_embedded_figure_caption(line: str, next_nonempty_line: str | None) -> list[str]:
@@ -581,17 +695,25 @@ def _normalize_block_body(body_lines: list[str]) -> list[str]:
 def _normalize_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized_blocks: list[dict[str, Any]] = []
     seen_chinese_chapter = False
+    last_chinese_chapter_level: int | None = None
     for block in blocks:
         current = dict(block)
         title = str(current.get("title", "")).strip()
         if PAREN_CN_SECTION_RE.match(title):
-            current["level"] = 3
+            target_level = 3
+            if last_chinese_chapter_level is not None:
+                target_level = max(target_level, last_chinese_chapter_level + 1)
+            current["level"] = max(int(current.get("level", target_level)), target_level)
         elif seen_chinese_chapter and SINGLE_ARABIC_HEADING_RE.match(title):
             current["level"] = max(int(current.get("level", 2)), 3)
-        current["body"] = _normalize_block_body(list(current.get("body", [])))
+        if _is_reference_heading(title):
+            current["body"] = _normalize_reference_block_body(list(current.get("body", [])))
+        else:
+            current["body"] = _normalize_block_body(list(current.get("body", [])))
         normalized_blocks.append(current)
         if _is_chinese_ordered_chapter_title(title):
             seen_chinese_chapter = True
+            last_chinese_chapter_level = int(current.get("level", 2))
     return normalized_blocks
 
 
@@ -2134,6 +2256,7 @@ class DoclingLaptopConverter:
         if not markdown_path.exists():
             markdown_path.write_text(markdown, encoding="utf-8")
         docling_document_path.write_text(json.dumps(document_dict, ensure_ascii=False, indent=2), encoding="utf-8")
+        reference_diagnostics = _collect_reference_diagnostics(markdown)
 
         paper_meta = self._build_paper_meta(
             pdf_path=pdf_path,
@@ -2142,6 +2265,7 @@ class DoclingLaptopConverter:
             assets_root=_to_real_path(assets_root),
             status=status,
             total_pages=total_pages,
+            reference_diagnostics=reference_diagnostics,
         )
         paper_meta_path.write_text(json.dumps(paper_meta, ensure_ascii=False, indent=2), encoding="utf-8")
         emit_progress(
@@ -2167,6 +2291,7 @@ class DoclingLaptopConverter:
         assets_root: Path,
         status: str,
         total_pages: int,
+        reference_diagnostics: list[dict[str, str]] | None = None,
     ) -> Dict[str, Any]:
         name = str(doc_dict.get("name") or pdf_path.stem)
         origin = doc_dict.get("origin", {}) if isinstance(doc_dict.get("origin"), dict) else {}
@@ -2215,4 +2340,5 @@ class DoclingLaptopConverter:
                 "assets_dir": str(assets_root.resolve()),
             },
             "origin": origin,
+            "reference_diagnostics": list(reference_diagnostics or []),
         }

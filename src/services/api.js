@@ -54,6 +54,15 @@ const REVIEW_STAGE_LABELS = Object.freeze({
 });
 
 const RULE_LABELS = Object.freeze({
+  "R-DOCX-QA-001": "章节编号连续性检查",
+  "R-DOCX-QA-003": "参考文献 DOI 完整性检查",
+  "R-DOCX-QA-004": "会议名称缩写一致性检查",
+  "R-DOCX-QA-005": "引用格式规范性检查",
+  "R-DOCX-QA-006": "参考文献与正文引用对应性",
+  "R-DOCX-QA-007": "符号定义一致性检查",
+  "R-DOCX-QA-008": "缩写首次定义检查",
+  "R-DOCX-QA-009": "计量单位规范性检查",
+  "R-DOCX-QA-010": "图表引用准确性检查",
   "R-PF-DEMO-001": "文档结构与缩写预筛",
   "R-PF-REF-001": "参考文献噪声过滤",
   "R-TC-001": "术语与缩写一致性检查",
@@ -633,6 +642,26 @@ function normalizeEvidenceList(value, fallbackMessage = "未返回结构化证�
     .slice(0, 6);
 
   return normalized.length ? normalized : [fallbackMessage];
+}
+
+function formatLocationValue(value, fallback = "") {
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+
+  if (value && typeof value === "object") {
+    const parts = [
+      value.section,
+      value.chapter_title,
+      value.unit_title,
+      value.scope
+    ]
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(parts)).join(" · ") || fallback;
+  }
+
+  return fallback;
 }
 
 function getRuleDisplayLabel(ruleId, fallback = "") {
@@ -1219,6 +1248,14 @@ function makeSubmissionId() {
   return `submission-${Date.now()}`;
 }
 
+function normalizeParserProvider(provider) {
+  return provider === "llm" ? "llm" : "docling";
+}
+
+function getParserProviderLabel(provider) {
+  return normalizeParserProvider(provider) === "llm" ? "LLM PDF" : "Docling";
+}
+
 function reportUploadLifecycle(onProgress, payload) {
   if (typeof onProgress === "function") {
     onProgress({
@@ -1275,7 +1312,7 @@ function startLocalParserProgressMonitor({ submissionId, onProgress }) {
       }
 
       reportUploadLifecycle(onProgress, {
-        provider: "docling",
+        provider: payload.provider ?? "docling",
         source: "parser",
         submissionId,
         status: payload.status ?? "processing",
@@ -1729,11 +1766,21 @@ export function isLocalParserEnabled() {
   return USE_LOCAL_PARSER;
 }
 
-async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
+async function uploadViaLocalParser(paperFile, options = {}) {
+  return uploadViaSelectedLocalParser(paperFile, options);
+}
+
+async function uploadViaSelectedLocalParser(
+  paperFile,
+  { onProgress, parserProvider = "docling" } = {}
+) {
+  const provider = normalizeParserProvider(parserProvider);
+  const providerLabel = getParserProviderLabel(provider);
   const submissionId = makeSubmissionId();
   const formData = new FormData();
   formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
   formData.append(UPLOAD_FORM_FIELDS.submissionId, submissionId);
+  formData.append(UPLOAD_FORM_FIELDS.parserProvider, provider);
 
   let data;
   const progressMonitor = startLocalParserProgressMonitor({
@@ -1742,14 +1789,14 @@ async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
   });
 
   reportUploadLifecycle(onProgress, {
-    provider: "docling",
+    provider,
     source: "upload",
     submissionId,
     phase: "uploading",
     status: "processing",
     fraction: 0,
     percent: 0,
-    message: `正在上传 ${paperFile?.name ?? "论文"} 到 Docling 解析服务...`
+    message: `Uploading ${paperFile?.name ?? "paper"} to ${providerLabel} parser...`
   });
 
   try {
@@ -1759,11 +1806,11 @@ async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
         method: "POST",
         body: formData
       },
-      "local parser upload",
+      `${provider} parser upload`,
       {
         onUploadProgress: (progressEvent) => {
           reportUploadLifecycle(onProgress, {
-            provider: "docling",
+            provider,
             source: "upload",
             submissionId,
             phase: "uploading",
@@ -1778,8 +1825,8 @@ async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
                 : null,
             message:
               typeof progressEvent.percent === "number"
-                ? `正在上传论文到 Docling（${Math.round(progressEvent.percent)}%）...`
-                : "正在上传论文到 Docling 解析服务..."
+                ? `Uploading paper to ${providerLabel} (${Math.round(progressEvent.percent)}%)...`
+                : `Uploading paper to ${providerLabel} parser...`
           });
         }
       }
@@ -1788,35 +1835,35 @@ async function uploadViaLocalParser(paperFile, { onProgress } = {}) {
     progressMonitor.stop();
     const message =
       error instanceof Error ? error.message : "unknown parser error";
-    throw new Error(
-      `本地解析服务不可用，请先启动 paper-review-system 接口。${message}`
-    );
+    throw new Error(`Local ${providerLabel} parser is unavailable. ${message}`);
   }
 
   progressMonitor.stop();
 
+  const resolvedProvider = normalizeParserProvider(data?.provider ?? provider);
   reportUploadLifecycle(onProgress, {
-    provider: "docling",
+    provider: resolvedProvider,
     source: "parser",
     submissionId: data?.submissionId ?? submissionId,
     phase: "completed",
     status: "completed",
     fraction: 1,
     percent: 100,
-    message: "Docling 解析完成，正在创建 review run..."
+    message: `${getParserProviderLabel(resolvedProvider)} parsing completed, creating review run...`
   });
 
   const normalizedPaperMeta = data.paperMeta ?? data.documentIr ?? {};
 
   return {
     submissionId: data.submissionId ?? submissionId,
-    paperName: data.paperName ?? paperFile?.name ?? "未命名论文",
+    paperName: data.paperName ?? paperFile?.name ?? "Untitled Paper",
     paperMarkdown: data.paperMarkdown ?? "",
     paperAssetBase: data.paperAssetBase ?? "",
     paperMeta: normalizedPaperMeta,
     documentIr: normalizedPaperMeta,
     uploadedAt: new Date().toISOString(),
     sourceMode: "local-parser-api",
+    parserProvider: resolvedProvider,
     artifacts: data.artifacts ?? null
   };
 }
@@ -1858,7 +1905,8 @@ async function uploadViaLocalArtifacts({
     paperMeta: normalizedPaperMeta,
     documentIr: normalizedPaperMeta,
     uploadedAt: new Date().toISOString(),
-    sourceMode: hasLocalArtifacts ? "local-artifacts" : useMockFallback ? "mock" : "local-artifacts"
+    sourceMode: hasLocalArtifacts ? "local-artifacts" : useMockFallback ? "mock" : "local-artifacts",
+    parserProvider: "docling"
   };
 }
 
@@ -1868,12 +1916,16 @@ export async function uploadPaper({
   documentIrFile,
   imageBaseUrl,
   mockProfile = "default",
-  onProgress
+  onProgress,
+  parserProvider = "docling"
 }) {
   const hasLocalArtifacts = markdownFile && documentIrFile;
 
   if (USE_LOCAL_PARSER && paperFile) {
-    return uploadViaLocalParser(paperFile, { onProgress });
+    return uploadViaSelectedLocalParser(paperFile, {
+      onProgress,
+      parserProvider
+    });
   }
 
   if (hasLocalArtifacts) {
@@ -1891,6 +1943,10 @@ export async function uploadPaper({
 
     if (paperFile) {
       formData.append(UPLOAD_FORM_FIELDS.paper, paperFile);
+      formData.append(
+        UPLOAD_FORM_FIELDS.parserProvider,
+        normalizeParserProvider(parserProvider)
+      );
     }
 
     if (markdownFile) {
@@ -1925,7 +1981,8 @@ export async function uploadPaper({
       paperMeta,
       documentIr: paperMeta,
       uploadedAt: new Date().toISOString(),
-      sourceMode: "api"
+      sourceMode: "api",
+      parserProvider: normalizeParserProvider(parserProvider)
     };
   }
 
@@ -1953,7 +2010,8 @@ export async function uploadPaper({
     paperMeta: normalizedPaperMeta,
     documentIr: normalizedPaperMeta,
     uploadedAt: new Date().toISOString(),
-    sourceMode: hasLocalArtifacts ? "local-artifacts" : "mock"
+    sourceMode: hasLocalArtifacts ? "local-artifacts" : "mock",
+    parserProvider: normalizeParserProvider(parserProvider)
   };
 }
 
@@ -3070,19 +3128,25 @@ function buildMockInnovationReview(metaSource) {
 
 function mapRuleAuditItemToFormatIssue(item, index) {
   const ruleId = item.rule_id ?? "";
-  const ruleLabel = getRuleDisplayLabel(ruleId, "");
+  const ruleLabel = String(
+    item.rule_name ?? item.ruleName ?? getRuleDisplayLabel(ruleId, "")
+  ).trim();
+  const location = formatLocationValue(item.location, `格式定位 ${index + 1}`);
+  const evidence = normalizeEvidenceList(item.evidence, "后端尚未返回具体证据");
+  const evidenceLines = [
+    location ? `定位区域 · ${location}` : "",
+    ruleLabel ? `规则名称 · ${ruleLabel}` : "",
+    ...evidence
+  ].filter(Boolean);
+
   return {
     id: ruleId || `format-issue-${index + 1}`,
     title: ruleLabel || ruleId || `格式问题 ${index + 1}`,
     severity: toStageSeverityLabel(item.severity ?? item.status),
-    location: item.location ?? `格式定位 ${index + 1}`,
+    location,
     description:
       item.message ?? item.evidence ?? "后端尚未返回格式问题的详细说明。",
-    evidence: [
-      item.location ? `定位区域 · ${item.location}` : "定位区域待补充",
-      ruleLabel ? `规则名称 · ${ruleLabel}` : "规则名称待补充",
-      ruleId ? `规则编号 · ${ruleId}` : "规则编号待补充"
-    ],
+    evidence: evidenceLines.length ? evidenceLines : ["证据待补充"],
     ruleId,
     ruleLabel,
     suggestion: item.suggestion ?? "建议统一当前区域的版式与说明方式。"
