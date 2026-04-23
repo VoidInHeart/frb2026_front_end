@@ -385,6 +385,10 @@ function hasFinalizedStageSnapshot(snapshot) {
     return isFinalStageStatus(snapshot.stageStatus || "completed");
   }
 
+  if (["complete", "completed"].includes(snapshot.stageStatus)) {
+    return hasObjectContent(snapshot.stageOutput);
+  }
+
   return isFinalStageStatus(snapshot.stageStatus);
 }
 
@@ -392,6 +396,38 @@ function getStateStageStatus(state, stageKey) {
   return (
     state?.stageRuns?.find((item) => item.stageName === stageKey)?.status ?? ""
   );
+}
+
+function getRunningStageFromState(state) {
+  const runningStage = REVIEW_STAGE_ORDER.find((stageKey) =>
+    isInProgressStageStatus(getStateStageStatus(state, stageKey))
+  );
+
+  if (runningStage) {
+    return runningStage;
+  }
+
+  if (isInProgressStageStatus(state?.status)) {
+    const stateStage = REVIEW_STAGE_ORDER.includes(state?.currentStage)
+      ? state.currentStage
+      : state?.nextStage;
+
+    return REVIEW_STAGE_ORDER.includes(stateStage) ? stateStage : "";
+  }
+
+  return "";
+}
+
+function getCompletedStageMissingSnapshot(state) {
+  return [...REVIEW_STAGE_ORDER].reverse().find((stageKey) => {
+    if (stageReviews.value[stageKey]) {
+      return false;
+    }
+
+    return ["complete", "completed", "skipped"].includes(
+      getStateStageStatus(state, stageKey)
+    );
+  });
 }
 
 function getNextReviewStage(stageKey) {
@@ -448,7 +484,38 @@ async function syncRunState() {
   const nextState = await fetchRunState(runRecord.value.runId);
   setRunState(nextState);
   applyRunStateStatuses(nextState);
+  syncStagePollingFromRunState(nextState);
   return nextState;
+}
+
+function syncStagePollingFromRunState(state) {
+  const runningStage = getRunningStageFromState(state);
+
+  if (runningStage) {
+    const pollingTargetChanged = pollingStage.value !== runningStage;
+    pollingStage.value = runningStage;
+    if (pollingTargetChanged) {
+      void tickStagePolling();
+    }
+    return;
+  }
+
+  const missingSnapshotStage = getCompletedStageMissingSnapshot(state);
+  if (missingSnapshotStage) {
+    const pollingTargetChanged = pollingStage.value !== missingSnapshotStage;
+    pollingStage.value = missingSnapshotStage;
+    if (pollingTargetChanged) {
+      void tickStagePolling();
+    }
+    return;
+  }
+
+  if (
+    pollingStage.value &&
+    !isInProgressStageStatus(getStateStageStatus(state, pollingStage.value))
+  ) {
+    pollingStage.value = "";
+  }
 }
 
 async function tickRunStatePolling() {
@@ -562,7 +629,7 @@ async function tickStagePolling() {
       return;
     }
 
-    if (result.snapshot && isFinalStageStatus(result.snapshot.stageStatus)) {
+    if (result.snapshot && ["failed", "aborted"].includes(result.snapshot.stageStatus)) {
       pollingStage.value = "";
       await syncRunState();
     }

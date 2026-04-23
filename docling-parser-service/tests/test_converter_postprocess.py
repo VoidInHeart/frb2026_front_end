@@ -171,6 +171,55 @@ Analyse Webpage Content 。该过程基于网络请求接口与 LLM 的网页链
         self.assertNotIn("\u2f00", processed)
         self.assertNotIn("\u2f64", processed)
 
+    def test_related_work_children_misordered_after_abstract_are_moved_under_related_work(self) -> None:
+        markdown = (
+            "## \u6458\u8981\n"
+            "\u6458\u8981\u6b63\u6587\u3002\n"
+            "## \uff08\u4e00\uff09\u56fd\u5185\u7814\u7a76\u73b0\u72b6\n"
+            "\u56fd\u5185\u7814\u7a76\u6b63\u6587\u3002\n"
+            "## \uff08\u4e8c\uff09\u52a8\u673a\u4e0e\u89c2\u5bdf\n"
+            "\u52a8\u673a\u6b63\u6587\u3002\n"
+            "## \u4e00\u3001\u5f15\u8a00\n"
+            "\u5f15\u8a00\u6b63\u6587\u3002\n"
+            "## \u4e8c\u3001\u76f8\u5173\u7814\u7a76\n"
+            "\u76f8\u5173\u7814\u7a76\u5bfc\u8bed\u3002\n"
+            "## \u4e09\u3001\u7814\u7a76\u65b9\u6cd5\n"
+            "\u65b9\u6cd5\u6b63\u6587\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        abstract_index = processed.index("## \u6458\u8981")
+        intro_index = processed.index("## \u4e00\u3001\u5f15\u8a00")
+        related_index = processed.index("## \u4e8c\u3001\u76f8\u5173\u7814\u7a76")
+        domestic_index = processed.index("### \uff08\u4e00\uff09\u56fd\u5185\u7814\u7a76\u73b0\u72b6")
+        motivation_index = processed.index("### \uff08\u4e8c\uff09\u52a8\u673a\u4e0e\u89c2\u5bdf")
+        method_index = processed.index("## \u4e09\u3001\u7814\u7a76\u65b9\u6cd5")
+
+        self.assertLess(abstract_index, intro_index)
+        self.assertLess(intro_index, related_index)
+        self.assertLess(related_index, domestic_index)
+        self.assertLess(domestic_index, motivation_index)
+        self.assertLess(motivation_index, method_index)
+
+    def test_single_arabic_headings_after_chinese_chapter_are_demoted(self) -> None:
+        markdown = (
+            "## \u4e09\u3001\u7814\u7a76\u8bbe\u8ba1\u4e0e\u65b9\u6cd5\n"
+            "## \uff08\u4e00\uff09\u6570\u636e\u6765\u6e90\n"
+            "\u6570\u636e\u6b63\u6587\u3002\n"
+            "## 1. \u6a21\u578b\u6784\u5efa\n"
+            "\u6a21\u578b\u6b63\u6587\u3002\n"
+            "## 2. \u8bc4\u4ef7\u6307\u6807\n"
+            "\u6307\u6807\u6b63\u6587\u3002\n"
+        )
+
+        processed = _postprocess_markdown(markdown)
+
+        self.assertIn("### 1. \u6a21\u578b\u6784\u5efa", processed)
+        self.assertIn("### 2. \u8bc4\u4ef7\u6307\u6807", processed)
+        self.assertNotIn("\n## 1. \u6a21\u578b\u6784\u5efa\n", processed)
+        self.assertNotIn("\n## 2. \u8bc4\u4ef7\u6307\u6807\n", processed)
+
 
 if __name__ == "__main__":
     unittest.main()

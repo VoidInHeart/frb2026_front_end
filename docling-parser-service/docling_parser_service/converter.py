@@ -41,6 +41,12 @@ SECTION_NUMBER_PREFIX_RE = re.compile(r"^([0-9]+(?:\.[0-9]+)+)\s*(.*)$")
 PAREN_CN_SECTION_RE = re.compile(
     r"^\uFF08[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\u5343\u96F6\u3007\u4E24]+\uFF09\s*.*$"
 )
+CN_ORDERED_CHAPTER_RE = re.compile(
+    r"^[\u4E00\u4E8C\u4E09\u56DB\u4E94\u516D\u4E03\u516B\u4E5D\u5341\u767E\u5343\u96F6\u3007\u4E24]+[、.]\s*.+$"
+)
+SINGLE_ARABIC_HEADING_RE = re.compile(r"^\d+[.)]\s+.+$")
+RELATED_WORK_CHAPTER_RE = re.compile(r"(相关研究|国内外研究|研究现状|文献综述|related\s+work)", re.IGNORECASE)
+RELATED_WORK_CHILD_RE = re.compile(r"(国内|国外|相关研究|研究现状|动机|观察|综述)")
 CHAPTER_HEADING_RE = re.compile(r"^第([一二三四五六七八九十百千零〇两]+)章(?:\s+.*)?$")
 MATH_LIKE_HEADING_RE = re.compile(r"[=∈∑∏√≤≥≈]")
 FORMULA_INTRO_CUE_RE = re.compile(
@@ -574,14 +580,24 @@ def _normalize_block_body(body_lines: list[str]) -> list[str]:
 
 def _normalize_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized_blocks: list[dict[str, Any]] = []
+    seen_chinese_chapter = False
     for block in blocks:
         current = dict(block)
         title = str(current.get("title", "")).strip()
         if PAREN_CN_SECTION_RE.match(title):
             current["level"] = 3
+        elif seen_chinese_chapter and SINGLE_ARABIC_HEADING_RE.match(title):
+            current["level"] = max(int(current.get("level", 2)), 3)
         current["body"] = _normalize_block_body(list(current.get("body", [])))
         normalized_blocks.append(current)
+        if _is_chinese_ordered_chapter_title(title):
+            seen_chinese_chapter = True
     return normalized_blocks
+
+
+def _is_chinese_ordered_chapter_title(title: str) -> bool:
+    text = str(title or "").strip()
+    return bool(CN_ORDERED_CHAPTER_RE.match(text) or CHAPTER_HEADING_RE.match(text))
 
 
 def _find_first_abstract_index(blocks: list[dict[str, Any]]) -> int | None:
@@ -606,6 +622,55 @@ def _is_excluded_heading(title: str) -> bool:
 
 def _filter_excluded_blocks(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [block for block in blocks if not _is_excluded_heading(str(block.get("title", "")))]
+
+
+def _repair_related_work_blocks_misordered_after_abstract(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    abstract_index = _find_first_abstract_index(blocks)
+    if abstract_index is None:
+        return blocks
+
+    first_chapter_index: int | None = None
+    for index in range(abstract_index + 1, len(blocks)):
+        if _is_chinese_ordered_chapter_title(str(blocks[index].get("title", ""))):
+            first_chapter_index = index
+            break
+
+    if first_chapter_index is None or first_chapter_index <= abstract_index + 1:
+        return blocks
+
+    orphan_indices: list[int] = []
+    for index in range(abstract_index + 1, first_chapter_index):
+        title = str(blocks[index].get("title", "")).strip()
+        if not PAREN_CN_SECTION_RE.match(title):
+            return blocks
+        orphan_indices.append(index)
+
+    if not orphan_indices:
+        return blocks
+
+    if not any(RELATED_WORK_CHILD_RE.search(str(blocks[index].get("title", ""))) for index in orphan_indices):
+        return blocks
+
+    target_index: int | None = None
+    for index in range(first_chapter_index, len(blocks)):
+        title = str(blocks[index].get("title", "")).strip()
+        if _is_chinese_ordered_chapter_title(title) and RELATED_WORK_CHAPTER_RE.search(title):
+            target_index = index
+            break
+
+    if target_index is None:
+        return blocks
+
+    orphan_blocks = [dict(blocks[index]) for index in orphan_indices]
+    remaining = [dict(block) for index, block in enumerate(blocks) if index not in set(orphan_indices)]
+    removed_before_target = sum(1 for index in orphan_indices if index < target_index)
+    adjusted_target_index = target_index - removed_before_target
+
+    return [
+        *remaining[: adjusted_target_index + 1],
+        *orphan_blocks,
+        *remaining[adjusted_target_index + 1 :],
+    ]
 
 
 def _is_number_only_heading(title: str) -> bool:
@@ -1424,6 +1489,7 @@ def _postprocess_markdown(markdown: str) -> str:
     leading_lines, blocks = _parse_markdown_blocks(normalized)
     blocks = _drop_leading_front_matter(blocks)
     blocks = _filter_excluded_blocks(blocks)
+    blocks = _repair_related_work_blocks_misordered_after_abstract(blocks)
     blocks = _merge_split_headings(blocks)
     blocks = _move_chapter_headings_before_children(blocks)
     blocks = _collapse_inline_heading_blocks(blocks)
