@@ -21,7 +21,20 @@
           <p>提升评审效率，降低重复劳动，让专家把精力投入在高价值决策。</p>
         </article>
       </div>
-
+      <div class="suggestion-block">
+      <div class="suggestion-content">
+          <p class="suggestion-text">我们希望得到你的建议</p>
+          <button class="contact-btn" @click="showEmailDialog">联系我们</button>
+        </div>
+      </div>
+      <div v-if="showDialog" class="dialog-overlay" @click.self="closeDialog">
+        <div class="dialog-box">
+          <h3>联系邮箱</h3>
+          <p>请通过以下邮箱与我们取得联系：</p>
+          <a :href="'mailto:' + email" class="email-link">{{ email }}</a>
+          <button class="close-btn" @click="closeDialog">关闭</button>
+        </div>
+      </div>
       <div class="button-row about-actions">
         <RouterLink class="secondary-button about-action-link" to="/">返回主页</RouterLink>
         <RouterLink class="primary-button about-action-link" to="/upload">开启论文评审</RouterLink>
@@ -102,6 +115,112 @@
   letter-spacing: 0.05em;
 }
 
+.suggestion-block {
+  margin-top: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--surface-muted), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.suggestion-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.suggestion-text {
+  font-size: 18px;
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "Noto Serif SC", serif;
+  color: var(--text);
+  margin: 0;
+}
+
+.contact-btn {
+  background: var(--primary);
+  color: var(--surface);
+  border: none;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "Noto Serif SC", serif;
+  font-size: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.contact-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  min-width: 320px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.dialog-box h3 {
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "Noto Serif SC", serif;
+  margin: 0 0 12px;
+  font-size: 24px;
+  color: var(--primary);
+}
+
+.dialog-box p {
+  color: var(--muted);
+  margin: 0 0 16px;
+}
+
+.email-link {
+  display: block;
+  background: var(--surface-muted);
+  padding: 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 16px;
+  color: var(--primary);
+  text-decoration: none;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.email-link:hover {
+  background: var(--border);
+}
+
+.close-btn {
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--muted);
+  width: 100%;
+}
+
+.close-btn:hover {
+  background: var(--border);
+}
+
 @media (max-width: 980px) {
   .about-points {
     grid-template-columns: 1fr;
@@ -113,3 +232,18 @@
   }
 }
 </style>
+
+<script setup>
+import { ref } from 'vue'
+
+const showDialog = ref(false)
+const email = 'contact@example.com'  // 替换为实际邮箱
+
+function showEmailDialog() {
+  showDialog.value = true
+}
+
+function closeDialog() {
+  showDialog.value = false
+}
+</script>
