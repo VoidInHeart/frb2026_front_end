@@ -1065,9 +1065,9 @@ onBeforeUnmount(() => {
     <section class="stage-layout">
       <section class="paper-panel glass-card">
         <div class="column-head">
-          <div>
+          <div class="paper-heading">
             <p class="summary-kicker">论文正文</p>
-            <h2 class="section-title">解析后的 Markdown 论文</h2>
+            <h2 class="section-title paper-heading-title">解析后的 Markdown 论文</h2>
           </div>
 
           <div class="paper-actions">
@@ -1230,9 +1230,19 @@ onBeforeUnmount(() => {
 
 .column-head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.paper-heading {
+  flex: 1 0 max-content;
+  min-width: max-content;
+}
+
+.paper-heading-title {
+  white-space: nowrap;
 }
 
 .paper-actions {
@@ -1240,7 +1250,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
+  flex: 0 1 360px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .download-button {
@@ -1313,6 +1325,15 @@ onBeforeUnmount(() => {
   .paper-actions {
     width: 100%;
     justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .paper-heading {
+    min-width: 0;
+  }
+
+  .paper-heading-title {
+    white-space: normal;
   }
 }
 </style>
