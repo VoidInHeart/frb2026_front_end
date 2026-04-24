@@ -97,6 +97,17 @@ const pageCount = computed(() => getPageCount(paperMeta.value));
 const chunkCount = computed(() => getChunkCount(submission.value));
 const imageCount = computed(() => getImageCount(submission.value));
 const runReady = computed(() => Boolean(runRecord.value?.runId));
+const canDownloadPaperMarkdown = computed(
+  () =>
+    typeof submission.value?.paperMarkdown === "string" &&
+    submission.value.paperMarkdown.length > 0
+);
+const canDownloadPaperMeta = computed(
+  () =>
+    Boolean(paperMeta.value) &&
+    typeof paperMeta.value === "object" &&
+    Object.keys(paperMeta.value).length > 0
+);
 
 const lastCompletedStage = computed(() => {
   if (stageReviews.value.innovation) {
@@ -929,6 +940,47 @@ async function handleTrackerStageSelect(stageKey) {
   await showStageHistory(stageKey);
 }
 
+function triggerDownload(filename, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const objectUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+function downloadPaperMarkdown() {
+  if (!canDownloadPaperMarkdown.value) {
+    errorMessage.value = "当前没有可下载的 paper.md 内容。";
+    return;
+  }
+
+  errorMessage.value = "";
+  triggerDownload(
+    "paper.md",
+    submission.value.paperMarkdown,
+    "text/markdown;charset=utf-8"
+  );
+}
+
+function downloadPaperMeta() {
+  if (!canDownloadPaperMeta.value) {
+    errorMessage.value = "当前没有可下载的 meta.json 内容。";
+    return;
+  }
+
+  errorMessage.value = "";
+  triggerDownload(
+    "meta.json",
+    `${JSON.stringify(paperMeta.value, null, 2)}\n`,
+    "application/json;charset=utf-8"
+  );
+}
+
 function restartReview() {
   clearSession();
   router.push({ name: "upload" });
@@ -1018,10 +1070,29 @@ onBeforeUnmount(() => {
             <h2 class="section-title">解析后的 Markdown 论文</h2>
           </div>
 
-          <label class="toggle-field">
-            <input v-model="showImages" type="checkbox" />
-            <span>显示图像</span>
-          </label>
+          <div class="paper-actions">
+            <button
+              class="download-button"
+              type="button"
+              :disabled="!canDownloadPaperMarkdown"
+              @click="downloadPaperMarkdown"
+            >
+              下载 paper.md
+            </button>
+            <button
+              class="download-button"
+              type="button"
+              :disabled="!canDownloadPaperMeta"
+              @click="downloadPaperMeta"
+            >
+              下载 meta.json
+            </button>
+
+            <label class="toggle-field">
+              <input v-model="showImages" type="checkbox" />
+              <span>显示图像</span>
+            </label>
+          </div>
         </div>
 
         <div class="meta-row">
@@ -1164,6 +1235,36 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
+.paper-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.download-button {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(19, 63, 103, 0.2);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--primary);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.download-button:hover:enabled {
+  background: rgba(19, 63, 103, 0.08);
+  transform: translateY(-1px);
+}
+
+.download-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .toggle-field {
   display: inline-flex;
   align-items: center;
@@ -1206,6 +1307,11 @@ onBeforeUnmount(() => {
   }
 
   .hero-actions {
+    justify-content: flex-start;
+  }
+
+  .paper-actions {
+    width: 100%;
     justify-content: flex-start;
   }
 }
