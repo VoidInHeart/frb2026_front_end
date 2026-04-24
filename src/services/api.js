@@ -681,6 +681,57 @@ function normalizeIssueFingerprintText(value) {
     .trim();
 }
 
+function hashIssueIdentity(value) {
+  const source = String(value ?? "");
+  let hash = 5381;
+
+  for (let index = 0; index < source.length; index += 1) {
+    hash = ((hash << 5) + hash) ^ source.charCodeAt(index);
+  }
+
+  return (hash >>> 0).toString(36);
+}
+
+function buildFormatIssueId(ruleId, signature, index) {
+  const normalizedRuleId = String(ruleId ?? "").trim();
+  const normalizedSignature = normalizeIssueFingerprintText(signature);
+  const suffix = normalizedSignature
+    ? hashIssueIdentity(normalizedSignature)
+    : String(index + 1);
+
+  return normalizedRuleId ? `${normalizedRuleId}-${suffix}` : `format-issue-${suffix}`;
+}
+
+function resolveUniqueIssueId(issue, index, usedIds) {
+  const baseId = String(issue.id ?? "").trim() || `dedup-issue-${index + 1}`;
+  let uniqueId = baseId;
+
+  if (usedIds.has(uniqueId)) {
+    const signature = normalizeIssueFingerprintText(
+      [
+        issue.identityFingerprint,
+        issue.ruleId,
+        issue.ruleLabel,
+        issue.title,
+        issue.location,
+        issue.description,
+        ...ensureArray(issue.evidence)
+      ].join(" ")
+    );
+    const suffix = hashIssueIdentity(signature || `${baseId} ${index + 1}`);
+    uniqueId = `${baseId}-${suffix}`;
+
+    let collisionIndex = 2;
+    while (usedIds.has(uniqueId)) {
+      uniqueId = `${baseId}-${suffix}-${collisionIndex}`;
+      collisionIndex += 1;
+    }
+  }
+
+  usedIds.add(uniqueId);
+  return uniqueId;
+}
+
 function getIssueSeverityRank(severity) {
   if (severity === "严重") {
     return 3;
@@ -740,6 +791,7 @@ function dedupeStageIssueCards(issues = []) {
         ...issue,
         ruleId,
         ruleLabel,
+        identityFingerprint: fingerprint,
         ruleIds: ruleId ? [ruleId] : [],
         ruleLabels: ruleLabel ? [ruleLabel] : [],
         evidence: normalizeEvidenceList(issue.evidence),
@@ -765,7 +817,10 @@ function dedupeStageIssueCards(issues = []) {
     }
   }
 
+  const usedIds = new Set();
+
   return Array.from(merged.values()).map((issue, index) => {
+    const { identityFingerprint, ...publicIssue } = issue;
     const ruleSummary =
       issue.ruleLabels.length > 0
         ? issue.ruleLabels.join(" / ")
@@ -781,8 +836,8 @@ function dedupeStageIssueCards(issues = []) {
     }
 
     return {
-      ...issue,
-      id: issue.id ?? `dedup-issue-${index + 1}`,
+      ...publicIssue,
+      id: resolveUniqueIssueId(issue, index, usedIds),
       title: issue.title || ruleSummary || `问题 ${index + 1}`,
       ruleLabel: issue.ruleLabels[0] ?? issue.ruleLabel ?? "",
       evidence: evidence.slice(0, 8)
@@ -2910,10 +2965,10 @@ function toStageSeverityLabel(rawSeverity) {
     critical: "严重",
     major: "严重",
     medium: "一般",
-    minor: "提示",
+    minor: "轻微",
     violated: "一般",
-    warning: "提示",
-    passed: "提示"
+    warning: "轻微",
+    passed: "轻微"
   };
 
   return severityMap[rawSeverity] ?? "一般";
@@ -3138,9 +3193,17 @@ function mapRuleAuditItemToFormatIssue(item, index) {
     ruleLabel ? `规则名称 · ${ruleLabel}` : "",
     ...evidence
   ].filter(Boolean);
+  const issueIdentity = [
+    ruleId,
+    ruleLabel,
+    location,
+    item.message,
+    ...evidence,
+    item.suggestion
+  ].join(" ");
 
   return {
-    id: ruleId || `format-issue-${index + 1}`,
+    id: buildFormatIssueId(ruleId, issueIdentity, index),
     title: ruleLabel || ruleId || `格式问题 ${index + 1}`,
     severity: toStageSeverityLabel(item.severity ?? item.status),
     location,
