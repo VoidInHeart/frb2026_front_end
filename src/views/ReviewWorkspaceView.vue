@@ -408,25 +408,38 @@ function getRunningStageFromState(state) {
   }
 
   if (isInProgressStageStatus(state?.status)) {
-    const stateStage = REVIEW_STAGE_ORDER.includes(state?.currentStage)
+    const currentStage = REVIEW_STAGE_ORDER.includes(state?.currentStage)
       ? state.currentStage
-      : state?.nextStage;
+      : "";
 
-    return REVIEW_STAGE_ORDER.includes(stateStage) ? stateStage : "";
+    if (
+      REVIEW_STAGE_ORDER.includes(currentStage) &&
+      isInProgressStageStatus(getStateStageStatus(state, currentStage))
+    ) {
+      return currentStage;
+    }
   }
 
   return "";
 }
 
+function needsFinalizedStageSnapshot(state, stageKey) {
+  const stateStatus = getStateStageStatus(state, stageKey);
+  if (!["complete", "completed", "skipped"].includes(stateStatus)) {
+    return false;
+  }
+
+  const review = stageReviews.value[stageKey];
+  if (!review) {
+    return true;
+  }
+
+  return !isFinalStageStatus(review.stageStatus);
+}
+
 function getCompletedStageMissingSnapshot(state) {
   return [...REVIEW_STAGE_ORDER].reverse().find((stageKey) => {
-    if (stageReviews.value[stageKey]) {
-      return false;
-    }
-
-    return ["complete", "completed", "skipped"].includes(
-      getStateStageStatus(state, stageKey)
-    );
+    return needsFinalizedStageSnapshot(state, stageKey);
   });
 }
 
@@ -489,21 +502,21 @@ async function syncRunState() {
 }
 
 function syncStagePollingFromRunState(state) {
-  const runningStage = getRunningStageFromState(state);
-
-  if (runningStage) {
-    const pollingTargetChanged = pollingStage.value !== runningStage;
-    pollingStage.value = runningStage;
+  const missingSnapshotStage = getCompletedStageMissingSnapshot(state);
+  if (missingSnapshotStage) {
+    const pollingTargetChanged = pollingStage.value !== missingSnapshotStage;
+    pollingStage.value = missingSnapshotStage;
     if (pollingTargetChanged) {
       void tickStagePolling();
     }
     return;
   }
 
-  const missingSnapshotStage = getCompletedStageMissingSnapshot(state);
-  if (missingSnapshotStage) {
-    const pollingTargetChanged = pollingStage.value !== missingSnapshotStage;
-    pollingStage.value = missingSnapshotStage;
+  const runningStage = getRunningStageFromState(state);
+
+  if (runningStage) {
+    const pollingTargetChanged = pollingStage.value !== runningStage;
+    pollingStage.value = runningStage;
     if (pollingTargetChanged) {
       void tickStagePolling();
     }
