@@ -152,7 +152,7 @@ async function startReview(options = {}) {
           </button>
         </div>
         <span class="field-hint">
-          `Docling` uses the local parser pipeline. `LLM PDF` sends the PDF directly to an OpenAI-compatible API and asks for markdown with parsed figures and tables.
+          Docling采用本地解析管线，LLM PDF则直接将PDF发送到大模型，要求返回包含解析后图表的markdown文本。
         </span>
       </div>
 
@@ -176,7 +176,7 @@ async function startReview(options = {}) {
           <p>{{ form.paperFile ? form.paperFile.name : "拖拽 PDF 到此，或点击上传" }}</p>
           <p v-if="dragOverField.paperFile" class="drop-text">松手即可上传</p>
         </div>
-        <span class="field-hint">上传 PDF 后会优先走本地解析接口；未接后端时可使用示例数据。</span>
+        
       </div>
 
       <details class="advanced-block">
@@ -229,19 +229,7 @@ async function startReview(options = {}) {
           </div>
         </div>
 
-        <div class="field-group">
-          <label class="field-label" for="image-base-url">静态资源基础路径</label>
-          <input
-            id="image-base-url"
-            v-model="form.imageBaseUrl"
-            class="text-input"
-            type="text"
-            placeholder="/mock"
-          />
-          <span class="field-hint">
-            当你直接导入预解析产物时，可以在这里指定图像和表格资源的基础路径。
-          </span>
-        </div>
+        
       </details>
 
       <div v-if="errorMessage" class="error-banner">
