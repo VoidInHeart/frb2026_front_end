@@ -20,8 +20,11 @@ def main() -> int:
         "stage_snapshot_uses_displayable_review_helper": "review: stageName !== \"summary\" ? buildDisplayableStageReview(stageName, payload) : null" in api_source,
         "running_format_review_uses_extracted_issues": "const issues = extractFormatStageIssues(stageOutput);" in api_source,
         "running_format_review_headline_present": "headline: \"格式审查进行中\"" in api_source,
+        "format_issue_id_uses_comment_identity": "id: buildFormatIssueId(ruleId, issueIdentity, index)" in api_source,
+        "deduped_issues_resolve_unique_ids": "id: resolveUniqueIssueId(issue, index, usedIds)" in api_source,
         "panel_loading_only_blocks_when_no_result": "v-if=\"props.loading && !props.result\"" in panel_source,
         "panel_shows_progress_banner_for_existing_result": "result-banner result-banner-progress" in panel_source,
+        "panel_issue_key_uses_unique_helper": ":key=\"getIssueCardKey(issue, index)\"" in panel_source,
     }
 
     ok = all(checks.values())

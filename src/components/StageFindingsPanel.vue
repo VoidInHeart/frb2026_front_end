@@ -66,6 +66,10 @@ function getActionClass(variant) {
   return "primary-button";
 }
 
+function getIssueCardKey(issue, index) {
+  return issue?.id ? `${issue.id}-${index}` : `finding-card-${index}`;
+}
+
 const visibleActions = computed(() => props.actions.filter(Boolean));
 const resultStatusText = computed(
   () => props.result?.stageStatus || (props.result?.severe ? "critical" : "completed")
@@ -123,7 +127,11 @@ const hasStartAction = computed(() => Boolean(props.startAction));
       </div>
 
       <div v-if="props.result.issues?.length" class="finding-list">
-        <article v-for="issue in props.result.issues" :key="issue.id" class="finding-card">
+        <article
+          v-for="(issue, index) in props.result.issues"
+          :key="getIssueCardKey(issue, index)"
+          class="finding-card"
+        >
           <div class="finding-head">
             <div>
               <div class="finding-title-row">
