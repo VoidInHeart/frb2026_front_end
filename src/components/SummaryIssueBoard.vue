@@ -164,6 +164,9 @@ function getSeverityClass(severity) {
 .issue-location {
   background: rgba(95, 108, 123, 0.08);
   color: var(--muted);
+  max-width: min(100%, 360px);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .issue-rule-tag {
@@ -239,6 +242,11 @@ function getSeverityClass(severity) {
   display: grid;
   gap: 10px;
   color: var(--muted);
+}
+
+.evidence-box li {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {

@@ -612,10 +612,11 @@ function attachStageReviewMeta(review, stageName, stageStatus, rawData) {
 }
 
 function normalizeEvidenceList(value, fallbackMessage = "未返回结构化证据") {
-  const normalized = ensureArray(value)
+  const source = Array.isArray(value) ? value : value ? [value] : [];
+  const normalized = source
     .map((item) => {
       if (typeof item === "string") {
-        return item;
+        return item.trim();
       }
 
       if (item == null) {
@@ -641,7 +642,7 @@ function normalizeEvidenceList(value, fallbackMessage = "未返回结构化证�
     .filter(Boolean)
     .slice(0, 6);
 
-  return normalized.length ? normalized : [fallbackMessage];
+  return normalized.length ? normalized : fallbackMessage ? [fallbackMessage] : [];
 }
 
 function formatLocationValue(value, fallback = "") {
@@ -662,6 +663,53 @@ function formatLocationValue(value, fallback = "") {
   }
 
   return fallback;
+}
+
+function shortenLocationPart(value, maxLength = 96) {
+  const text = String(value ?? "").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+function formatEvidenceLocationValue(value, fallback = "") {
+  if (typeof value === "string") {
+    return shortenLocationPart(value) || fallback;
+  }
+
+  if (value && typeof value === "object") {
+    const section = String(
+      value.section_title ?? value.section ?? value.chapter_title ?? value.title ?? ""
+    ).trim();
+    const anchor = shortenLocationPart(
+      value.anchor_id ?? value.anchor ?? value.evidence_id ?? ""
+    );
+    const scope = String(value.scope ?? "").trim();
+    const parts = [section, anchor, scope]
+      .map((item) => String(item ?? "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(parts)).join(" · ") || fallback;
+  }
+
+  return fallback;
+}
+
+function buildSummaryEvidenceList(issue, locationFallback = "") {
+  const rawLocation = issue.location ?? issue.anchor_id ?? issue.anchorId;
+  const location = rawLocation ? formatEvidenceLocationValue(rawLocation, "") : "";
+
+  if (location) {
+    return [`定位 · ${location}`];
+  }
+
+  const linkLocations = ensureArray(
+    issue.evidence_links ?? issue.evidenceLinks ?? issue.links ?? issue.references
+  )
+    .map((item) => formatEvidenceLocationValue(item, ""))
+    .filter(Boolean);
+  const locations = Array.from(new Set(linkLocations));
+
+  return locations.length
+    ? locations.map((item) => `定位 · ${item}`)
+    : [locationFallback ? `定位 · ${locationFallback}` : "证据定位待后端补充"];
 }
 
 function getRuleDisplayLabel(ruleId, fallback = "") {
@@ -849,6 +897,16 @@ function mapGenericIssue(item, index, stageName = "summary") {
   const issue = ensureObject(item);
   const ruleId = issue.rule_id ?? issue.ruleId ?? "";
   const ruleLabel = getRuleDisplayLabel(ruleId, "");
+  const rawLocation =
+    issue.location ??
+    issue.anchor_id ??
+    issue.anchorId ??
+    issue.logical_node ??
+    issue.dimension;
+  const locationLabel = formatLocationValue(
+    rawLocation,
+    `${REVIEW_STAGE_LABELS[stageName] ?? "汇总"} ${index + 1}`
+  );
   const title =
     issue.title ??
     issue.issue_title ??
@@ -862,13 +920,7 @@ function mapGenericIssue(item, index, stageName = "summary") {
     severity: toStageSeverityLabel(
       issue.severity ?? issue.level ?? issue.status ?? issue.priority
     ),
-    location:
-      issue.location ??
-      issue.anchor_id ??
-      issue.anchorId ??
-      issue.logical_node ??
-      issue.dimension ??
-      `${REVIEW_STAGE_LABELS[stageName] ?? "汇总"} ${index + 1}`,
+    location: locationLabel,
     description:
       issue.description ??
       issue.analysis ??
@@ -876,13 +928,16 @@ function mapGenericIssue(item, index, stageName = "summary") {
       issue.message ??
       issue.reason ??
       "后端尚未返回该问题的详细说明。",
-    evidence: normalizeEvidenceList(
-      issue.evidence ??
-        issue.evidence_links ??
-        issue.evidenceLinks ??
-        issue.links ??
-        issue.references
-    ),
+    evidence:
+      stageName === "summary"
+        ? buildSummaryEvidenceList(issue, locationLabel)
+        : normalizeEvidenceList(
+            issue.evidence ??
+              issue.evidence_links ??
+              issue.evidenceLinks ??
+              issue.links ??
+              issue.references
+          ),
     ruleId,
     ruleLabel,
     suggestion:
