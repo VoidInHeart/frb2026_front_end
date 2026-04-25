@@ -29,6 +29,8 @@ const router = useRouter();
 
 const POLL_INTERVAL_MS = 15000;
 const STATE_POLL_INTERVAL_MS = 5000;
+const SKIP_SETTLE_POLL_MS = 1000;
+const SKIP_SETTLE_MAX_ATTEMPTS = 45;
 const REVIEW_STAGE_ORDER = ["format", "logic", "innovation"];
 const SEVERE_STAGE_ACTION_HINT = "问题太过严重，请跳过后续审查阶段";
 const FINAL_STAGE_STATUSES = new Set([
@@ -361,6 +363,10 @@ function isInProgressStageStatus(status) {
   return ["running", "in_progress", "waiting"].includes(status ?? "");
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function hasObjectContent(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
     ? Object.keys(value).length > 0
@@ -462,6 +468,20 @@ function getNextReviewStage(stageKey) {
   }
 
   return REVIEW_STAGE_ORDER[index + 1];
+}
+
+function getRemainingReviewStages(stageKey) {
+  const index = REVIEW_STAGE_ORDER.indexOf(stageKey);
+
+  if (index === -1) {
+    return [];
+  }
+
+  return REVIEW_STAGE_ORDER.slice(index + 1);
+}
+
+function isSettledStageStatus(status) {
+  return ["complete", "completed", "skipped"].includes(status ?? "");
 }
 
 function applyStageReviewResult(stageKey, review, fallbackStatus = "completed") {
@@ -720,35 +740,96 @@ async function skipStageAndAdvance(skippedStageKey) {
   loadingStage.value = skippedStageKey;
 
   try {
-    const review = await triggerStageExecution({
-      runId: runRecord.value.runId,
-      stageName: skippedStageKey,
-      action: "skip"
-    });
-
-    applyStageReviewResult(skippedStageKey, review, "skipped");
-
-    const latestState = await syncRunState();
-    const skippedStageStatus = getStateStageStatus(latestState, skippedStageKey);
-
-    if (isFinalStageStatus(skippedStageStatus)) {
-      setDisplayedStageStatus(skippedStageKey, skippedStageStatus);
-    } else {
-      setDisplayedStageStatus(skippedStageKey, "skipped");
-    }
+    const settledState = await skipReviewStage(skippedStageKey, "skip_next_stage");
+    const settledStatus = getStateStageStatus(settledState, skippedStageKey) || "skipped";
 
     const targetStage = getNextReviewStage(skippedStageKey);
 
     if (!targetStage || targetStage === "summary") {
       pageMessage.value = `已跳过${stageMetaMap[skippedStageKey]?.title ?? skippedStageKey}，正在进入汇总阶段。`;
       await openStage("summary");
-      setDisplayedStageStatus(skippedStageKey, "skipped");
+      setDisplayedStageStatus(skippedStageKey, settledStatus);
       return;
     }
 
     pageMessage.value = `已跳过${stageMetaMap[skippedStageKey]?.title ?? skippedStageKey}，正在进入${stageMetaMap[targetStage]?.title ?? targetStage}。`;
     await openStage(targetStage, "continue");
-    setDisplayedStageStatus(skippedStageKey, "skipped");
+    setDisplayedStageStatus(skippedStageKey, settledStatus);
+  } finally {
+    loadingStage.value = "";
+  }
+}
+
+async function waitForSkippedStage(stageKey) {
+  for (let attempt = 0; attempt <= SKIP_SETTLE_MAX_ATTEMPTS; attempt += 1) {
+    const latestState = await syncRunState();
+    const stageStatus = getStateStageStatus(latestState, stageKey);
+
+    if (stageStatus === "skipped") {
+      setDisplayedStageStatus(stageKey, "skipped");
+      return latestState;
+    }
+
+    if (["complete", "completed", "failed", "aborted"].includes(stageStatus)) {
+      throw new Error(`${stageMetaMap[stageKey]?.title ?? stageKey}未能跳过，当前状态为 ${stageStatus}。`);
+    }
+
+    if (attempt < SKIP_SETTLE_MAX_ATTEMPTS) {
+      await sleep(SKIP_SETTLE_POLL_MS);
+    }
+  }
+
+  throw new Error(`${stageMetaMap[stageKey]?.title ?? stageKey}跳过状态确认超时，请稍后刷新状态。`);
+}
+
+async function skipReviewStage(stageKey, reason = "") {
+  if (!runRecord.value?.runId || !stageKey || stageKey === "summary") {
+    return await syncRunState();
+  }
+
+  const latestState = await syncRunState();
+  const stageStatus = getStateStageStatus(latestState, stageKey);
+
+  if (isSettledStageStatus(stageStatus)) {
+    setDisplayedStageStatus(stageKey, stageStatus);
+    return latestState;
+  }
+
+  const nextStage = latestState?.nextStage ?? "";
+  if (nextStage && nextStage !== stageKey) {
+    throw new Error(`当前后端 next_stage 是 ${stageMetaMap[nextStage]?.title ?? nextStage}，暂不能跳过${stageMetaMap[stageKey]?.title ?? stageKey}。`);
+  }
+
+  const review = await triggerStageExecution({
+    runId: runRecord.value.runId,
+    stageName: stageKey,
+    action: "skip",
+    reason
+  });
+
+  applyStageReviewResult(stageKey, review, "skipped");
+
+  return await waitForSkippedStage(stageKey);
+}
+
+async function skipRemainingStagesAndOpenSummary() {
+  const stagesToSkip = getRemainingReviewStages(currentStageDisplayed.value);
+
+  if (!stagesToSkip.length) {
+    pageMessage.value = "正在进入汇总阶段。";
+    await openStage("summary");
+    return;
+  }
+
+  try {
+    for (const stageKey of stagesToSkip) {
+      loadingStage.value = stageKey;
+      pageMessage.value = `正在跳过${stageMetaMap[stageKey]?.title ?? stageKey}。`;
+      await skipReviewStage(stageKey, "jump_to_summary");
+    }
+
+    pageMessage.value = "已跳过后续审查阶段，正在进入汇总阶段。";
+    await openStage("summary");
   } finally {
     loadingStage.value = "";
   }
@@ -868,8 +949,7 @@ async function handleDecisionAction(action) {
 
   try {
     if (action === "jump_summary") {
-      pageMessage.value = "正在进入汇总阶段。";
-      await openStage("summary");
+      await skipRemainingStagesAndOpenSummary();
       return;
     }
 
